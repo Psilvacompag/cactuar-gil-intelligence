@@ -1,5 +1,7 @@
 # FFXIV Gil Intelligence
 
+Dashboard público: https://psilvacompag.github.io/cactuar-gil-intelligence/
+
 Sistema local-first para analizar el Market Board, valorar conversiones de monedas y, más adelante, generar recomendaciones y señales de expansiones/parches.
 
 El repositorio se encuentra en una etapa de factibilidad. Ya incluye pruebas de contratos HTTP, un extractor que lee las tablas estáticas del parche instalado localmente y persistencia de agregados live de Universalis.
