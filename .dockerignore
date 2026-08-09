@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+apps
+data
+docs
+models
+tests
+tools
+dashboard-*.png
+chrome-headless-profile*
+server-*.log

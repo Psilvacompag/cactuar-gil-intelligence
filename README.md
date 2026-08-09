@@ -2,6 +2,8 @@
 
 Dashboard público: https://psilvacompag.github.io/cactuar-gil-intelligence/
 
+Backend público de sólo lectura: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
+
 Sistema local-first para analizar el Market Board, valorar conversiones de monedas y, más adelante, generar recomendaciones y señales de expansiones/parches.
 
 El repositorio se encuentra en una etapa de factibilidad. Ya incluye pruebas de contratos HTTP, un extractor que lee las tablas estáticas del parche instalado localmente y persistencia de agregados live de Universalis.
@@ -43,7 +45,7 @@ El destino por defecto es `data/gil_intelligence.sqlite3`. Se conservan por sepa
 python tools/refresh_market_and_values.py --scope Aether
 ```
 
-Actualmente se ejecuta de forma manual. La política propuesta para Windows Task Scheduler, el conteo observado de requests y los límites operativos están en [docs/OPERATIONS.md](docs/OPERATIONS.md).
+En producción, Google Cloud ejecuta el refresh dos veces al día. También se puede ejecutar manualmente para desarrollo. El conteo observado de requests y los límites operativos están en [docs/OPERATIONS.md](docs/OPERATIONS.md); el despliegue se describe en [docs/CLOUD_OPERATIONS.md](docs/CLOUD_OPERATIONS.md).
 
 Para el perfil configurado actualmente:
 

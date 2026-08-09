@@ -7,7 +7,9 @@ name = "ffxiv-gil-intelligence"
 version = "0.0.1"
 description = "Local-first FFXIV market intelligence and currency valuation"
 requires-python = ">=3.12"
+dependencies = [
+    "google-cloud-storage>=2.18,<4",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

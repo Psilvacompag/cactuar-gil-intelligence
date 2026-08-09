@@ -17,16 +17,18 @@ La documentación pública de Universalis permite 25 requests/s, burst de 50 y 8
 
 ## Frecuencia elegida
 
-Durante desarrollo, todos los jobs son manuales. La frecuencia objetivo para producción local es:
+El backend de producción se ejecuta en Google Cloud dos veces al día:
 
 | Job | Frecuencia normal | Requests aproximados |
 |---|---:|---:|
-| Snapshot agregado completo | Cada 6 horas | 170 por ejecución / 680 al día |
+| Snapshot agregado completo | Cada 12 horas | ~170 por ejecución / ~340 al día |
 | Catálogo estático local | Sólo al cambiar versión del juego | 0 requests públicos |
 | Valorar conversiones | Después de cada snapshot | 0 requests adicionales |
 | Candidatos prioritarios | Pendiente, 30–60 minutos | Se añadirá cuando exista ranking estable |
 
-Los 680 requests diarios equivalen a un promedio de 0,008 requests/s. Se programará en minutos no redondos (por ejemplo 00:17, 06:17, 12:17 y 18:17) y nunca se permitirán dos refresh simultáneos.
+Los ~340 requests diarios equivalen a un promedio inferior a 0,004 requests/s. Cloud Scheduler ejecuta a las 03:17 y 15:17 en `America/Santiago`. El Cloud Run Job usa una tarea, paralelismo 1 y cero reintentos del job completo.
+
+La primera ejecución cloud del 9 de agosto de 2026 obtuvo 170 respuestas exitosas en 171 intentos —una solicitud necesitó retry— y 423 segundos de recolección. La ejecución completa, incluido el aprovisionamiento, terminó en 9 minutos y 5 segundos.
 
 ## Ejecución
 
@@ -38,4 +40,4 @@ python tools/refresh_market_and_values.py --scope Aether
 
 El comando usa un lock local para evitar solapamientos, guarda telemetría de requests/duración en SQLite y reconstruye las conversiones con `RECENT_AVG_SALE`, fee configurable de 5%, frescura de 24 horas y una velocidad mínima visible de 0,1 ventas/día.
 
-Cuando confirmemos que el ranking es útil, este mismo comando se registrará en Windows Task Scheduler cada seis horas. La tarea aún no está instalada: no hay automatización oculta ejecutándose en el equipo.
+La ejecución local sigue siendo manual y no existe una tarea oculta en Windows. La automatización vive únicamente en Cloud Scheduler y publica el resultado mediante el backend documentado en [CLOUD_OPERATIONS.md](CLOUD_OPERATIONS.md).

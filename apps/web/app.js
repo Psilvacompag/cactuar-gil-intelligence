@@ -27,19 +27,32 @@ const decimalFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 
 const gilFormat = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 2 });
 
 async function loadDashboard() {
-  try {
-    const response = await fetch("./data/dashboard.json", { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    state.data = await response.json();
-    hydrateMeta();
-    renderChips();
-    applyFilters();
-  } catch (error) {
-    elements.count.textContent = "No pudimos cargar los datos";
-    elements.empty.hidden = false;
-    elements.empty.querySelector("h3").textContent = "Dashboard sin datos";
-    elements.empty.querySelector("p").textContent = `Ejecuta el exportador y recarga la página. (${error.message})`;
+  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
+  const endpoints = apiBaseUrl
+    ? [
+        { url: `${apiBaseUrl}/v1/dashboard`, source: "cloud" },
+        { url: "./data/dashboard.json", source: "static" },
+      ]
+    : [{ url: "./data/dashboard.json", source: "static" }];
+  const errors = [];
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint.url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      state.data = await response.json();
+      state.dataSource = endpoint.source;
+      hydrateMeta();
+      renderChips();
+      applyFilters();
+      return;
+    } catch (error) {
+      errors.push(`${endpoint.source}: ${error.message}`);
+    }
   }
+  elements.count.textContent = "No pudimos cargar los datos";
+  elements.empty.hidden = false;
+  elements.empty.querySelector("h3").textContent = "Dashboard sin datos";
+  elements.empty.querySelector("p").textContent = `El backend y el respaldo estático no respondieron. (${errors.join("; ")})`;
 }
 
 function hydrateMeta() {
@@ -53,7 +66,8 @@ function hydrateMeta() {
   document.querySelector("#fresh-window").textContent = `ventana de ${meta.freshnessHours} horas`;
   document.querySelector("#metric-basis").textContent = basisLabel(meta.priceBasis);
   document.querySelector("#metric-fee").textContent = `fee ${(meta.feeRate * 100).toFixed(0)}% incluido`;
-  document.querySelector("#footer-source").textContent = `${meta.source} · ${meta.scope}`;
+  const backendLabel = state.dataSource === "cloud" ? "Backend Google Cloud" : "respaldo estático";
+  document.querySelector("#footer-source").textContent = `${meta.source} · ${meta.scope} · ${backendLabel}`;
 }
 
 function renderChips() {
