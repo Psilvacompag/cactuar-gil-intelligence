@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07110f" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <meta
+      name="description"
+      content="Conversor de monedas y oportunidades de Market Board para FFXIV."
+    />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>Gil Intelligence · Cactuar</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Gil Intelligence, inicio">
+        <span class="brand-mark" aria-hidden="true">G</span>
+        <span>
+          <strong>Gil Intelligence</strong>
+          <small>Market clarity for FFXIV</small>
+        </span>
+      </a>
+      <div class="topbar-meta">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="scope-label">Cactuar</span>
+        <span class="separator">/</span>
+        <span id="updated-label">Cargando…</span>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">CACTUAR · CURRENCY INTELLIGENCE</p>
+          <h1>Convierte tus monedas en <em>gil</em>, con criterio.</h1>
+          <p class="hero-lede">
+            Precios reales, liquidez y frescura en una sola vista. Sin promesas mágicas:
+            cada resultado explica de dónde sale su valor.
+          </p>
+        </div>
+        <div class="hero-orbit" aria-hidden="true">
+          <div class="orbit-ring ring-one"></div>
+          <div class="orbit-ring ring-two"></div>
+          <div class="crystal">✦</div>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Resumen del mercado">
+        <article class="metric-card featured">
+          <span class="metric-label">Conversiones directas</span>
+          <strong id="metric-conversions">—</strong>
+          <small>recompensas vendibles observadas</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Monedas detectadas</span>
+          <strong id="metric-currencies">—</strong>
+          <small>tokens y activos intercambiables</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Datos frescos</span>
+          <strong id="metric-fresh">—</strong>
+          <small id="fresh-window">dentro de la ventana configurada</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Base de precio</span>
+          <strong id="metric-basis">—</strong>
+          <small id="metric-fee">fee configurado —</small>
+        </article>
+      </section>
+
+      <section class="explorer" aria-labelledby="explorer-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">EXPLORADOR</p>
+            <h2 id="explorer-title">Encuentra la mejor salida</h2>
+          </div>
+          <p id="result-count" class="result-count" aria-live="polite">Preparando datos…</p>
+        </div>
+
+        <div class="toolbar">
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="sr-only">Buscar moneda o recompensa</span>
+            <input
+              id="search-input"
+              type="search"
+              placeholder="Busca Poetics, scrip, mount, material…"
+              autocomplete="off"
+            />
+            <kbd>Ctrl K</kbd>
+          </label>
+          <label class="select-control">
+            <span>Ordenar</span>
+            <select id="sort-select">
+              <option value="net">Gil por moneda</option>
+              <option value="velocity">Liquidez</option>
+              <option value="price">Precio de venta</option>
+              <option value="currency">Nombre de moneda</option>
+            </select>
+          </label>
+          <label class="toggle-control">
+            <input id="fresh-toggle" type="checkbox" checked />
+            <span class="toggle-ui" aria-hidden="true"></span>
+            Sólo frescos
+          </label>
+        </div>
+
+        <div id="currency-chips" class="currency-chips" aria-label="Monedas destacadas"></div>
+
+        <div class="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Moneda</th>
+                <th>Recompensa</th>
+                <th class="numeric">Costo</th>
+                <th class="numeric">Venta media</th>
+                <th class="numeric">Gil / moneda</th>
+                <th class="numeric">Ventas / día</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="conversion-rows"></tbody>
+          </table>
+          <div id="empty-state" class="empty-state" hidden>
+            <span aria-hidden="true">◇</span>
+            <h3>No encontramos esa conversión</h3>
+            <p>Prueba con el nombre de una moneda, recompensa o ID de item.</p>
+          </div>
+        </div>
+
+        <button id="load-more" class="load-more" type="button">Mostrar más resultados</button>
+      </section>
+
+      <section class="method-note">
+        <div>
+          <p class="eyebrow">CÓMO LEERLO</p>
+          <h2>Valor no es lo mismo que venta garantizada.</h2>
+        </div>
+        <div class="method-grid">
+          <p><span>01</span> El gil por moneda descuenta el fee configurado.</p>
+          <p><span>02</span> La velocidad indica ventas observadas, no tu probabilidad exacta.</p>
+          <p><span>03</span> Los datos antiguos se mantienen visibles, pero señalados.</p>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="detail-dialog" class="detail-dialog">
+      <button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button>
+      <div id="dialog-content"></div>
+    </dialog>
+
+    <footer>
+      <span>Gil Intelligence</span>
+      <span id="footer-source">Universalis + datos estáticos locales</span>
+      <span>Decisiones informadas, ejecución manual.</span>
+    </footer>
+
+    <template id="row-template">
+      <tr tabindex="0">
+        <td data-label="Moneda"><div class="entity currency-entity"></div></td>
+        <td data-label="Recompensa"><div class="entity reward-entity"></div></td>
+        <td data-label="Costo" class="numeric cost-cell"></td>
+        <td data-label="Venta media" class="numeric price-cell"></td>
+        <td data-label="Gil / moneda" class="numeric net-cell"></td>
+        <td data-label="Ventas / día" class="numeric velocity-cell"></td>
+        <td data-label="Estado"><span class="status-pill"></span></td>
+      </tr>
+    </template>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

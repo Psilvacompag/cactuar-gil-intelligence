@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+data/
+!apps/web/data/
+!apps/web/data/dashboard.json
+models/
+*.duckdb
+*.parquet
+**/bin/
+**/obj/
+chrome-headless-profile*/
+dashboard-*.png
+server-*.log
