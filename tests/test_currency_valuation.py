@@ -62,8 +62,10 @@ class CurrencyValuationTests(unittest.TestCase):
                                 },
                                 "recentPurchase": {},
                                 "averageSalePrice": {
-                                    "world": {"price": 75},
-                                    "dc": {"price": 90},
+                                    # An outlier sale must not inflate the actionable
+                                    # conversion value above the current listing.
+                                    "world": {"price": 2194.645},
+                                    "dc": {"price": 1021.095},
                                 },
                                 "dailySaleVelocity": {
                                     "world": {"quantity": 3},
@@ -95,6 +97,7 @@ class CurrencyValuationTests(unittest.TestCase):
 
             self.assertEqual(summary.eligible_offers, 1)
             self.assertEqual(summary.market_scope_level, "WORLD")
+            self.assertEqual(summary.price_basis, "MIN_LISTING")
             self.assertEqual(summary.valued_offers, 1)
             self.assertEqual(summary.fresh_offers, 1)
             self.assertEqual(summary.valued_at, "2026-08-09T21:07:00+00:00")
@@ -114,6 +117,7 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertEqual(dashboard.conversions, 1)
             self.assertEqual(exported["meta"]["scope"], "Cactuar")
             self.assertEqual(exported["meta"]["scopeLevel"], "WORLD")
+            self.assertEqual(exported["meta"]["priceBasis"], "MIN_LISTING")
             self.assertEqual(exported["conversions"][0]["rewardName"], "Fire Shard")
 
             history_path = root / "web" / "data" / "history.json"

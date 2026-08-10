@@ -14,6 +14,11 @@ PRICE_COLUMNS = {
     "RECENT_AVG_SALE": "average_sale_price",
 }
 
+# Currency conversions are ranked with the lowest currently actionable listing.
+# Universalis' recent average can be heavily skewed by accidental or manipulated
+# sales, so it remains available for analysis but is not the production default.
+DEFAULT_CURRENCY_PRICE_BASIS = "MIN_LISTING"
+
 
 @dataclass(frozen=True, slots=True)
 class CurrencyValuationSummary:
@@ -44,7 +49,7 @@ def build_currency_valuations(
     database_path: Path | str,
     *,
     scope: str,
-    price_basis: str = "MIN_LISTING",
+    price_basis: str = DEFAULT_CURRENCY_PRICE_BASIS,
     fee_rate: float = 0.05,
     freshness_hours: float = 24.0,
     static_snapshot_id: str | None = None,

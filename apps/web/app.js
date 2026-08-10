@@ -358,7 +358,7 @@ function showDetail(item) {
         <strong>${integerFormat.format(item.rewardQuantity)} × ${escapeHtml(item.rewardName)}</strong>
       </div>
       <div class="detail-stats">
-        <div><small>Venta observada</small><strong>${gil(item.marketUnitPrice)}</strong></div>
+        <div><small>Listing mínimo actual</small><strong>${gil(item.marketUnitPrice)}</strong></div>
         <div><small>Gil neto / moneda</small><strong>${gil(item.netGilPerCurrency)}</strong></div>
         <div><small>Ventas / día</small><strong>${velocity(item.dailySaleVelocity)}</strong></div>
         <div><small>Último upload</small><strong>${formatDate(item.latestUploadAt)}</strong></div>

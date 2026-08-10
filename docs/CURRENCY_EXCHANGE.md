@@ -355,7 +355,7 @@ Resultado prohibido por defecto:
 - `MEDIAN_LISTING`: mediana de listings observados.
 - `RECENT_AVG_SALE`: promedio reciente de ventas.
 
-La UI puede ordenar por cualquiera, pero siempre muestra cuál se usó. No se denomina “precio esperado”.
+Las conversiones productivas usan `MIN_LISTING` en todos los casos. La UI siempre muestra cuál se usó y conserva las otras métricas sólo para análisis; no se denomina “precio esperado”.
 
 ### Confianza de datos
 

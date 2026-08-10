@@ -21,6 +21,7 @@ from gil_intelligence.probes.http import JsonHttpClient  # noqa: E402
 from gil_intelligence.publishing import export_currency_dashboard  # noqa: E402
 from gil_intelligence.storage import import_universalis_aggregates  # noqa: E402
 from gil_intelligence.valuation import (  # noqa: E402
+    DEFAULT_CURRENCY_PRICE_BASIS,
     build_currency_valuations,
     get_top_currency_conversions,
 )
@@ -96,7 +97,7 @@ def main() -> int:
         valuation_summary = build_currency_valuations(
             args.database,
             scope=args.scope,
-            price_basis="RECENT_AVG_SALE",
+            price_basis=DEFAULT_CURRENCY_PRICE_BASIS,
             fee_rate=args.fee_rate,
             freshness_hours=args.freshness_hours,
             market_snapshot_id=market_summary.snapshot_id,

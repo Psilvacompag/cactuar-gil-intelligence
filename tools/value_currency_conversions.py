@@ -12,6 +12,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src"
 sys.path.insert(0, str(SOURCE_ROOT))
 
 from gil_intelligence.valuation import (  # noqa: E402
+    DEFAULT_CURRENCY_PRICE_BASIS,
     build_currency_valuations,
     get_top_currency_conversions,
 )
@@ -30,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--price-basis",
         choices=("MIN_LISTING", "MEDIAN_LISTING", "RECENT_AVG_SALE"),
-        default="MIN_LISTING",
+        default=DEFAULT_CURRENCY_PRICE_BASIS,
     )
     parser.add_argument("--fee-rate", type=float, default=0.05)
     parser.add_argument("--freshness-hours", type=float, default=24.0)

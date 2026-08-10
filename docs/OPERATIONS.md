@@ -43,6 +43,6 @@ Manual, mercado más valoración:
 python tools/refresh_market_and_values.py --scope Aether
 ```
 
-El comando usa un lock local para evitar solapamientos, guarda telemetría de requests/duración en SQLite y reconstruye las conversiones con `RECENT_AVG_SALE`, fee configurable de 5%, frescura de 24 horas y una velocidad mínima visible de 0,1 ventas/día.
+El comando usa un lock local para evitar solapamientos, guarda telemetría de requests/duración en SQLite y reconstruye las conversiones con `MIN_LISTING`, fee configurable de 5%, frescura de 24 horas y una velocidad mínima visible de 0,1 ventas/día. El promedio reciente se conserva para análisis de mercado, pero no se usa para valorar conversiones porque una venta atípica puede distorsionarlo.
 
 La ejecución local sigue siendo manual y no existe una tarea oculta en Windows. La automatización vive únicamente en Cloud Scheduler y publica el resultado mediante el backend documentado en [CLOUD_OPERATIONS.md](CLOUD_OPERATIONS.md).

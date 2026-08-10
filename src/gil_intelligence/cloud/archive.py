@@ -14,7 +14,10 @@ from gil_intelligence.publishing import (
     export_opportunities,
 )
 from gil_intelligence.storage import import_static_snapshot
-from gil_intelligence.valuation import build_currency_valuations
+from gil_intelligence.valuation import (
+    DEFAULT_CURRENCY_PRICE_BASIS,
+    build_currency_valuations,
+)
 
 from .bigquery_archive import BigQueryArchive
 from .config import CloudSettings
@@ -45,19 +48,17 @@ def main() -> int:
     store = GcsObjectStore(settings.bucket)
     if not store.download_if_exists(settings.database_object, database_path):
         raise FileNotFoundError(settings.database_object)
-    valuation_summary = None
     if store.download_if_exists(settings.static_snapshot_object, static_path):
         snapshot_id = _static_snapshot_id(static_path)
         if not _has_static_snapshot(database_path, snapshot_id):
             import_static_snapshot(static_path, database_path)
-            valuation_summary = build_currency_valuations(
-                database_path,
-                scope=settings.scope,
-                price_basis="RECENT_AVG_SALE",
-                fee_rate=settings.fee_rate,
-                freshness_hours=settings.freshness_hours,
-                static_snapshot_id=snapshot_id,
-            )
+    valuation_summary = build_currency_valuations(
+        database_path,
+        scope=settings.scope,
+        price_basis=DEFAULT_CURRENCY_PRICE_BASIS,
+        fee_rate=settings.fee_rate,
+        freshness_hours=settings.freshness_hours,
+    )
     archive = BigQueryArchive(
         project_id=settings.project_id,
         dataset_id=settings.bigquery_dataset,

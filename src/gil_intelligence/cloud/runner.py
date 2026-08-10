@@ -24,7 +24,10 @@ from gil_intelligence.storage import (
     import_universalis_aggregates,
     prune_market_history,
 )
-from gil_intelligence.valuation import build_currency_valuations
+from gil_intelligence.valuation import (
+    DEFAULT_CURRENCY_PRICE_BASIS,
+    build_currency_valuations,
+)
 
 from .bigquery_archive import BigQueryArchive
 from .config import CloudSettings
@@ -120,7 +123,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     valuation_summary = build_currency_valuations(
         database_path,
         scope=settings.scope,
-        price_basis="RECENT_AVG_SALE",
+        price_basis=DEFAULT_CURRENCY_PRICE_BASIS,
         fee_rate=settings.fee_rate,
         freshness_hours=settings.freshness_hours,
         market_snapshot_id=market_summary.snapshot_id,

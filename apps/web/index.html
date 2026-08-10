@@ -115,7 +115,7 @@
             <select id="sort-select">
               <option value="net">Gil por moneda</option>
               <option value="velocity">Liquidez</option>
-              <option value="price">Precio de venta</option>
+              <option value="price">Listing mínimo</option>
               <option value="currency">Nombre de moneda</option>
             </select>
           </label>
@@ -135,7 +135,7 @@
                 <th>Moneda</th>
                 <th>Recompensa</th>
                 <th class="numeric">Costo</th>
-                <th class="numeric">Venta media</th>
+                <th class="numeric">Listing mínimo</th>
                 <th class="numeric">Gil / moneda</th>
                 <th class="numeric">Ventas / día</th>
                 <th>Estado</th>
@@ -171,7 +171,7 @@
           <h2>Notas sobre los datos</h2>
         </div>
         <div class="method-grid">
-          <p><span>01</span> El gil por moneda incluye el fee configurado.</p>
+          <p><span>01</span> El gil por moneda usa el listing mínimo actual e incluye el fee configurado.</p>
           <p><span>02</span> La velocidad corresponde a ventas observadas.</p>
           <p><span>03</span> Los datos fuera de la ventana de frescura se marcan como antiguos.</p>
         </div>
@@ -221,7 +221,7 @@
         <td data-label="Moneda"><div class="entity currency-entity"></div></td>
         <td data-label="Recompensa"><div class="entity reward-entity"></div></td>
         <td data-label="Costo" class="numeric cost-cell"></td>
-        <td data-label="Venta media" class="numeric price-cell"></td>
+        <td data-label="Listing mínimo" class="numeric price-cell"></td>
         <td data-label="Gil / moneda" class="numeric net-cell"></td>
         <td data-label="Ventas / día" class="numeric velocity-cell"></td>
         <td data-label="Estado"><span class="status-pill"></span></td>
