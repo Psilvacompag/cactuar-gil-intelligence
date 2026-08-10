@@ -41,6 +41,10 @@
       <small class="account-privacy">Solo las cuentas aprobadas pueden acceder a los datos y herramientas.</small>
     </div>`;
   document.body.append(gate);
+  const activeModule = document.querySelector(".site-nav a.active")?.textContent?.trim()
+    || document.querySelector(".brand strong")?.textContent?.trim()
+    || "Gil Intelligence";
+  gate.querySelector(".auth-gate-card").dataset.loadingLabel = `Abriendo ${activeModule}…`;
 
   const dialog = document.createElement("dialog");
   dialog.className = "account-dialog";
@@ -159,6 +163,7 @@
     const signedIn = Boolean(currentUser);
     const active = profile?.status === "ACTIVE";
     const loading = !bootComplete || (signedIn && !profile && !bootError);
+    gate.classList.toggle("auth-gate-loading", loading);
     document.documentElement.classList.toggle("auth-granted", active);
     gate.hidden = active;
     if (active) return;
