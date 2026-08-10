@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // All user data is mediated by the authenticated Cloud Run API. Admin SDK
+    // requests use IAM and do not depend on these client rules.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

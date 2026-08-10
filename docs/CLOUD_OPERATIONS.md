@@ -48,9 +48,25 @@ runs/YYYY-MM-DD/{market_snapshot_id}.json
 
 Todos los objetos permanecen privados. La API pública expone `GET /v1/dashboard`,
 `GET /v1/history`, `GET /v1/market-items`, `GET /v1/market-history`,
-`GET /v1/opportunities`, `GET /v1/signals` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages
-y a los orígenes locales de desarrollo. Health responde 503 cuando los datos de
-mercado superan la edad máxima configurada.
+`GET /v1/opportunities`, `GET /v1/signals`, `GET /v1/health` y la configuración
+pública de Firebase en `GET /v1/auth/config`. Los endpoints `/v1/me/*` verifican un
+Firebase ID token y `/v1/admin/*` exige además una cuenta `ACTIVE/ADMIN`. CORS queda
+limitado al origen de GitHub Pages y a los orígenes locales configurados. Health
+responde 503 cuando los datos de mercado superan la edad máxima configurada.
+
+## Usuarios, favoritos y secretos
+
+- Google autentica a los usuarios mediante Firebase Authentication.
+- El primer administrador se define con `CACTUAR_BOOTSTRAP_ADMIN_EMAIL`; una cuenta
+  nueva parte `PENDING` hasta que un administrador la aprueba.
+- Firestore guarda `cactuar_users/{uid}` y la subcolección privada `favorites`.
+- Los favoritos históricos del navegador se eliminan y no se importan.
+- Cloud Run usa Application Default Credentials; no existen archivos JSON de cuenta
+  de servicio ni llaves privadas.
+- La configuración web de Firebase se inyecta desde el secreto
+  `cactuar-firebase-web-config`. No se guarda en Git. Aunque el API key web se entrega
+  necesariamente al navegador en runtime, la autorización efectiva depende del ID
+  token verificado y del estado/rol almacenado por el servidor.
 
 ## Despliegue reproducible
 

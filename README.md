@@ -23,9 +23,10 @@ La web tiene seis exploradores:
   90 días.
 
 Las seis vistas comparten búsqueda global, ficha universal por ítem, etiquetas de
-calidad y minigráficos de historial real. La lista básica de favoritos permanece
-local al navegador; reglas avanzadas, notas, límites y sincronización quedan como
-TODO explícito.
+calidad y minigráficos de historial real. El acceso usa Google y cada cuenta activa
+mantiene una lista privada de favoritos sincronizada entre dispositivos. Las cuentas
+nuevas requieren aprobación desde el panel administrador; notas, límites y reglas
+personalizadas siguen como TODO explícito.
 
 Las oportunidades son señales explicables, no garantías: aplican estrés de precio,
 fee, liquidez, frescura y persistencia. La shortlist comprueba hasta 20 listings por
@@ -39,8 +40,8 @@ se atribuye todo el retorno a una moneda aislada.
 La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
 mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico
 analítico antes de cada poda. Cada refresh vuelve a calcular automáticamente las
-reglas de los cinco módulos y persiste sus observaciones en el ledger; la watchlist
-del usuario permanece privada en su navegador. El catálogo de ítems, iconos,
+reglas de los cinco módulos y persiste sus observaciones en el ledger; los favoritos
+se conservan por usuario en Firestore y nunca se importan desde `localStorage`. El catálogo de ítems, iconos,
 categorías, recetas e ingredientes se extrae de los archivos locales del juego sin
 requests de catálogo adicionales. El navegador convierte las rutas de textura en PNG
 mediante XIVAPI v2 y conserva un SVG minimalista como fallback. El ML permanece pospuesto hasta acumular historial

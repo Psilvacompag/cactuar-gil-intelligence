@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from typing import Mapping
@@ -37,6 +38,9 @@ class CloudSettings:
     cache_seconds: int = 300
     max_data_age_hours: float = 18.0
     allowed_origins: tuple[str, ...] = DEFAULT_ALLOWED_ORIGINS
+    firebase_web_config_json: str = ""
+    bootstrap_admin_email: str = ""
+    users_collection: str = "cactuar_users"
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str] | None = None) -> "CloudSettings":
@@ -95,6 +99,9 @@ class CloudSettings:
             cache_seconds=int(source.get("CACTUAR_CACHE_SECONDS", "300")),
             max_data_age_hours=float(source.get("CACTUAR_MAX_DATA_AGE_HOURS", "18")),
             allowed_origins=allowed_origins,
+            firebase_web_config_json=source.get("CACTUAR_FIREBASE_WEB_CONFIG", "").strip(),
+            bootstrap_admin_email=source.get("CACTUAR_BOOTSTRAP_ADMIN_EMAIL", "").strip(),
+            users_collection=source.get("CACTUAR_USERS_COLLECTION", "cactuar_users").strip(),
         )
         settings.validate()
         return settings
@@ -135,3 +142,25 @@ class CloudSettings:
             raise ValueError("CACTUAR_CACHE_SECONDS must be non-negative")
         if self.max_data_age_hours <= 0:
             raise ValueError("CACTUAR_MAX_DATA_AGE_HOURS must be positive")
+        if not self.users_collection:
+            raise ValueError("CACTUAR_USERS_COLLECTION must not be empty")
+        if self.firebase_web_config_json:
+            try:
+                config = json.loads(self.firebase_web_config_json)
+            except json.JSONDecodeError as exc:
+                raise ValueError("CACTUAR_FIREBASE_WEB_CONFIG must be valid JSON") from exc
+            required = {"apiKey", "authDomain", "projectId", "appId"}
+            if not isinstance(config, dict) or not required.issubset(config):
+                raise ValueError(
+                    "CACTUAR_FIREBASE_WEB_CONFIG is missing required Firebase fields"
+                )
+            if not self.bootstrap_admin_email:
+                raise ValueError(
+                    "CACTUAR_BOOTSTRAP_ADMIN_EMAIL is required when authentication is enabled"
+                )
+
+    @property
+    def firebase_web_config(self) -> dict[str, str] | None:
+        if not self.firebase_web_config_json:
+            return None
+        return json.loads(self.firebase_web_config_json)

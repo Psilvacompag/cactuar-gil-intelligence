@@ -372,4 +372,8 @@ elements.dialog.addEventListener("click", (event) => { if (event.target === elem
 document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); } });
 
 bindSortableHeaders();
+GilWatchlist.subscribe(() => {
+  state.watchlist = GilWatchlist.keys();
+  if (state.data) applyFilters();
+});
 loadOpportunities();

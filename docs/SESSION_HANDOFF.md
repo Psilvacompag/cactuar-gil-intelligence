@@ -21,19 +21,18 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `060e97a` (`Add shared market intelligence and combined currency exchanges`).
-- HEAD funcional desplegado: `060e97a`.
+- Código base anterior: `fbc7f7a` (`Make sales velocity explanation always visible`).
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v17`, digest
-  `sha256:b800c5a7ef5bcaf00a58929403d131c0bebffd043dc3704450e691dac071d859`.
+- Imagen desplegada al cierre: `backend:v20`, digest
+  `sha256:4aadfd684ba066efec29a394432de41407558b692d948cfa622515efb9e499e5`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
 - Presupuesto configurado: CLP 5.000, alertas al 50%, 90% y 100%.
-- La página continúa pública por decisión del usuario; la seguridad se abordará
-  posteriormente.
+- Los datos de mercado continúan públicos. Google/Firebase protege perfiles,
+  favoritos y administración de usuarios.
 
 El flujo vigente es:
 
@@ -170,6 +169,24 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Validación final: 44 pruebas Python, sintaxis de todo el JavaScript, compilación
   Python, siete endpoints HTTP 200 y smoke productivo con origen Cloud correctos.
 
+### Cuentas Google, favoritos sincronizados y administración
+
+- Firebase Authentication y Firestore se habilitaron en el proyecto existente.
+- Las cuentas nuevas comienzan `PENDING`; `darkside.dx@gmail.com` es el bootstrap
+  admin y el panel permite aprobar, suspender/reactivar y cambiar roles.
+- Los favoritos viven en `cactuar_users/{uid}/favorites`. Las cuatro claves antiguas
+  de favoritos se eliminan de `localStorage` sin leerlas ni migrarlas: todos parten
+  desde cero.
+- Los endpoints privados verifican Firebase ID tokens en Cloud Run; los datos de
+  mercado siguen públicos. La revisión `cactuar-api-00021-6b7` sirve `backend:v20`.
+- Firestore se creó en `us-central1` con protección de borrado. La identidad de
+  Cloud Run usa ADC y roles acotados; no se creó ninguna llave de cuenta de servicio.
+- Las reglas publicadas en `cloud.firestore` deniegan toda lectura/escritura directa
+  desde clientes; una prueba anónima devolvió HTTP 403.
+- La configuración web se obtiene en runtime desde Secret Manager y no está en Git.
+- Validación: 50 pruebas Python, sintaxis JavaScript, compilación Python, health 200,
+  acceso anónimo privado 401 y preflight CORS 204.
+
 ## Funcionalidad disponible
 
 ### Conversiones
@@ -277,12 +294,10 @@ Caso de regresión verificado:
    progresivo del endpoint `/history`.
 4. Observar durante varios refresh la cobertura y utilidad de la nueva profundidad
    de listings antes de ampliar la shortlist más allá de 100 ítems.
-5. Securitizar la página/API cuando el usuario lo solicite; por ahora debe seguir
-   pública.
-6. Revisar gasto real de Google Cloud después de varios días completos de operación;
+5. Revisar gasto real de Google Cloud después de varios días completos de operación;
    mantener Vertex AI deshabilitado mientras ML esté pospuesto.
-7. Diseñar la segunda fase de Favoritos: notas, umbrales personalizados,
-   agrupaciones y eventual sincronización opcional.
+6. Diseñar la segunda fase de Favoritos: notas, umbrales personalizados y
+   agrupaciones. La sincronización básica ya está resuelta.
 
 ## Verificación y operación
 

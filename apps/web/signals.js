@@ -342,4 +342,8 @@ document.querySelector("#dialog-close").addEventListener("click", () => elements
 elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });
 document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); } });
 
+GilWatchlist.subscribe(() => {
+  state.watched = GilWatchlist.keys();
+  if (state.items.length) applyFilters();
+});
 loadSignals();

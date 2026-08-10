@@ -718,4 +718,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 bindSortableHeaders();
+GilWatchlist.subscribe(() => {
+  if (state.data) renderRows();
+});
 loadDashboard();

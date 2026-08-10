@@ -453,4 +453,8 @@ document.addEventListener("keydown", (event) => {
 });
 
 bindSortableHeaders();
+GilWatchlist.subscribe(() => {
+  state.watchlist = GilWatchlist.keys();
+  if (state.data) applyFilters();
+});
 loadMarket();

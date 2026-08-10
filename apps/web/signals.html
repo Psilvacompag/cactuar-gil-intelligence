@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#071426" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://v2.xivapi.com; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://v2.xivapi.com https://lh3.googleusercontent.com; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'none'" />
     <meta name="description" content="Resumen diario de decisiones, señales y calidad de datos de Gil Intelligence." />
     <title>Hoy en Cactuar · Gil Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -51,6 +51,6 @@
       <section class="method-note"><div><p class="eyebrow">BACKTESTING</p><h2>El tiempo completa el resultado.</h2></div><div class="method-grid"><p><span>01</span> Cada refresh registra el valor de la métrica cuando la regla está activa.</p><p><span>02</span> Cambio, máximo y drawdown aparecen desde la primera observación; 7/30/90 se habilita al cumplir cada horizonte.</p><p><span>03</span> BigQuery conserva las observaciones aunque SQLite pode los snapshots de mercado.</p></div></section>
     </main>
     <footer><span>Gil Intelligence</span><span>Ledger unificado · Cactuar</span><span>Las señales no garantizan rentabilidad.</span></footer>
-    <script src="./config.js" defer></script><script src="./watchlist.js" defer></script><script src="./item-icons.js" defer></script><script src="./intelligence.js" defer></script><script src="./signal-center.js" defer></script>
+    <script src="./config.js" defer></script><script src="./auth.js" defer></script><script src="./watchlist.js" defer></script><script src="./item-icons.js" defer></script><script src="./intelligence.js" defer></script><script src="./signal-center.js" defer></script>
   </body>
 </html>

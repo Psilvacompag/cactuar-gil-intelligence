@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from .config import CloudSettings
 from .dashboard import DashboardCache
 from .gcs import GcsObjectStore
+from .users import FirebaseUserService, UserApiError
 
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
@@ -25,6 +26,7 @@ def build_handler(
     opportunities_cache: DashboardCache,
     signals_cache: DashboardCache,
     settings: CloudSettings,
+    user_service: Any | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     allowed_origins = frozenset(settings.allowed_origins)
 
@@ -38,8 +40,8 @@ def build_handler(
                 return
             self.send_response(HTTPStatus.NO_CONTENT)
             self._send_security_headers(origin)
-            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "If-None-Match")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, If-None-Match")
             self.send_header("Access-Control-Max-Age", "86400")
             self.end_headers()
 
@@ -57,7 +59,40 @@ def build_handler(
                         "opportunities": "/v1/opportunities",
                         "signals": "/v1/signals",
                         "health": "/v1/health",
+                        "authConfig": "/v1/auth/config",
+                        "me": "/v1/me",
                     },
+                )
+                return
+            if path == "/v1/auth/config":
+                origin = self._allowed_request_origin()
+                if origin is False:
+                    return
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "enabled": user_service is not None,
+                        "provider": "google.com" if user_service is not None else None,
+                        "firebase": settings.firebase_web_config if user_service is not None else None,
+                    },
+                    origin=origin,
+                )
+                return
+            if path == "/v1/me":
+                self._serve_private(lambda service: service.me(self.headers.get("Authorization")))
+                return
+            if path == "/v1/me/favorites":
+                self._serve_private(
+                    lambda service: {
+                        "favorites": service.favorites(self.headers.get("Authorization"))
+                    }
+                )
+                return
+            if path == "/v1/admin/users":
+                self._serve_private(
+                    lambda service: {
+                        "users": service.list_users(self.headers.get("Authorization"))
+                    }
                 )
                 return
             if path == "/v1/health":
@@ -80,6 +115,58 @@ def build_handler(
                 return
             if path == "/v1/signals":
                 self._serve_document(signals_cache)
+                return
+            self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+        def do_POST(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path.rstrip("/") or "/"
+            if path == "/v1/auth/register":
+                self._serve_private(
+                    lambda service: service.register(self.headers.get("Authorization"))
+                )
+                return
+            self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+        def do_PUT(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path.rstrip("/") or "/"
+            if path == "/v1/me/favorites":
+                def save(service: Any) -> dict[str, Any]:
+                    payload = self._read_json()
+                    return service.put_favorite(
+                        self.headers.get("Authorization"),
+                        str(payload.get("key") or ""),
+                        payload.get("metadata") or {},
+                    )
+
+                self._serve_private(save)
+                return
+            self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path.rstrip("/") or "/"
+            if path == "/v1/me/favorites":
+                def remove(service: Any) -> dict[str, Any]:
+                    payload = self._read_json()
+                    service.delete_favorite(
+                        self.headers.get("Authorization"),
+                        str(payload.get("key") or ""),
+                    )
+                    return {"deleted": True}
+
+                self._serve_private(remove)
+                return
+            self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+        def do_PATCH(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path.rstrip("/") or "/"
+            prefix = "/v1/admin/users/"
+            if path.startswith(prefix):
+                uid = path[len(prefix):]
+                self._serve_private(
+                    lambda service: service.update_user(
+                        self.headers.get("Authorization"), uid, self._read_json()
+                    )
+                )
                 return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
@@ -142,6 +229,80 @@ def build_handler(
             self.send_header("ETag", etag)
             self.end_headers()
             self.wfile.write(content)
+
+        def _allowed_request_origin(self) -> str | None | bool:
+            origin = self.headers.get("Origin")
+            if origin is not None and origin not in allowed_origins:
+                self._send_json(HTTPStatus.FORBIDDEN, {"error": "origin_not_allowed"})
+                return False
+            return origin
+
+        def _serve_private(self, operation: Any) -> None:
+            origin = self._allowed_request_origin()
+            if origin is False:
+                return
+            if user_service is None:
+                self._send_json(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    {"error": "authentication_not_configured"},
+                    origin=origin,
+                )
+                return
+            try:
+                self._read_payload = None
+                payload = operation(user_service)
+            except UserApiError as exc:
+                response = {"error": exc.code}
+                if exc.detail:
+                    response["detail"] = exc.detail
+                self._send_json(exc.status, response, origin=origin)
+                return
+            except ValueError as exc:
+                self._send_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"error": "invalid_request", "detail": str(exc)},
+                    origin=origin,
+                )
+                return
+            except Exception as exc:
+                print(
+                    _json_bytes(
+                        {
+                            "severity": "ERROR",
+                            "message": "Private API operation failed",
+                            "error": type(exc).__name__,
+                        }
+                    ).decode("utf-8"),
+                    flush=True,
+                )
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {"error": "internal_error"},
+                    origin=origin,
+                )
+                return
+            self._send_json(HTTPStatus.OK, payload, origin=origin)
+
+        def _read_json(self) -> dict[str, Any]:
+            cached = getattr(self, "_read_payload", None)
+            if cached is not None:
+                return cached
+            value = self.headers.get("Content-Length") or "0"
+            try:
+                length = int(value)
+            except ValueError as exc:
+                raise ValueError("Content-Length inválido") from exc
+            if length < 0 or length > 65536:
+                raise ValueError("El cuerpo excede 64 KiB")
+            raw = self.rfile.read(length) if length else b"{}"
+            try:
+                payload = json.loads(raw)
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                raise ValueError("JSON inválido") from exc
+            if not isinstance(payload, dict):
+                raise ValueError("El cuerpo debe ser un objeto JSON")
+            self._read_payload = payload
+            return payload
 
         def _send_json(
             self,
@@ -254,6 +415,16 @@ def main() -> int:
         expected_kind="market-history",
     )
     port = int(os.environ.get("PORT", "8080"))
+    firebase_config = settings.firebase_web_config
+    user_service = (
+        FirebaseUserService(
+            project_id=settings.project_id,
+            bootstrap_admin_email=settings.bootstrap_admin_email,
+            collection_name=settings.users_collection,
+        )
+        if firebase_config is not None
+        else None
+    )
     server = ThreadingHTTPServer(
         ("0.0.0.0", port),
         build_handler(
@@ -264,6 +435,7 @@ def main() -> int:
             opportunities_cache,
             signals_cache,
             settings,
+            user_service,
         ),
     )
     print(

@@ -1,58 +1,106 @@
-(function initializeUnifiedWatchlist() {
-  const KEY = "gil-intelligence.unified-watchlist.v1";
+(function initializeRemoteWatchlist() {
+  const LEGACY_KEYS = [
+    "gil-intelligence.unified-watchlist.v1",
+    "gil-intelligence.market-watchlist",
+    "gil-intelligence.opportunity-watchlist",
+    "gil-intelligence.watched-signals",
+  ];
   const listeners = new Set();
+  let records = {};
+  let loadSequence = 0;
 
-  function read() {
+  // Favorites intentionally start from zero. Legacy browser data is discarded,
+  // never read or sent to the server.
+  LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
+
+  function publish() {
+    const snapshot = { ...records };
+    listeners.forEach((listener) => listener(snapshot));
+  }
+
+  function activeAccount() {
+    return window.GilAuth?.profile?.status === "ACTIVE";
+  }
+
+  async function reload() {
+    const sequence = ++loadSequence;
+    if (!activeAccount()) {
+      records = {};
+      publish();
+      return;
+    }
     try {
-      const value = JSON.parse(localStorage.getItem(KEY) || "{}");
-      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-    } catch { return {}; }
+      const payload = await window.GilAuth.request("/v1/me/favorites");
+      if (sequence !== loadSequence) return;
+      records = Object.fromEntries((payload.favorites || []).map((entry) => [entry.key, entry]));
+      publish();
+    } catch (error) {
+      if (sequence !== loadSequence) return;
+      records = {};
+      publish();
+      window.GilAuth.reportError?.(error);
+    }
   }
 
-  function write(value) {
-    localStorage.setItem(KEY, JSON.stringify(value));
-    listeners.forEach((listener) => listener(value));
-  }
-
-  function migrate() {
-    const current = read();
-    const migrations = [
-      ["gil-intelligence.market-watchlist", "market"],
-      ["gil-intelligence.opportunity-watchlist", "opportunity"],
-    ];
-    migrations.forEach(([legacyKey, module]) => {
-      try {
-        const entries = JSON.parse(localStorage.getItem(legacyKey) || "[]");
-        if (!Array.isArray(entries)) return;
-        entries.forEach((entry) => {
-          const key = `${module}:${entry}`;
-          current[key] ||= { key, module, migratedAt: new Date().toISOString() };
+  async function persist(key, metadata, shouldAdd, previous) {
+    try {
+      if (shouldAdd) {
+        const saved = await window.GilAuth.request("/v1/me/favorites", {
+          method: "PUT",
+          body: JSON.stringify({ key, metadata }),
         });
-      } catch { /* Invalid legacy data is ignored. */ }
-    });
-    try {
-      const signals = JSON.parse(localStorage.getItem("gil-intelligence.watched-signals") || "{}");
-      Object.entries(signals || {}).forEach(([key, value]) => {
-        current[key] ||= { key, module: key.split(":")[0], ...(value || {}), migratedAt: new Date().toISOString() };
-      });
-    } catch { /* Invalid legacy data is ignored. */ }
-    write(current);
+        records[key] = saved;
+      } else {
+        await window.GilAuth.request("/v1/me/favorites", {
+          method: "DELETE",
+          body: JSON.stringify({ key }),
+        });
+      }
+      publish();
+    } catch (error) {
+      if (previous) records[key] = previous;
+      else delete records[key];
+      publish();
+      window.GilAuth.reportError?.(error);
+    }
   }
 
-  migrate();
   window.GilWatchlist = {
-    has: (key) => Boolean(read()[key]),
-    get: (key) => read()[key] || null,
-    entries: () => Object.values(read()),
-    keys: () => new Set(Object.keys(read())),
-    total: () => Object.keys(read()).length,
+    has: (key) => Boolean(records[key]),
+    get: (key) => records[key] || null,
+    entries: () => Object.values(records),
+    keys: () => new Set(Object.keys(records)),
+    total: () => Object.keys(records).length,
+    reload,
     toggle(key, metadata = {}) {
-      const current = read();
-      if (current[key]) delete current[key];
-      else current[key] = { key, module: key.split(":")[0], addedAt: new Date().toISOString(), ...metadata };
-      write(current);
-      return Boolean(current[key]);
+      if (!activeAccount()) {
+        window.GilAuth?.open();
+        return false;
+      }
+      const normalizedKey = String(key || "").trim();
+      if (!normalizedKey) return false;
+      const previous = records[normalizedKey] || null;
+      const shouldAdd = !previous;
+      if (shouldAdd) {
+        records[normalizedKey] = {
+          key: normalizedKey,
+          module: metadata.module || normalizedKey.split(":", 1)[0],
+          addedAt: new Date().toISOString(),
+          ...metadata,
+        };
+      } else {
+        delete records[normalizedKey];
+      }
+      publish();
+      void persist(normalizedKey, metadata, shouldAdd, previous);
+      return shouldAdd;
     },
-    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
   };
+
+  window.addEventListener("gil-auth-change", () => void reload());
+  if (window.GilAuth?.ready) window.GilAuth.ready.then(reload);
 })();

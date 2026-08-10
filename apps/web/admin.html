@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071426" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Administración · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio"><span class="brand-mark" aria-hidden="true">G</span><span><strong>Gil Intelligence</strong><small>Administración</small></span></a>
+      <nav class="site-nav" aria-label="Secciones principales">
+        <a href="./">Conversiones</a><a href="./market.html">Mercado</a><a href="./opportunities.html">Oportunidades</a><a href="./projections.html">Proyecciones</a><a href="./snipes.html">Snipeos</a><a href="./signals.html">Hoy</a>
+      </nav>
+      <div class="topbar-meta"><span class="live-dot" aria-hidden="true"></span><span>Admin</span></div>
+    </header>
+    <main class="admin-main">
+      <section class="admin-hero">
+        <div><p class="eyebrow">ACCESO · USUARIOS</p><h1>Administración.</h1><p>Aprueba cuentas nuevas, suspende accesos y asigna administradores. Los datos de mercado siguen siendo públicos; perfiles y favoritos son privados.</p></div>
+        <div class="admin-summary" aria-label="Resumen de usuarios">
+          <div><strong id="admin-total">—</strong><small>Total</small></div>
+          <div><strong id="admin-pending">—</strong><small>Pendientes</small></div>
+          <div><strong id="admin-active">—</strong><small>Activos</small></div>
+        </div>
+      </section>
+      <section id="admin-panel" class="admin-panel" aria-live="polite">
+        <div class="admin-toolbar">
+          <label class="sr-only" for="admin-search">Buscar usuario</label><input id="admin-search" type="search" placeholder="Buscar por nombre o correo…" autocomplete="off" />
+          <label class="sr-only" for="admin-status-filter">Estado</label><select id="admin-status-filter"><option value="ALL">Todos los estados</option><option value="PENDING">Pendientes</option><option value="ACTIVE">Activos</option><option value="SUSPENDED">Suspendidos</option></select>
+          <button id="admin-refresh" class="secondary-action" type="button">Actualizar</button>
+        </div>
+        <div id="admin-users" class="admin-users"><p class="admin-empty">Comprobando permisos…</p></div>
+      </section>
+    </main>
+    <footer><span>Gil Intelligence</span><span>Acceso restringido a administradores.</span><span>No automatiza acciones dentro del juego.</span></footer>
+    <script src="./config.js" defer></script>
+    <script src="./auth.js" defer></script>
+    <script src="./admin.js" defer></script>
+  </body>
+</html>

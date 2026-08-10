@@ -50,6 +50,34 @@ class CloudSettingsTests(unittest.TestCase):
             ("https://example.test", "http://localhost:8000"),
         )
 
+    def test_parses_runtime_firebase_configuration(self) -> None:
+        firebase = {
+            "apiKey": "runtime-only",
+            "authDomain": "example.firebaseapp.com",
+            "projectId": "example",
+            "appId": "1:123:web:abc",
+        }
+        settings = CloudSettings.from_environ(
+            {
+                "CACTUAR_BUCKET": "example-data",
+                "CACTUAR_FIREBASE_WEB_CONFIG": json.dumps(firebase),
+                "CACTUAR_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+            }
+        )
+
+        self.assertEqual(settings.firebase_web_config, firebase)
+        self.assertEqual(settings.bootstrap_admin_email, "admin@example.com")
+
+    def test_rejects_incomplete_firebase_configuration(self) -> None:
+        with self.assertRaisesRegex(ValueError, "missing required Firebase fields"):
+            CloudSettings.from_environ(
+                {
+                    "CACTUAR_BUCKET": "example-data",
+                    "CACTUAR_FIREBASE_WEB_CONFIG": '{"apiKey":"only-one-field"}',
+                    "CACTUAR_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+                }
+            )
+
     def test_health_age_rejects_invalid_or_naive_dates(self) -> None:
         self.assertIsNone(_age_hours("not-a-date"))
         self.assertIsNone(_age_hours("2026-08-09T12:00:00"))
