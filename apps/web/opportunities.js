@@ -155,7 +155,7 @@ function createRow(item) {
   row.tabIndex = 0;
   row.innerHTML = `
     <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon()}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
-    <td data-label="Comprar en"><div class="entity source-world"><strong>${escapeHtml(item.sourceWorldName)}</strong><small>Aether · World ${item.sourceWorldId}</small></div></td>
+    <td data-label="Comprar en"><div class="entity source-world"><strong>${escapeHtml(item.sourceWorldName)}</strong><small>${escapeHtml(item.sourceDataCenterName || "North America")} · World ${item.sourceWorldId}</small></div></td>
     <td data-label="Compra" class="numeric">${gil(item.averagePurchasePrice ?? item.sourcePrice)}</td>
     <td data-label="Venta conservadora" class="numeric">${gil(item.conservativeSellPrice)}</td>
     <td data-label="Ganancia / u." class="numeric net-cell">${gil(item.unitProfit)}</td>

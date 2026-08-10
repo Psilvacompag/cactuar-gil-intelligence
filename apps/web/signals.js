@@ -26,13 +26,14 @@ const collator = new Intl.Collator("es", { sensitivity: "base", numeric: true })
 
 async function loadSignals() {
   try {
-    const [market, history, evidence] = await Promise.all([
+    const [market, history, evidence, opportunities] = await Promise.all([
       fetchDocument("market-items"), fetchDocument("market-history"),
       fetch("./data/launch-signals.json").then(requireJson),
+      fetchDocument("opportunities"),
     ]);
     const historyByKey = new Map(history.series.map((series) => [series.key, series]));
     state.items = view === "snipes"
-      ? buildSnipes(market.items, historyByKey)
+      ? buildSnipes(opportunities.opportunities, historyByKey)
       : buildProjections(market.items, evidence, historyByKey);
     updateSignalLedger(state.items, market.meta.marketCollectedAt);
     hydrateMeta(market, history);
@@ -118,50 +119,38 @@ function buildProjections(items, evidence, historyByKey) {
     .slice(0, 60);
 }
 
-function buildSnipes(items, historyByKey) {
-  return items.flatMap((item) => {
-    const depth = item.listingDepth;
-    if (item.status !== "FRESH" || !depth?.verified || !finitePositive(depth.floorPrice) || !finitePositive(item.dailySaleVelocity)) return [];
-    if (depth.nearFloorUnits < 2 || depth.unitsObserved < 2) return [];
-    const series = historyByKey.get(`${item.itemId}:${item.quality}`);
-    const points = series?.points || [];
-    if (points.length < 3) return [];
-    const previous = points.slice(0, -1);
-    const listingBaseline = median(previous.map((point) => point.minListingPrice).filter(finitePositive));
-    const saleBaseline = median(points.map((point) => point.averageSalePrice).filter(finitePositive));
-    const references = [listingBaseline, saleBaseline].filter(finitePositive);
-    if (!references.length) return [];
-    const referencePrice = Math.min(...references);
-    const currentPrice = depth.floorPrice;
-    const discount = 1 - currentPrice / referencePrice;
-    const volatility = finite(series.trend?.priceVolatility, 1);
-    const discountThreshold = volatility > .45 ? .50 : .25;
-    if (discount < discountThreshold) return [];
-    const recommendedQuantity = Math.min(20, depth.nearFloorUnits, Math.max(2, Math.floor(item.dailySaleVelocity * .25)));
-    const purchase = weightedPurchase(depth, recommendedQuantity, referencePrice * (1 - discountThreshold / 2));
-    if (purchase.units < 2) return [];
-    const conservativeExitPrice = referencePrice * .90;
-    const potentialProfit = conservativeExitPrice * .95 * purchase.units - purchase.total;
-    const potentialRoi = purchase.total > 0 ? potentialProfit / purchase.total : 0;
-    if (potentialProfit < Math.max(200, purchase.total * .20)) return [];
-    const persistentSnapshots = consecutiveDiscountSnapshots(points, referencePrice, discountThreshold);
+function buildSnipes(opportunities, historyByKey) {
+  return opportunities.flatMap((item) => {
+    const purchasePrice = positiveNumber(item.averagePurchasePrice);
+    const referencePrice = positiveNumber(item.conservativeSellPrice);
+    if (!item.stockVerified || item.sourceWorldId === 79 || item.recommendedQuantity < 2
+      || item.availableUnits < 2 || !purchasePrice || !referencePrice
+      || !finitePositive(item.dailySaleVelocity) || item.estimatedTripProfit <= 0) return [];
+    const discount = 1 - purchasePrice / referencePrice;
+    const potentialRoi = item.estimatedTripProfit / item.estimatedPurchaseCost;
+    const persistentSnapshots = Math.round(finite(item.persistenceRatio, 0) * finite(item.historySamples, 0));
     const score = Math.round(clamp(
-      clamp(discount / .65, 0, 1) * 45 + clamp(Math.log10(item.dailySaleVelocity + 1) / 3, 0, 1) * 18
-      + clamp(points.length / 10, 0, 1) * 8 + (volatility <= .10 ? 9 : volatility <= .25 ? 6 : 1)
-      + clamp(potentialRoi, 0, 1) * 8 + clamp(purchase.units / 10, 0, 1) * 7
+      finite(item.confidenceScore, 0) * .72 + clamp(discount / .65, 0, 1) * 18
+      + clamp(item.recommendedQuantity / 10, 0, 1) * 5
       + clamp(persistentSnapshots / 3, 0, 1) * 5, 0, 100,
     ));
-    return [{ ...item, signalKind: "snipe", score, band: score >= 75 ? "URGENTE" : score >= 60 ? "FUERTE" : "REVISAR",
-      risk: volatility <= .10 ? "BAJO" : volatility <= .25 ? "MEDIO" : "ALTO", referencePrice,
-      listingBaseline, saleBaseline, discount, conservativeExitPrice, recommendedQuantity: purchase.units,
-      weightedEntryPrice: purchase.average, estimatedPurchaseCost: purchase.total, potentialProfit,
-      potentialUnitProfit: potentialProfit / purchase.units, potentialRoi, historyPoints: points.length,
-      persistentSnapshots, stockVerified: true, backtest: backtestStats(points),
-      reasons: [`El piso verificado está ${percentFormat.format(discount)} bajo la referencia conservadora.`,
-        `${integerFormat.format(depth.nearFloorUnits)} unidades están a no más de 10% del piso; se modelan ${purchase.units}.`,
-        `Precio ponderado ${gil(purchase.average)}; beneficio conservador post-fee ${gil(potentialProfit)}.`,
-        persistentSnapshots > 1 ? `La anomalía persiste hace ${persistentSnapshots} snapshots.` : "La anomalía apareció en el snapshot actual."], }];
-  }).sort((a, b) => b.score - a.score || b.discount - a.discount).slice(0, 150);
+    const series = historyByKey.get(`${item.itemId}:${item.quality}`);
+    return [{ ...item, signalKind: "snipe", score,
+      band: score >= 75 ? "URGENTE" : score >= 60 ? "FUERTE" : "REVISAR",
+      risk: item.confidenceBand === "HIGH" ? "BAJO" : item.confidenceBand === "MEDIUM" ? "MEDIO" : "ALTO",
+      referencePrice, currentPrice: purchasePrice, discount,
+      conservativeExitPrice: referencePrice, weightedEntryPrice: purchasePrice,
+      potentialProfit: item.estimatedTripProfit,
+      potentialUnitProfit: item.estimatedTripProfit / item.recommendedQuantity,
+      potentialRoi, persistentSnapshots, historyPoints: item.historySamples,
+      backtest: backtestStats(series?.points || []),
+      reasons: [
+        `Compra verificada en ${item.sourceWorldName} (${item.sourceDataCenterName || "Aether"}) y reventa calculada sólo con Cactuar.`,
+        `${integerFormat.format(item.availableUnits)} unidades elegibles; se modelan ${item.recommendedQuantity} atravesando los tiers reales.`,
+        `Precio ponderado ${gil(purchasePrice)}; beneficio conservador post-fee ${gil(item.estimatedTripProfit)}.`,
+        persistentSnapshots > 1 ? `El margen apareció en ${persistentSnapshots} de ${item.historySamples} snapshots recientes.` : "El margen no tiene persistencia suficiente: trátalo como una alerta rápida.",
+      ], }];
+  }).sort((a, b) => b.score - a.score || b.potentialProfit - a.potentialProfit).slice(0, 150);
 }
 
 function bestPattern(item, patterns) {
@@ -226,7 +215,7 @@ function createCard(item) {
     ? `<div><small>GANANCIA TOTAL</small><strong>+${gil(item.potentialProfit)}</strong></div>`
     : `<div><small>DECISIÓN</small><strong class="action-text">${escapeHtml(item.action)}</strong></div>`;
   card.innerHTML = `<div class="signal-card-top"><span class="signal-band">${escapeHtml(item.band)}</span><span class="signal-risk">RIESGO ${escapeHtml(item.risk)}</span></div>
-    <div class="signal-identity"><span class="item-icon ${view === "snipes" ? "gold" : ""}" aria-hidden="true">${signalIcon()}</span><div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || `Item ${item.itemId}`)}</p></div></div>
+    <div class="signal-identity"><span class="item-icon ${view === "snipes" ? "gold" : ""}" aria-hidden="true">${signalIcon()}</span><div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(view === "snipes" ? `${item.sourceWorldName} · ${item.sourceDataCenterName || "Aether"} → Cactuar` : categoryName(item) || `Item ${item.itemId}`)}</p></div></div>
     <div class="signal-score"><div><small>PUNTAJE</small><strong>${item.score}<span>/100</span></strong></div><progress max="100" value="${item.score}">${item.score}</progress></div>
     <div class="signal-metrics"><div>${metric}</div><div><small>${view === "snipes" ? "COMPRA PONDERADA" : "PRECIO ACTUAL"}</small><strong>${gil(view === "snipes" ? item.weightedEntryPrice : item.currentPrice)}</strong></div>${third}</div>
     <p class="signal-reason">${escapeHtml(item.reasons[0])}</p><span class="signal-action">Ver estrategia →</span>`;
@@ -243,10 +232,10 @@ function showDetail(item) {
       <div><span>Cantidad objetivo</span><strong>${integerFormat.format(item.targetQuantity)} u.</strong></div><div><span>Comprar ahora</span><strong>${integerFormat.format(item.buyQuantity)} u.</strong></div>
       <div><span>Capital máximo</span><strong>${gil(item.capitalAtRisk)}</strong></div><div><span>Referencia</span><strong>${gil(item.referencePrice)}</strong></div></div>${phaseMarkup}
       <p><b>Salida:</b> ${escapeHtml(item.pattern.exitWindow)}</p><p><b>Invalidación:</b> ${escapeHtml(item.pattern.invalidation)}</p></section>`
-    : `<section class="strategy-panel"><small>COMPRA MODELADA</small><div class="strategy-grid">
+    : `<section class="strategy-panel"><small>${escapeHtml(item.sourceWorldName)} → CACTUAR</small><div class="strategy-grid">
       <div><span>Cantidad</span><strong>${integerFormat.format(item.recommendedQuantity)} u.</strong></div><div><span>Precio ponderado</span><strong>${gil(item.weightedEntryPrice)}</strong></div>
       <div><span>Costo total</span><strong>${gil(item.estimatedPurchaseCost)}</strong></div><div><span>Salida conservadora</span><strong>${gil(item.conservativeExitPrice)}</strong></div>
-      <div><span>Ganancia post-fee</span><strong>+${gil(item.potentialProfit)}</strong></div><div><span>Persistencia</span><strong>${item.persistentSnapshots} snapshots</strong></div></div></section>`;
+      <div><span>Ganancia post-fee</span><strong>+${gil(item.potentialProfit)}</strong></div><div><span>Viaje</span><strong>${escapeHtml(item.sourceDataCenterName || "Aether")} · ${escapeHtml(item.sourceWorldName)}</strong></div></div></section>`;
   const backtest = item.backtest || {};
   elements.dialogContent.innerHTML = `<div class="detail-body signal-detail"><p class="eyebrow">${view === "snipes" ? "SNIPE VERIFICADO" : "PROYECCIÓN EVERCOLD 8.0"} · ITEM ${item.itemId}</p>
     <h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")} · Riesgo ${escapeHtml(item.risk.toLowerCase())}</p>
@@ -341,7 +330,7 @@ function phaseLabel(value) { return ({ ACUMULAR_AHORA: "Acumular ahora", ULTIMO_
 function actionRank(value) { return ({ "COMPRAR AHORA": 0, "VERIFICAR STOCK": 1, "ESPERAR PRECIO": 2, "VIGILAR": 3, "SÓLO VIGILAR": 4 })[value] ?? 5; }
 function signalKey(item) { return `${view}:${item.itemId}:${item.quality}`; }
 function signalIcon() { return view === "snipes" ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>' : '<svg viewBox="0 0 24 24"><path d="m4 17 5-5 4 3 7-8"/><path d="M15 7h5v5"/></svg>'; }
-function categoryName(item) { return item.searchCategoryName || item.uiCategoryName || ""; }
+function categoryName(item) { return item.categoryName || item.searchCategoryName || item.uiCategoryName || ""; }
 function finite(value, fallback) { return Number.isFinite(value) ? value : fallback; }
 function finitePositive(value) { return Number.isFinite(value) && value > 0; }
 function positiveNumber(value) { const number = Number(value); return Number.isFinite(number) && number > 0 ? number : null; }

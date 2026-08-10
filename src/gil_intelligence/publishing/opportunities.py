@@ -9,17 +9,27 @@ from pathlib import Path
 from typing import Any
 
 
-AETHER_WORLD_NAMES = {
-    73: "Adamantoise",
-    79: "Cactuar",
-    54: "Faerie",
-    63: "Gilgamesh",
-    40: "Jenova",
-    65: "Midgardsormr",
-    99: "Sargatanas",
-    57: "Siren",
+NORTH_AMERICA_DATA_CENTERS = {
+    40: "Aether", 54: "Aether", 57: "Aether", 63: "Aether",
+    65: "Aether", 73: "Aether", 79: "Aether", 99: "Aether",
+    35: "Primal", 53: "Primal", 55: "Primal", 64: "Primal",
+    77: "Primal", 78: "Primal", 93: "Primal", 95: "Primal",
+    34: "Crystal", 37: "Crystal", 41: "Crystal", 62: "Crystal",
+    74: "Crystal", 75: "Crystal", 81: "Crystal", 91: "Crystal",
+    404: "Dynamis", 405: "Dynamis", 406: "Dynamis", 407: "Dynamis",
+    408: "Dynamis", 409: "Dynamis", 410: "Dynamis", 411: "Dynamis",
 }
 
+NORTH_AMERICA_WORLD_NAMES = {
+    34: "Brynhildr", 35: "Famfrit", 37: "Mateus", 40: "Jenova",
+    41: "Zalera", 53: "Exodus", 54: "Faerie", 55: "Lamia", 57: "Siren",
+    62: "Diabolos", 63: "Gilgamesh", 64: "Leviathan", 65: "Midgardsormr",
+    73: "Adamantoise", 74: "Coeurl", 75: "Malboro", 77: "Ultros",
+    78: "Behemoth", 79: "Cactuar", 81: "Goblin", 91: "Balmung",
+    93: "Excalibur", 95: "Hyperion", 99: "Sargatanas", 404: "Marilith",
+    405: "Seraph", 406: "Halicarnassus", 407: "Maduin", 408: "Cuchulainn",
+    409: "Kraken", 410: "Rafflesia", 411: "Golem",
+}
 
 @dataclass(frozen=True, slots=True)
 class OpportunitiesExportSummary:
@@ -171,7 +181,8 @@ def export_opportunities(
                 "quality": row["quality"],
                 "categoryName": row["search_category_name"] or row["ui_category_name"],
                 "sourceWorldId": source_world_id,
-                "sourceWorldName": AETHER_WORLD_NAMES.get(source_world_id, f"World {source_world_id}"),
+                "sourceWorldName": NORTH_AMERICA_WORLD_NAMES.get(source_world_id, f"World {source_world_id}"),
+                "sourceDataCenterName": NORTH_AMERICA_DATA_CENTERS.get(source_world_id, "North America"),
                 "sourcePrice": source_price,
                 "averagePurchasePrice": average_purchase_price,
                 "cactuarMinPrice": row["target_min_price"],
@@ -225,7 +236,9 @@ def export_opportunities(
             "priceStress": price_stress,
             "freshnessHours": freshness_hours,
             "homeWorldId": home_world_id,
-            "homeWorldName": AETHER_WORLD_NAMES.get(home_world_id, scope),
+            "homeWorldName": NORTH_AMERICA_WORLD_NAMES.get(home_world_id, scope),
+            "sourceScope": "North-America",
+            "sourceScopeLevel": "REGION",
             "source": "Universalis aggregated market data",
         },
         "summary": {
@@ -351,15 +364,15 @@ def _pivoted_market_rows(
                         THEN aggregate.average_sale_price END) AS target_average_sale_price,
                MAX(CASE WHEN aggregate.scope_level = 'WORLD'
                         THEN aggregate.daily_sale_velocity END) AS daily_sale_velocity,
-               MAX(CASE WHEN aggregate.scope_level = 'DC'
+               MAX(CASE WHEN aggregate.scope_level = 'REGION'
                         THEN aggregate.min_listing_price END) AS source_price,
-               MAX(CASE WHEN aggregate.scope_level = 'DC'
+               MAX(CASE WHEN aggregate.scope_level = 'REGION'
                         THEN aggregate.min_listing_world_id END) AS source_world_id
         FROM dim_asset AS asset
         JOIN fact_market_aggregate_snapshot AS aggregate
           ON aggregate.market_snapshot_id = ?
          AND aggregate.item_id = asset.item_id
-         AND aggregate.scope_level IN ('WORLD', 'DC')
+         AND aggregate.scope_level IN ('WORLD', 'REGION')
         WHERE asset.snapshot_id = ?
           AND asset.marketable_candidate = 1
         GROUP BY asset.item_id, asset.name, asset.search_category_name,
@@ -405,7 +418,7 @@ def _opportunity_history(
         FROM fact_market_aggregate_snapshot AS aggregate
         JOIN market_source_snapshot AS source USING (market_snapshot_id)
         WHERE lower(source.scope) = lower(?)
-          AND aggregate.scope_level IN ('WORLD', 'DC')
+          AND aggregate.scope_level IN ('WORLD', 'REGION')
         ORDER BY source.collected_at, aggregate.market_snapshot_id
         """,
         (scope,),
@@ -420,17 +433,17 @@ def _opportunity_history(
     order = order[-5:]
     history: dict[tuple[int, str], list[bool]] = {}
     for (snapshot_id, item_id, quality), levels in grouped.items():
-        if snapshot_id not in order or "WORLD" not in levels or "DC" not in levels:
+        if snapshot_id not in order or "WORLD" not in levels or "REGION" not in levels:
             continue
         world = levels["WORLD"]
-        dc = levels["DC"]
+        region = levels["REGION"]
         safe_price = _minimum_price(
             world["min_listing_price"],
             world["median_listing_price"],
             world["average_sale_price"],
         )
-        buy_price = dc["min_listing_price"]
-        buy_world = dc["min_listing_world_id"]
+        buy_price = region["min_listing_price"]
+        buy_world = region["min_listing_world_id"]
         if safe_price is None or buy_price is None or buy_price <= 0 or buy_world is None:
             continue
         profit = safe_price * (1 - price_stress) * (1 - fee_rate) - buy_price

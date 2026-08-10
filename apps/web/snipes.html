@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#071426" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'" />
-    <meta name="description" content="Alertas explicables de listings anómalos y posibles snipeos en Cactuar." />
+    <meta name="description" content="Alertas verificadas para comprar barato en cualquier World de North America y revender en Cactuar." />
     <title>Snipeos · Gil Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,18 +22,18 @@
       <div class="topbar-meta"><span class="live-dot" aria-hidden="true"></span><span id="scope-label">Cactuar</span><span class="separator">/</span><span id="updated-label">Cargando…</span></div>
     </header>
     <main>
-      <section class="page-hero signal-hero"><div><p class="eyebrow">ALERTAS · CAÍDAS ANÓMALAS</p><h1>Listings que merecen una mirada.</h1><p class="hero-lede">Detecta precios muy por debajo de su referencia reciente, con actividad suficiente para que la diferencia importe. Siempre confirma precio, cantidad, HQ y retainer dentro del juego.</p></div><div class="hero-index gold" aria-hidden="true"><span>05</span><small>Snipeos</small></div></section>
+      <section class="page-hero signal-hero"><div><p class="eyebrow">NORTH AMERICA → CACTUAR</p><h1>Compra lejos. Vende en casa.</h1><p class="hero-lede">Busca el precio mínimo entre Aether, Primal, Crystal y Dynamis, verifica el stock real de ese World y calcula la reventa únicamente con precio y velocidad de Cactuar.</p></div><div class="hero-index gold" aria-hidden="true"><span>05</span><small>Snipeos</small></div></section>
       <section class="metrics" aria-label="Resumen de snipeos">
-        <article class="metric-card featured"><span class="metric-label">Candidatos</span><strong id="metric-signals">—</strong><small>descuento y margen mínimos</small></article>
+        <article class="metric-card featured"><span class="metric-label">Rutas verificadas</span><strong id="metric-signals">—</strong><small>otro World → Cactuar</small></article>
         <article class="metric-card"><span class="metric-label">Urgentes</span><strong id="metric-strong">—</strong><small>puntaje de 75 o más</small></article>
         <article class="metric-card"><span class="metric-label">Snapshots</span><strong id="metric-history">—</strong><small>para calcular referencia</small></article>
         <article class="metric-card"><span class="metric-label">Stock verificado</span><strong id="metric-coverage">—</strong><small>cantidad y precio ponderado</small></article>
       </section>
-      <section class="signal-control-panel compact" aria-label="Alertas de snipeos"><div><p class="eyebrow">RADAR PERSONAL</p><h2>Vigila sólo lo que te interesa.</h2><p>Abre una señal, agrégala a vigilancia y recibirás un aviso si vuelve a cumplir el precio objetivo mientras la página está activa.</p></div><button id="enable-alerts" class="secondary-button" type="button">Activar alertas del navegador</button></section>
+      <section class="signal-control-panel compact" aria-label="Alertas de snipeos"><div><p class="eyebrow">RADAR PERSONAL</p><h2>Vigila rutas, no sólo ítems.</h2><p>Cada señal conserva World y Data Center de compra. Agrégala a vigilancia y recibirás un aviso si la ruta vuelve a cumplir el precio objetivo mientras la página está activa.</p></div><button id="enable-alerts" class="secondary-button" type="button">Activar alertas del navegador</button></section>
       <section class="alert-panel" aria-label="Alertas de vigilancia"><div><p class="eyebrow">LISTA DE VIGILANCIA</p><h2>Alertas activas</h2></div><div id="alert-list" class="alert-list"><p>No hay alertas activas en tu lista de vigilancia.</p></div></section>
       <section class="explorer signal-explorer" aria-labelledby="explorer-title">
         <div class="section-heading"><div><p class="eyebrow">RADAR</p><h2 id="explorer-title">Posibles snipeos</h2></div><p id="result-count" class="result-count" aria-live="polite">Buscando anomalías…</p></div>
-        <div class="caution-note snipe-caution"><strong>Filtro anti-señuelo</strong><span>Sólo aparecen candidatos con al menos dos unidades cerca del piso. La compra se calcula atravesando los tiers reales y descuenta el 5% de fee al estimar la salida.</span></div>
+        <div class="caution-note snipe-caution"><strong>Filtro anti-señuelo</strong><span>Sólo aparecen rutas con al menos dos unidades comprables. El costo atraviesa los tiers reales del World de origen; la salida estresa el precio de Cactuar y descuenta el 5% de fee.</span></div>
         <div class="toolbar signal-toolbar">
           <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar ítem o categoría</span><input id="search-input" type="search" placeholder="Busca ítem o categoría…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
           <label class="select-control"><span>Señal</span><select id="band-select"><option value="">Todas</option><option value="URGENTE">Urgente</option><option value="FUERTE">Fuerte</option><option value="REVISAR">Revisar</option></select></label>
@@ -42,10 +42,10 @@
         <div id="signal-grid" class="signal-grid"></div>
         <div id="empty-state" class="empty-state signal-empty" hidden><span aria-hidden="true">◇</span><h3>No hay anomalías con esos filtros</h3><p>Eso también es una buena señal: el mercado puede estar estable.</p></div>
       </section>
-      <section class="method-note"><div><p class="eyebrow">DETECCIÓN</p><h2>Descuento con contexto y stock.</h2></div><div class="method-grid"><p><span>01</span> La referencia es el menor valor entre la mediana histórica del listing y el precio vendido.</p><p><span>02</span> Exige caída, actividad, dos o más unidades cerca del piso y margen positivo después de fee.</p><p><span>03</span> Precio ponderado, persistencia y volatilidad separan una oportunidad real de una unidad señuelo.</p></div></section>
+      <section class="method-note"><div><p class="eyebrow">DETECCIÓN</p><h2>Compra regional, salida local.</h2></div><div class="method-grid"><p><span>01</span> Universalis entrega el mínimo regional y el World exacto entre los 32 Worlds de North America.</p><p><span>02</span> El job abre sólo esos libros candidatos y exige cantidad suficiente, precio ponderado y datos frescos.</p><p><span>03</span> La reventa usa el menor precio conservador de Cactuar, aplica estrés de 20%, fee de 5% y liquidez local.</p></div></section>
     </main>
     <dialog id="detail-dialog" class="detail-dialog"><button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
-    <footer><span>Gil Intelligence</span><span>Universalis · anomalías de Cactuar</span><span>Confirma todo dentro del juego.</span></footer>
+    <footer><span>Gil Intelligence</span><span>Universalis · North America → Cactuar</span><span>Confirma todo dentro del juego.</span></footer>
     <script src="./config.js" defer></script><script src="./signals.js" defer></script>
   </body>
 </html>

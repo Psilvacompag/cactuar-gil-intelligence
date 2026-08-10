@@ -302,24 +302,29 @@ class CurrencyValuationTests(unittest.TestCase):
                                 "minListing": {
                                     "world": {"price": 10000, "worldId": 79},
                                     "dc": {"price": 3000, "worldId": 57},
+                                    "region": {"price": 3000, "worldId": 35},
                                 },
                                 "medianListing": {
                                     "world": {"price": 11000},
                                     "dc": {"price": 3500},
+                                    "region": {"price": 3500},
                                 },
                                 "recentPurchase": {},
                                 "averageSalePrice": {
                                     "world": {"price": 9000},
                                     "dc": {"price": 3300},
+                                    "region": {"price": 3300},
                                 },
                                 "dailySaleVelocity": {
                                     "world": {"quantity": 20},
                                     "dc": {"quantity": 100},
+                                    "region": {"quantity": 300},
                                 },
                             },
                             "hq": {},
                             "worldUploadTimes": [
                                 {"worldId": 57, "timestamp": upload_millis},
+                                {"worldId": 35, "timestamp": upload_millis},
                                 {"worldId": 79, "timestamp": upload_millis},
                             ],
                         }
@@ -334,12 +339,12 @@ class CurrencyValuationTests(unittest.TestCase):
 
             import_detailed_listings(
                 DetailedListingCollection(
-                    requested_pairs=((57, 100),),
+                    requested_pairs=((35, 100),),
                     batch_count=1,
                     items=(
                         {
                             "itemId": 100,
-                            "worldId": 57,
+                            "worldId": 35,
                             "lastUploadTime": upload_millis,
                             "listings": [
                                 {
@@ -366,7 +371,9 @@ class CurrencyValuationTests(unittest.TestCase):
 
             self.assertEqual(summary.opportunities, 1)
             opportunity = exported["opportunities"][0]
-            self.assertEqual(opportunity["sourceWorldName"], "Siren")
+            self.assertEqual(opportunity["sourceWorldName"], "Famfrit")
+            self.assertEqual(opportunity["sourceDataCenterName"], "Primal")
+            self.assertEqual(exported["meta"]["sourceScope"], "North-America")
             self.assertEqual(opportunity["recommendedQuantity"], 5)
             self.assertAlmostEqual(opportunity["unitProfit"], 3840)
             self.assertEqual(opportunity["confidenceBand"], "HIGH")
