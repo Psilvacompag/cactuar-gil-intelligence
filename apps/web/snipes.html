@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071426" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="description" content="Alertas explicables de listings anómalos y posibles snipeos en Cactuar." />
+    <title>Snipeos · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-signal-view="snipes">
+    <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio"><span class="brand-mark" aria-hidden="true">G</span><span><strong>Gil Intelligence</strong><small>Datos de mercado para FFXIV</small></span></a>
+      <nav class="site-nav" aria-label="Secciones principales">
+        <a href="./">Conversiones</a><a href="./market.html">Mercado</a><a href="./opportunities.html">Oportunidades</a><a href="./projections.html">Proyecciones</a><a class="active" href="./snipes.html" aria-current="page">Snipeos</a>
+      </nav>
+      <div class="topbar-meta"><span class="live-dot" aria-hidden="true"></span><span id="scope-label">Cactuar</span><span class="separator">/</span><span id="updated-label">Cargando…</span></div>
+    </header>
+    <main>
+      <section class="page-hero signal-hero"><div><p class="eyebrow">ALERTAS · CAÍDAS ANÓMALAS</p><h1>Listings que merecen una mirada.</h1><p class="hero-lede">Detecta precios muy por debajo de su referencia reciente, con actividad suficiente para que la diferencia importe. Siempre confirma precio, cantidad, HQ y retainer dentro del juego.</p></div><div class="hero-index gold" aria-hidden="true"><span>05</span><small>Snipeos</small></div></section>
+      <section class="metrics" aria-label="Resumen de snipeos">
+        <article class="metric-card featured"><span class="metric-label">Candidatos</span><strong id="metric-signals">—</strong><small>descuento y margen mínimos</small></article>
+        <article class="metric-card"><span class="metric-label">Urgentes</span><strong id="metric-strong">—</strong><small>puntaje de 75 o más</small></article>
+        <article class="metric-card"><span class="metric-label">Snapshots</span><strong id="metric-history">—</strong><small>para calcular referencia</small></article>
+        <article class="metric-card"><span class="metric-label">Stock verificado</span><strong id="metric-coverage">—</strong><small>confírmalo en el juego por ahora</small></article>
+      </section>
+      <section class="explorer signal-explorer" aria-labelledby="explorer-title">
+        <div class="section-heading"><div><p class="eyebrow">RADAR</p><h2 id="explorer-title">Posibles snipeos</h2></div><p id="result-count" class="result-count" aria-live="polite">Buscando anomalías…</p></div>
+        <div class="caution-note snipe-caution"><strong>Antes de comprar</strong><span>Estas alertas no verifican todavía la cantidad del listing. Una sola unidad barata puede desaparecer antes de que llegues.</span></div>
+        <div class="toolbar signal-toolbar">
+          <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar ítem o categoría</span><input id="search-input" type="search" placeholder="Busca ítem o categoría…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
+          <label class="select-control"><span>Señal</span><select id="band-select"><option value="">Todas</option><option value="URGENTE">Urgente</option><option value="FUERTE">Fuerte</option><option value="REVISAR">Revisar</option></select></label>
+          <label class="select-control"><span>Ordenar</span><select id="sort-select"><option value="score">Mayor puntaje</option><option value="discount">Mayor descuento</option><option value="velocity">Más vendidos</option><option value="name">Nombre</option></select></label>
+        </div>
+        <div id="signal-grid" class="signal-grid"></div>
+        <div id="empty-state" class="empty-state signal-empty" hidden><span aria-hidden="true">◇</span><h3>No hay anomalías con esos filtros</h3><p>Eso también es una buena señal: el mercado puede estar estable.</p></div>
+      </section>
+      <section class="method-note"><div><p class="eyebrow">DETECCIÓN</p><h2>Descuento con contexto.</h2></div><div class="method-grid"><p><span>01</span> La referencia es el menor valor entre la mediana histórica del listing y el precio vendido.</p><p><span>02</span> Exige al menos 25% de caída, tres snapshots, actividad y margen posterior al fee.</p><p><span>03</span> Si el ítem ya es muy volátil, exige una caída de 50% para evitar falsas alarmas.</p></div></section>
+    </main>
+    <dialog id="detail-dialog" class="detail-dialog"><button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
+    <footer><span>Gil Intelligence</span><span>Universalis · anomalías de Cactuar</span><span>Confirma todo dentro del juego.</span></footer>
+    <script src="./config.js" defer></script><script src="./signals.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "kind": "expansion-launch-evidence",
+  "curatedAt": "2026-08-10",
+  "caveat": "Community reports are historical signals tied to a date and server context, not global sales averages. OFFICIAL_RECIPE_DEMAND proves recipe demand, not completed Market Board sales.",
+  "entries": [
+    {
+      "expansion": "Dawntrail",
+      "phase": "launch_leveling",
+      "evidenceDate": "2024-07-03",
+      "itemId": 10,
+      "itemName": "Wind Crystal",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Reported near 114 gil and still clearing price cuts two weeks later around 150-180 gil.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1ducrxe/weekly_thread_craftinggathering_market_thread_wed/"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "launch_leveling",
+      "evidenceDate": "2024-07-10",
+      "itemId": 8,
+      "itemName": "Fire Crystal",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Crystal sales were the largest category in a reported 500m+ two-week launch operation; Fire and Wind remained liquid.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1dzu6kj/weekly_thread_craftinggathering_market_thread_wed/"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "launch_leveling",
+      "evidenceDate": "2024-07-10",
+      "itemId": 33926,
+      "itemName": "Craftsman's Cunning Materia IX",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "A large seller reported 160m gil from this materia and later at least 120,000 units sold, commonly bought near 5k and sold at 10k or more.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1dzu6kj/weekly_thread_craftinggathering_market_thread_wed/"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "launch_leveling",
+      "evidenceDate": "2024-07-10",
+      "itemId": 44007,
+      "itemName": "Magnesia Powder",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Reported as an especially profitable bottleneck because it fed several level-100 gear intermediates.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1dzu6kj/weekly_thread_craftinggathering_market_thread_wed/"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "launch_leveling",
+      "evidenceDate": "2024-07-10",
+      "itemId": 44073,
+      "itemName": "Boiled Alpaca Steak",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "HQ units were reported above 18k while the related leve-leveling demand was active, followed by a fast price decline.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1dzu6kj/weekly_thread_craftinggathering_market_thread_wed/"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "pre_savage",
+      "evidenceDate": "2024-07-17",
+      "itemIds": [43985, 43986, 43978, 44034],
+      "itemNames": ["Yyasulani Garlic", "White Pepper", "Ut'ohmu Tomato", "Yak T'el Spring Water"],
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Collectable ingredients were reported moving quickly at roughly 60k-80k per stack.",
+      "sourceUrl": "https://thestudium.gg/articles/dawntrail-crafting-and-gathering-market-overview-pre-savage-edition"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "pre_savage",
+      "evidenceDate": "2024-07-17",
+      "itemIds": [41775, 41776, 41764, 41778, 41779, 41780],
+      "itemNames": ["Gatherer's Guerdon Materia XII", "Gatherer's Guile Materia XII", "Gatherer's Grasp Materia XI", "Craftsman's Competence Materia XII", "Craftsman's Cunning Materia XII", "Craftsman's Command Materia XII"],
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "DoH/DoL materia XI-XII was reported near 50k-60k per unit during pentameld preparation.",
+      "sourceUrl": "https://thestudium.gg/articles/dawntrail-crafting-and-gathering-market-overview-pre-savage-edition"
+    },
+    {
+      "expansion": "Dawntrail",
+      "phase": "savage_day",
+      "evidenceDate": "2024-07-30",
+      "itemIds": [44091, 44169],
+      "itemNames": ["Rroneek Steak", "Cunning Craftsman's Tisane"],
+      "evidenceType": "OFFICIAL_RECIPE_DEMAND",
+      "confidence": "HIGH",
+      "observedOutcome": "HQ versions were key crafting consumables for patch 7.05 recipes.",
+      "sourceUrl": "https://na.finalfantasyxiv.com/lodestone/topics/detail/da01b0d2d5434cd2ccfcc87f733df7a590f97c00"
+    },
+    {
+      "expansion": "Endwalker",
+      "phase": "launch_0_7d",
+      "evidenceDate": "2021-12-10",
+      "itemIds": [36242, 36247],
+      "itemNames": ["Gaja Hide", "Gaja Leather"],
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Monster/FATE materials were a launch bottleneck; Gaja Hide was reported near 2k each and Gaja Leather around 200k per stack.",
+      "sourceUrl": "https://www.reddit.com/r/ffxivdiscussion/comments/rd33lu"
+    },
+    {
+      "expansion": "Endwalker",
+      "phase": "post_launch",
+      "evidenceDate": "2021-12-31",
+      "itemId": 35833,
+      "itemName": "Bicolor Gemstone Voucher",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Reported around 140k per voucher late in the launch month; strong value signal but volume was not quantified.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/rt6eqp"
+    },
+    {
+      "expansion": "Endwalker",
+      "phase": "savage_week_1",
+      "evidenceDate": "2022-01-12",
+      "itemIds": [36172, 36212, 36200, 36251, 36187],
+      "itemNames": ["Chondrite Ingot", "AR-Caean Velvet", "Integral Lumber", "Ophiotauros Leather", "Rhodium Ingot"],
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Precrafts and HQ intermediates retained demand better than many final Classical pieces; Rhodium Ingot HQ was specifically reported expensive.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/s25wz1"
+    },
+    {
+      "expansion": "Shadowbringers",
+      "phase": "launch_0_14d",
+      "evidenceDate": "2019-07-08",
+      "itemId": 27756,
+      "itemName": "Ovim Fleece",
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "Leve and Crystalline Mean materials were reported selling rapidly; a complete crafter leve kit required 444 units.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/ca1m5e"
+    },
+    {
+      "expansion": "Shadowbringers",
+      "phase": "launch_0_21d",
+      "evidenceDate": "2019-07-19",
+      "itemIds": [27759, 27757, 27736, 27742],
+      "itemNames": ["Dwarven Cotton Boll", "Dwarven Cotton", "Sea Swallow Skin", "Sea Swallow Leather"],
+      "evidenceType": "COMMUNITY_OBSERVED",
+      "confidence": "HIGH",
+      "observedOutcome": "DoH/DoL gearing consumed roughly 1,200 cotton bolls and about 500 Sea Swallow skins in one reported operation.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/cfaatk"
+    },
+    {
+      "expansion": "Shadowbringers",
+      "phase": "launch_spike",
+      "evidenceDate": "2019-07-26",
+      "itemIds": [12, 10],
+      "itemNames": ["Lightning Crystal", "Wind Crystal"],
+      "evidenceType": "COMMUNITY_RETROSPECTIVE",
+      "confidence": "MEDIUM",
+      "observedOutcome": "A near-launch retrospective recalled Lightning Crystal near 450 gil and Wind Crystal near 400 gil.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/qmk0nz"
+    },
+    {
+      "expansion": "Shadowbringers",
+      "phase": "launch_new_jobs",
+      "evidenceDate": "2019-07-02",
+      "categoryName": "Starting-job accessories for Dancer and Gunbreaker",
+      "evidenceType": "COMMUNITY_RETROSPECTIVE",
+      "confidence": "MEDIUM",
+      "observedOutcome": "A seller reported 80 level-appropriate accessories sold within one to two hours; exact item names were not provided.",
+      "sourceUrl": "https://www.reddit.com/r/ffxivdiscussion/comments/qbfg59"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Memoria de sesión
 
-Última actualización: 9 de agosto de 2026, `America/Santiago`.
+Última actualización: 10 de agosto de 2026, `America/Santiago`.
 
 Este documento es el punto de reanudación del proyecto. No contiene secretos ni
 credenciales.
@@ -21,7 +21,8 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Último commit verificado: `2ad2bd2` (`Use current listings for currency valuations`).
+- Código productivo verificado: `2ad2bd2` (`Use current listings for currency valuations`).
+- HEAD del repositorio al verificar: `6a06a7d` (`Document session handoff`).
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
@@ -38,6 +39,19 @@ El flujo vigente es:
 ```text
 Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pages
 ```
+
+### Verificación del 10 de agosto
+
+- La corrida programada de las 03:17 `America/Santiago` terminó correctamente en
+  9 minutos y 9 segundos.
+- `/v1/health` respondió `ok`; el mercado fue recolectado a las 07:18 UTC y el
+  dashboard se actualizó a las 07:26 UTC.
+- El dashboard publicó `priceBasis=MIN_LISTING`.
+- La corrida solicitó y obtuvo 16.843 ítems, sin fallos reportados, mediante 171
+  requests.
+- Regresión de Grand Company seals confirmada: `200 Storm Seal -> 1 Glamour
+  Dispeller`, listing mínimo de 270 gil y retorno neto de 1,2825 gil por seal.
+- Las 35 pruebas locales finalizaron correctamente.
 
 ## Funcionalidad disponible
 
@@ -80,6 +94,37 @@ Caso de regresión verificado:
 - Optimizador de capital y cantidad recomendada.
 - Son señales, no garantías; el precio debe confirmarse en el juego.
 
+## Trabajo local pendiente de commit y despliegue
+
+- La UI distingue `Sin datos Cactuar` de cero ventas y muestra una explicación visible
+  junto a `Ventas / día`. En casos como Filtered Water, Universalis publica listing
+  mundial pero omite `dailySaleVelocity.world` en el endpoint agregado.
+- Los nombres de la primera celda ya no se truncan y pueden ocupar varias líneas,
+  incluido el selector de monedas largas como Khloe's Gold Certificate of
+  Commendation.
+- Las tres tablas conservan el selector y además permiten ordenar al pulsar sus
+  encabezados, alternando ascendente y descendente.
+- Se incorporaron Manrope y Space Grotesk, superficies más definidas e iconos SVG
+  minimalistas. Los iconos originales quedan pospuestos hasta extraer `iconId` desde
+  `sqpack`; el ID de ítem no identifica de forma segura su icono.
+- Se añadieron `Proyecciones` y `Snipeos`. La primera prioriza hasta 150 ítems mediante
+  reglas explicables de tendencia, liquidez, estabilidad y patrones históricos; la
+  segunda detecta descuentos anómalos contra medianas históricas conservadoras y exige
+  margen, actividad y muestras suficientes. Los snipeos siempre piden confirmar stock
+  y precio dentro del juego.
+- Las conversiones principales solicitan profundidad real de listings de Cactuar en
+  lotes de hasta 100 ítems: unidades dentro de 10% del piso, días de oferta, presión
+  competitiva y precio ponderado de hasta las primeras 20 unidades. El dashboard se
+  vuelve a exportar después de importar estos detalles.
+- La investigación histórica inicial está documentada en
+  `docs/EXPANSION_LAUNCH_EVIDENCE.md` y su dataset curado en
+  `docs/data/expansion_launch_evidence.json`.
+- Dawntrail aún está disponible para backfill cuantitativo mediante el endpoint
+  `/history` de Universalis. Endwalker no apareció en la ventana pública probada y
+  debe permanecer como evidencia manual salvo que se obtenga otra fuente.
+- Validación local: JavaScript sin errores de sintaxis, JSON válido, 36 pruebas
+  Python correctas y smoke visual en Chrome para escritorio y móvil.
+
 ## Datos y frecuencia
 
 - El catálogo estático v5 se extrajo desde los archivos locales `sqpack`; incluye
@@ -107,20 +152,17 @@ Caso de regresión verificado:
 
 ## Decisiones pendientes
 
-1. Confirmar que la próxima corrida programada publica `priceBasis=MIN_LISTING` y
-   que no reaparece el promedio en conversiones.
-2. Seguir acumulando historial antes de usar ML. La primera comparación debería ser
+1. Seguir acumulando historial antes de usar ML. La primera comparación debería ser
    contra las reglas actuales mediante backtesting, no un modelo desplegado a ciegas.
-3. Diseñar inteligencia de lanzamiento por categorías usando ventanas equivalentes
+2. Diseñar inteligencia de lanzamiento por categorías usando ventanas equivalentes
    de expansiones anteriores.
-4. Decidir si solicitar el snapshot histórico a Universalis o ejecutar un backfill
+3. Decidir si solicitar el snapshot histórico a Universalis o ejecutar un backfill
    progresivo del endpoint `/history`.
-5. Evaluar una señal de profundidad de mercado: el listing mínimo es conservador
-   frente a promedios inflados, pero una cantidad grande debería considerar varios
-   niveles de listings.
-6. Securitizar la página/API cuando el usuario lo solicite; por ahora debe seguir
+4. Observar durante varios refresh la cobertura y utilidad de la nueva profundidad
+   de listings antes de ampliar la shortlist más allá de 100 ítems.
+5. Securitizar la página/API cuando el usuario lo solicite; por ahora debe seguir
    pública.
-7. Revisar gasto real de Google Cloud después de varios días completos de operación;
+6. Revisar gasto real de Google Cloud después de varios días completos de operación;
    mantener Vertex AI deshabilitado mientras ML esté pospuesto.
 
 ## Verificación y operación
@@ -132,7 +174,7 @@ $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 ```
 
-Estado al cierre: 35 pruebas exitosas.
+Estado al cierre: 36 pruebas exitosas.
 
 Health productivo:
 
@@ -150,8 +192,8 @@ configuración activa del CLI puede apuntar a otro proyecto:
 No iniciar manualmente `cactuar-refresh` sólo para recalcular una vista. Para una
 republicación sin requests de mercado debe usarse `cactuar-archive`.
 
-## Punto recomendado para mañana
+## Punto recomendado para continuar
 
-Comenzar revisando `/v1/health` y `/v1/dashboard`, comprobar el siguiente refresh
-programado y luego elegir entre dos líneas de trabajo: profundidad de listings para
-conversiones grandes o diseño del histórico de categorías de expansiones.
+Publicar y observar en el próximo refresh la profundidad de listings, Proyecciones y
+Snipeos. Después conviene calibrar sus umbrales contra datos reales sin convertir las
+señales explicables en promesas de rentabilidad.

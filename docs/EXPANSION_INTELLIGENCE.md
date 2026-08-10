@@ -35,3 +35,17 @@ En la consola de BigQuery, pegar la consulta y crear dos parámetros:
 
 Para profundizar, se reemplaza la selección final por una agrupación a nivel de
 `item_id`; así se obtienen los ítems que explican el crecimiento de cada categoría.
+
+## Radar web actual
+
+La página `projections.html` usa reglas deterministas y recalculables. Suma señales
+de aceleración de demanda, precio, liquidez, estabilidad, cantidad de snapshots y
+coincidencias con la evidencia curada de lanzamientos. Resta puntos por enfriamiento
+y volatilidad. No extrapola un precio futuro ni presenta probabilidad estadística.
+
+La página `snipes.html` busca el caso inverso: un listing mínimo anormalmente bajo.
+La referencia es el menor valor entre la mediana histórica de listings y la mediana
+de ventas. Requiere al menos tres snapshots, 25% de descuento, actividad y margen
+después del fee; para ítems muy volátiles exige 50% de descuento. Hasta verificar
+el stock detallado, cada resultado es sólo una alerta para comprobar dentro del
+juego.

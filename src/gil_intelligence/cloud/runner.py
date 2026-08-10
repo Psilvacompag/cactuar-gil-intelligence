@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sqlite3
 import time
@@ -142,7 +143,15 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         fee_rate=settings.fee_rate,
     )
     candidate_payload = json.loads(opportunities_path.read_text(encoding="utf-8"))
-    candidates = candidate_payload.get("opportunities", [])
+    candidates = list(candidate_payload.get("opportunities", []))
+    dashboard_payload = json.loads(dashboard_path.read_text(encoding="utf-8"))
+    depth_candidates = _conversion_depth_candidates(dashboard_payload)
+    candidates.extend(depth_candidates)
+    _emit(
+        "Detailed listing shortlist prepared",
+        opportunityCandidates=len(candidate_payload.get("opportunities", [])),
+        conversionDepthCandidates=len(depth_candidates),
+    )
     detail_summary = None
     detail_error = None
     detail_batch_count = 0
@@ -174,6 +183,12 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
             severity="WARNING",
             detail=detail_error,
         )
+    dashboard_summary = export_currency_dashboard(
+        database_path,
+        dashboard_path,
+        scope=settings.scope,
+        valuation_run_id=valuation_summary.valuation_run_id,
+    )
     archive = BigQueryArchive(
         project_id=settings.project_id,
         dataset_id=settings.bigquery_dataset,
@@ -359,6 +374,66 @@ def _has_static_snapshot(database_path: Path, snapshot_id: str) -> bool:
     finally:
         connection.close()
     return row is not None
+
+
+def _conversion_depth_candidates(
+    dashboard: dict[str, Any],
+    *,
+    home_world_id: int = 79,
+    limit: int = 100,
+) -> list[dict[str, int]]:
+    if limit < 1:
+        return []
+    conversions = dashboard.get("conversions")
+    if not isinstance(conversions, list):
+        return []
+    eligible = [
+        item
+        for item in conversions
+        if isinstance(item, dict)
+        and item.get("status") == "FRESH"
+        and isinstance(item.get("rewardItemId"), int)
+        and not isinstance(item.get("rewardItemId"), bool)
+        and item["rewardItemId"] > 0
+        and isinstance(item.get("currencyItemId"), int)
+        and isinstance(item.get("netGilPerCurrency"), (int, float))
+        and item["netGilPerCurrency"] > 0
+    ]
+    eligible.sort(
+        key=lambda item: (
+            float(item["netGilPerCurrency"]),
+            float(item.get("dailySaleVelocity") or 0),
+        ),
+        reverse=True,
+    )
+    selected: list[dict[str, int]] = []
+    seen_rewards: set[int] = set()
+    seen_currencies: set[int] = set()
+
+    def add(item: dict[str, Any]) -> None:
+        reward_id = int(item["rewardItemId"])
+        if reward_id in seen_rewards or len(selected) >= limit:
+            return
+        seen_rewards.add(reward_id)
+        seen_currencies.add(int(item["currencyItemId"]))
+        selected.append({"itemId": reward_id, "sourceWorldId": home_world_id})
+
+    for item in eligible:
+        if item["currencyItemId"] not in seen_currencies:
+            add(item)
+        if len(selected) >= min(limit, 75):
+            break
+    liquid = sorted(
+        eligible,
+        key=lambda item: float(item["netGilPerCurrency"])
+        * math.sqrt(max(0.0, float(item.get("dailySaleVelocity") or 0))),
+        reverse=True,
+    )
+    for item in liquid:
+        add(item)
+        if len(selected) >= limit:
+            break
+    return selected
 
 
 if __name__ == "__main__":

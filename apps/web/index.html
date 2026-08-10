@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#071426" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
     />
     <meta
       name="description"
@@ -23,6 +23,9 @@
     />
     <meta property="og:url" content="https://psilvacompag.github.io/cactuar-gil-intelligence/" />
     <title>Gil Intelligence · Cactuar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -41,6 +44,8 @@
         <a class="active" href="./" aria-current="page">Conversiones</a>
         <a href="./market.html">Mercado</a>
         <a href="./opportunities.html">Oportunidades</a>
+        <a href="./projections.html">Proyecciones</a>
+        <a href="./snipes.html">Snipeos</a>
       </nav>
       <div class="topbar-meta">
         <span class="live-dot" aria-hidden="true"></span>
@@ -117,6 +122,8 @@
               <option value="velocity">Liquidez</option>
               <option value="price">Listing mínimo</option>
               <option value="currency">Nombre de moneda</option>
+              <option value="reward">Nombre de recompensa</option>
+              <option value="cost">Menor costo</option>
             </select>
           </label>
           <label class="toggle-control">
@@ -132,12 +139,12 @@
           <table>
             <thead>
               <tr>
-                <th>Moneda</th>
-                <th>Recompensa</th>
-                <th class="numeric">Costo</th>
-                <th class="numeric">Listing mínimo</th>
-                <th class="numeric">Gil / moneda</th>
-                <th class="numeric">Ventas / día</th>
+                <th data-sort="currency"><button class="sort-button" type="button">Moneda<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort="reward"><button class="sort-button" type="button">Recompensa<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="cost"><button class="sort-button" type="button">Costo<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="price"><button class="sort-button" type="button">Listing mínimo<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="net"><button class="sort-button" type="button">Gil / moneda<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="velocity"><button class="sort-button" type="button">Ventas / día<span class="help-tip" data-tip="Universalis a veces omite la velocidad mundial aunque existan ventas. ‘Sin datos Cactuar’ no equivale a cero ventas." aria-hidden="true">?</span><span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -172,7 +179,7 @@
         </div>
         <div class="method-grid">
           <p><span>01</span> El gil por moneda usa el listing mínimo actual e incluye el fee configurado.</p>
-          <p><span>02</span> La velocidad corresponde a ventas observadas.</p>
+          <p><span>02</span> La velocidad corresponde a ventas observadas. “Sin datos” significa que Universalis no publicó la métrica para Cactuar; no significa cero ventas.</p>
           <p><span>03</span> Los datos fuera de la ventana de frescura se marcan como antiguos.</p>
         </div>
       </section>

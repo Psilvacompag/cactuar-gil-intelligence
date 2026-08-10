@@ -6,6 +6,7 @@ const state = {
   search: "",
   currencyId: null,
   sort: "net",
+  sortDirection: "desc",
   freshOnly: true,
   page: 1,
   pageSize: 50,
@@ -249,6 +250,7 @@ function applyFilters() {
     ].join(" ")).includes(query);
   });
   state.filtered.sort(sorter(state.sort));
+  updateSortHeaders();
   renderRows();
 }
 
@@ -314,16 +316,22 @@ function goToPage(page) {
 
 function createRow(item) {
   const row = elements.rowTemplate.content.firstElementChild.cloneNode(true);
-  fillEntity(row.querySelector(".currency-entity"), item.currencyName, `Item ${item.currencyItemId}`);
+  fillEntity(row.querySelector(".currency-entity"), item.currencyName, `Item ${item.currencyItemId}`, "coin", "gold");
   fillEntity(
     row.querySelector(".reward-entity"),
     `${item.rewardName}${item.rewardIsHq ? " · HQ" : ""}`,
     item.shopName,
+    "item",
   );
   row.querySelector(".cost-cell").textContent = `${integerFormat.format(item.currencyQuantity)}×`;
   row.querySelector(".price-cell").textContent = gil(item.marketUnitPrice);
   row.querySelector(".net-cell").textContent = gil(item.netGilPerCurrency);
-  row.querySelector(".velocity-cell").textContent = velocity(item.dailySaleVelocity);
+  const velocityCell = row.querySelector(".velocity-cell");
+  velocityCell.textContent = velocity(item.dailySaleVelocity);
+  if (item.dailySaleVelocity === null || item.dailySaleVelocity === undefined) {
+    velocityCell.classList.add("missing-data");
+    velocityCell.title = "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas.";
+  }
   const pill = row.querySelector(".status-pill");
   pill.textContent = item.status === "FRESH" ? "FRESCO" : "ANTIGUO";
   pill.classList.add(item.status.toLowerCase());
@@ -337,13 +345,26 @@ function createRow(item) {
   return row;
 }
 
-function fillEntity(container, name, detail) {
+function fillEntity(container, name, detail, icon = "item", tone = "") {
   const strong = document.createElement("strong");
   const small = document.createElement("small");
+  const copy = document.createElement("span");
   strong.textContent = name;
   strong.title = name;
   small.textContent = detail;
-  container.append(strong, small);
+  copy.append(strong, small);
+  container.classList.add("entity-with-icon");
+  container.append(createItemIcon(icon, tone), copy);
+}
+
+function createItemIcon(kind, tone = "") {
+  const icon = document.createElement("span");
+  icon.className = `item-icon ${tone}`.trim();
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = kind === "coin"
+    ? '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7" ry="3.5"/><path d="M5 7v5c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5V7M5 12v5c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5v-5"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg>';
+  return icon;
 }
 
 function showDetail(item) {
@@ -363,6 +384,7 @@ function showDetail(item) {
         <div><small>Ventas / día</small><strong>${velocity(item.dailySaleVelocity)}</strong></div>
         <div><small>Último upload</small><strong>${formatDate(item.latestUploadAt)}</strong></div>
       </div>
+      ${depthMarkup(item.listingDepth)}
       <section class="history-panel">
         <div class="history-heading">
           <div>
@@ -378,6 +400,22 @@ function showDetail(item) {
     </div>`;
   elements.dialog.showModal();
   renderHistory(item);
+}
+
+function depthMarkup(depth) {
+  if (!depth) {
+    return `<section class="depth-panel unverified"><div class="depth-heading"><span class="item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 14h12M8 10h8M10 6h4"/></svg></span><div><small>PROFUNDIDAD</small><strong>Aún no verificada</strong></div></div><p>Esta conversión no entró en la muestra detallada. El listing mínimo sigue siendo válido, pero confirma cantidades y competidores en el juego.</p></section>`;
+  }
+  const pressureLabel = ({ HIGH: "Competencia alta", MEDIUM: "Competencia media", LOW: "Competencia baja", UNKNOWN: "Sin velocidad mundial" })[depth.pressure] || depth.pressure;
+  const supply = depth.nearFloorSupplyDays === null || depth.nearFloorSupplyDays === undefined
+    ? "No calculable sin ventas/día de Cactuar"
+    : `${decimalFormat.format(depth.nearFloorSupplyDays)} días de ventas`;
+  return `<section class="depth-panel ${String(depth.pressure).toLowerCase()}">
+    <div class="depth-heading"><span class="item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 14h12M8 10h8M10 6h4"/></svg></span><div><small>PROFUNDIDAD · 20 LISTINGS</small><strong>${escapeHtml(pressureLabel)}</strong></div><b>${integerFormat.format(depth.nearFloorUnits)} u.</b></div>
+    <div class="depth-stats"><div><small>Unidades hasta +10%</small><strong>${integerFormat.format(depth.nearFloorUnits)}</strong></div><div><small>Cobertura al ritmo actual</small><strong>${escapeHtml(supply)}</strong></div><div><small>Precio medio primeras ${integerFormat.format(depth.weightedUnitCount)} u.</small><strong>${gil(depth.weightedPriceForUnits)}</strong></div><div><small>Total observado</small><strong>${integerFormat.format(depth.unitsObserved)} u.</strong></div></div>
+    <div class="depth-tiers">${depth.tiers.map((tier) => `<span>${integerFormat.format(tier.quantity)} × ${gil(tier.pricePerUnit)}</span>`).join("")}</div>
+    <p>Mide oferta competidora cerca del piso. Mucha oferta frente a las ventas diarias aumenta el riesgo de undercut; no garantiza compradores.</p>
+  </section>`;
 }
 
 async function loadHistory() {
@@ -494,10 +532,39 @@ function shortDate(value) {
 }
 
 function sorter(mode) {
-  if (mode === "velocity") return (a, b) => (b.dailySaleVelocity || 0) - (a.dailySaleVelocity || 0);
-  if (mode === "price") return (a, b) => (b.marketUnitPrice || 0) - (a.marketUnitPrice || 0);
-  if (mode === "currency") return (a, b) => a.currencyName.localeCompare(b.currencyName, "es");
-  return (a, b) => (b.netGilPerCurrency || 0) - (a.netGilPerCurrency || 0);
+  let compare;
+  if (mode === "velocity") compare = (a, b) => numericValue(a.dailySaleVelocity) - numericValue(b.dailySaleVelocity);
+  else if (mode === "price") compare = (a, b) => numericValue(a.marketUnitPrice) - numericValue(b.marketUnitPrice);
+  else if (mode === "cost") compare = (a, b) => numericValue(a.currencyQuantity) - numericValue(b.currencyQuantity);
+  else if (mode === "currency") compare = (a, b) => a.currencyName.localeCompare(b.currencyName, "es");
+  else if (mode === "reward") compare = (a, b) => a.rewardName.localeCompare(b.rewardName, "es");
+  else compare = (a, b) => numericValue(a.netGilPerCurrency) - numericValue(b.netGilPerCurrency);
+  return state.sortDirection === "asc"
+    ? (a, b) => compare(a, b) || a.rewardName.localeCompare(b.rewardName, "es")
+    : (a, b) => -compare(a, b) || a.rewardName.localeCompare(b.rewardName, "es");
+}
+
+function numericValue(value) { return Number.isFinite(value) ? value : -Infinity; }
+function defaultSortDirection(mode) { return ["currency", "reward", "cost"].includes(mode) ? "asc" : "desc"; }
+function setSort(mode, toggle = false) {
+  state.sortDirection = toggle && state.sort === mode
+    ? (state.sortDirection === "asc" ? "desc" : "asc")
+    : defaultSortDirection(mode);
+  state.sort = mode;
+  elements.sort.value = mode;
+  state.page = 1;
+  applyFilters();
+}
+function updateSortHeaders() {
+  document.querySelectorAll("th[data-sort]").forEach((header) => {
+    if (header.dataset.sort === state.sort) header.setAttribute("aria-sort", state.sortDirection === "asc" ? "ascending" : "descending");
+    else header.removeAttribute("aria-sort");
+  });
+}
+function bindSortableHeaders() {
+  document.querySelectorAll("th[data-sort] .sort-button").forEach((button) => {
+    button.addEventListener("click", () => setSort(button.closest("th").dataset.sort, true));
+  });
 }
 
 function normalize(value) {
@@ -510,7 +577,7 @@ function gil(value) {
 }
 
 function velocity(value) {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "Sin datos Cactuar";
   return `${decimalFormat.format(value)} /d`;
 }
 
@@ -544,7 +611,7 @@ elements.search.addEventListener("input", (event) => {
   state.page = 1;
   applyFilters();
 });
-elements.sort.addEventListener("change", (event) => { state.sort = event.target.value; state.page = 1; applyFilters(); });
+elements.sort.addEventListener("change", (event) => setSort(event.target.value));
 elements.fresh.addEventListener("change", (event) => { state.freshOnly = event.target.checked; state.page = 1; applyFilters(); });
 elements.pagePrevious.addEventListener("click", () => goToPage(state.page - 1));
 elements.pageNext.addEventListener("click", () => goToPage(state.page + 1));
@@ -568,4 +635,5 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+bindSortableHeaders();
 loadDashboard();

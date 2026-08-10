@@ -10,6 +10,7 @@ const state = {
   search: "",
   category: "",
   sort: "velocity",
+  sortDirection: "desc",
   freshOnly: true,
   watchOnly: false,
   watchlist: loadWatchlist(),
@@ -127,19 +128,24 @@ function applyFilters() {
     ].join(" ")).includes(query);
   });
   state.filtered.sort(sorter(state.sort));
+  updateSortHeaders();
   renderRows();
   renderWatchSummary();
 }
 
 function sorter(sort) {
-  const descending = (getter) => (a, b) =>
-    numberOrLow(getter(b)) - numberOrLow(getter(a)) || nameCollator.compare(a.name, b.name);
-  if (sort === "revenue") return descending((item) => item.estimatedDailyRevenue);
-  if (sort === "profit") return descending(craftProfit);
-  if (sort === "momentum") return descending((item) => item.trend?.velocityChangeRatio);
-  if (sort === "price") return descending((item) => item.averageSalePrice);
-  if (sort === "name") return (a, b) => nameCollator.compare(a.name, b.name);
-  return descending((item) => item.dailySaleVelocity);
+  let compare;
+  if (sort === "revenue") compare = (a, b) => numberOrLow(a.estimatedDailyRevenue) - numberOrLow(b.estimatedDailyRevenue);
+  else if (sort === "profit") compare = (a, b) => numberOrLow(craftProfit(a)) - numberOrLow(craftProfit(b));
+  else if (sort === "momentum") compare = (a, b) => numberOrLow(a.trend?.velocityChangeRatio) - numberOrLow(b.trend?.velocityChangeRatio);
+  else if (sort === "price") compare = (a, b) => numberOrLow(a.averageSalePrice) - numberOrLow(b.averageSalePrice);
+  else if (sort === "name") compare = (a, b) => nameCollator.compare(a.name, b.name);
+  else if (sort === "category") compare = (a, b) => nameCollator.compare(categoryName(a), categoryName(b));
+  else if (sort === "origin") compare = (a, b) => nameCollator.compare(originLabel(a), originLabel(b));
+  else compare = (a, b) => numberOrLow(a.dailySaleVelocity) - numberOrLow(b.dailySaleVelocity);
+  return state.sortDirection === "asc"
+    ? (a, b) => compare(a, b) || nameCollator.compare(a.name, b.name)
+    : (a, b) => -compare(a, b) || nameCollator.compare(a.name, b.name);
 }
 
 function renderRows() {
@@ -157,7 +163,9 @@ function renderRows() {
     ? `${integerFormat.format(state.filtered.length)} ${noun} · ${integerFormat.format(firstIndex + 1)}–${integerFormat.format(lastIndex)}`
     : `0 ${noun}`;
   elements.empty.hidden = state.filtered.length !== 0;
-  elements.valueLabel.textContent = state.mode === "crafting" ? "Ganancia / día" : "Gil / día";
+  elements.valueLabel.dataset.sort = state.mode === "crafting" ? "profit" : "revenue";
+  elements.valueLabel.querySelector(".sort-label").textContent = state.mode === "crafting" ? "Ganancia / día" : "Gil / día";
+  updateSortHeaders();
   renderPagination(totalPages);
 }
 
@@ -167,11 +175,11 @@ function createRow(item) {
   const value = state.mode === "crafting" ? craftProfit(item) : item.estimatedDailyRevenue;
   const trend = item.trend?.signal || "NEW";
   row.innerHTML = `
-    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button><span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>Item ${item.itemId}</small></span></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(state.mode === "gathering" ? "leaf" : "craft")}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>Item ${item.itemId}</small></span></div></td>
     <td data-label="Origen / oficio"><div class="entity"><strong>${escapeHtml(originLabel(item))}</strong><small>${state.mode === "gathering" ? "Gathering" : "Crafting"}</small></div></td>
     <td data-label="Categoría">${escapeHtml(categoryName(item) || "Sin categoría")}</td>
     <td data-label="Precio medio" class="numeric">${gil(item.averageSalePrice)}</td>
-    <td data-label="Ventas / día" class="numeric">${velocity(item.dailySaleVelocity)}</td>
+    <td data-label="Ventas / día" class="numeric velocity-cell ${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "missing-data" : ""}" title="${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas." : ""}">${velocity(item.dailySaleVelocity)}</td>
     <td data-label="${state.mode === "crafting" ? "Ganancia / día" : "Gil / día"}" class="numeric net-cell">${gil(value)}</td>
     <td data-label="Tendencia"><span class="trend-pill ${trend.toLowerCase()}">${trendLabel(trend)}</span></td>
   `;
@@ -322,6 +330,35 @@ function setMode(mode) {
   applyFilters();
 }
 
+function itemIcon(kind) {
+  const svg = kind === "leaf"
+    ? '<svg viewBox="0 0 24 24"><path d="M20 4C11 4 5.5 8.4 5.5 14.3c0 2.7 1.8 4.7 4.5 4.7 5.9 0 9.3-6.4 10-15Z"/><path d="M4 21c2.7-5.4 6.5-8.7 12-11"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="m14.5 5.5 4 4M13 7l4 4-8.5 8.5-4-4L13 7Z"/><path d="m15.5 4.5 2-2 4 4-2 2M3 21l4.5-1.5"/></svg>';
+  return `<span class="item-icon" aria-hidden="true">${svg}</span>`;
+}
+
+function defaultSortDirection(mode) { return ["name", "category", "origin"].includes(mode) ? "asc" : "desc"; }
+function setSort(mode, toggle = false) {
+  state.sortDirection = toggle && state.sort === mode
+    ? (state.sortDirection === "asc" ? "desc" : "asc")
+    : defaultSortDirection(mode);
+  state.sort = mode;
+  if ([...elements.sort.options].some((option) => option.value === mode)) elements.sort.value = mode;
+  state.page = 1;
+  applyFilters();
+}
+function updateSortHeaders() {
+  document.querySelectorAll("th[data-sort]").forEach((header) => {
+    if (header.dataset.sort === state.sort) header.setAttribute("aria-sort", state.sortDirection === "asc" ? "ascending" : "descending");
+    else header.removeAttribute("aria-sort");
+  });
+}
+function bindSortableHeaders() {
+  document.querySelectorAll("th[data-sort] .sort-button").forEach((button) => {
+    button.addEventListener("click", () => setSort(button.closest("th").dataset.sort, true));
+  });
+}
+
 function renderPagination(totalPages) {
   elements.pagination.hidden = state.filtered.length === 0;
   elements.pagePrevious.disabled = state.page <= 1;
@@ -391,7 +428,7 @@ function craftConfidenceLabel(value) { return ({ HIGH: "ALTA", MEDIUM: "MEDIA", 
 function normalize(value) { return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
 function numberOrLow(value) { return Number.isFinite(value) ? value : -Infinity; }
 function gil(value) { return value === null || value === undefined ? "—" : `${gilFormat.format(value)} gil`; }
-function velocity(value) { return value === null || value === undefined ? "—" : `${decimalFormat.format(value)} /d`; }
+function velocity(value) { return value === null || value === undefined ? "Sin datos Cactuar" : `${decimalFormat.format(value)} /d`; }
 function ratio(value) { return value === null || value === undefined ? "—" : percentFormat.format(value); }
 function change(value) { return value === null || value === undefined ? "sin comparación" : `${value >= 0 ? "+" : ""}${percentFormat.format(value)}`; }
 function relativeTime(value) {
@@ -408,7 +445,7 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (cha
 elements.gatheringTab.addEventListener("click", () => setMode("gathering"));
 elements.craftingTab.addEventListener("click", () => setMode("crafting"));
 elements.search.addEventListener("input", (event) => { state.search = event.target.value; state.page = 1; applyFilters(); });
-elements.sort.addEventListener("change", (event) => { state.sort = event.target.value; state.page = 1; applyFilters(); });
+elements.sort.addEventListener("change", (event) => setSort(event.target.value));
 elements.category.addEventListener("change", (event) => { state.category = event.target.value; state.page = 1; applyFilters(); });
 elements.fresh.addEventListener("change", (event) => { state.freshOnly = event.target.checked; state.page = 1; applyFilters(); });
 elements.watchOnly.addEventListener("change", (event) => { state.watchOnly = event.target.checked; state.page = 1; applyFilters(); });
@@ -421,4 +458,5 @@ document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); }
 });
 
+bindSortableHeaders();
 loadMarket();

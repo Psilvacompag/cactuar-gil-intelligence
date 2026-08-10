@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#071426" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
     />
     <meta
       name="description"
@@ -15,6 +15,9 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://psilvacompag.github.io/cactuar-gil-intelligence/market.html" />
     <title>Mercado de producción · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -33,6 +36,8 @@
         <a href="./">Conversiones</a>
         <a class="active" href="./market.html" aria-current="page">Mercado</a>
         <a href="./opportunities.html">Oportunidades</a>
+        <a href="./projections.html">Proyecciones</a>
+        <a href="./snipes.html">Snipeos</a>
       </nav>
       <div class="topbar-meta">
         <span class="live-dot" aria-hidden="true"></span>
@@ -117,6 +122,8 @@
               <option value="momentum">Demanda en alza</option>
               <option value="price">Mayor precio medio</option>
               <option value="name">Nombre</option>
+              <option value="category">Categoría</option>
+              <option value="origin">Origen / oficio</option>
             </select>
           </label>
           <label class="select-control">
@@ -141,12 +148,12 @@
           <table class="production-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Origen / oficio</th>
-                <th>Categoría</th>
-                <th class="numeric">Precio medio</th>
-                <th class="numeric">Ventas / día</th>
-                <th id="value-column-label" class="numeric">Gil / día</th>
+                <th data-sort="name"><button class="sort-button" type="button">Item<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort="origin"><button class="sort-button" type="button">Origen / oficio<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort="category"><button class="sort-button" type="button">Categoría<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="price"><button class="sort-button" type="button">Precio medio<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="velocity"><button class="sort-button" type="button">Ventas / día<span class="help-tip" data-tip="Universalis a veces omite la velocidad mundial aunque existan ventas. ‘Sin datos Cactuar’ no equivale a cero ventas." aria-hidden="true">?</span><span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th id="value-column-label" class="numeric" data-sort="revenue"><button class="sort-button" type="button"><span class="sort-label">Gil / día</span><span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -180,7 +187,7 @@
           <h2>Demanda antes que precio.</h2>
         </div>
         <div class="method-grid">
-          <p><span>01</span> “Más vendidos” usa la velocidad de ventas observada en Cactuar.</p>
+          <p><span>01</span> “Más vendidos” usa la velocidad observada en Cactuar. “Sin datos” significa que Universalis no publicó esa métrica mundial; no significa cero ventas.</p>
           <p><span>02</span> En Crafting se descuentan materiales y fee usando una venta conservadora; abre una fila para ver la receta.</p>
           <p><span>03</span> El historial permite distinguir una demanda sostenida de un salto aislado. La estrella guarda una lista local en este navegador.</p>
         </div>

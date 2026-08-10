@@ -46,7 +46,7 @@ class CurrencyValuationTests(unittest.TestCase):
             snapshot_path = root / "static.json"
             snapshot_path.write_text(json.dumps(static_payload), encoding="utf-8")
             import_static_snapshot(snapshot_path, database_path)
-            import_universalis_aggregates(
+            market_import = import_universalis_aggregates(
                 {
                     "results": [
                         {
@@ -119,6 +119,63 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertEqual(exported["meta"]["scopeLevel"], "WORLD")
             self.assertEqual(exported["meta"]["priceBasis"], "MIN_LISTING")
             self.assertEqual(exported["conversions"][0]["rewardName"], "Fire Shard")
+            self.assertIsNone(exported["conversions"][0]["listingDepth"])
+
+            import_detailed_listings(
+                DetailedListingCollection(
+                    requested_pairs=((79, 2),),
+                    batch_count=1,
+                    items=(
+                        {
+                            "itemId": 2,
+                            "worldId": 79,
+                            "lastUploadTime": 1786309130257,
+                            "listings": [
+                                {
+                                    "rank": 0,
+                                    "listingId": "floor",
+                                    "pricePerUnit": 80,
+                                    "quantity": 2,
+                                    "hq": False,
+                                    "lastReviewTime": 1786309130,
+                                },
+                                {
+                                    "rank": 1,
+                                    "listingId": "next",
+                                    "pricePerUnit": 88,
+                                    "quantity": 4,
+                                    "hq": False,
+                                    "lastReviewTime": 1786309130,
+                                },
+                                {
+                                    "rank": 2,
+                                    "listingId": "high",
+                                    "pricePerUnit": 120,
+                                    "quantity": 20,
+                                    "hq": False,
+                                    "lastReviewTime": 1786309130,
+                                },
+                            ],
+                        },
+                    ),
+                ),
+                database_path,
+                market_snapshot_id=market_import.snapshot_id,
+                collected_at="2026-08-09T21:07:00+00:00",
+                request_count=1,
+            )
+            export_currency_dashboard(
+                database_path,
+                dashboard_path,
+                scope="Cactuar",
+                valuation_run_id=summary.valuation_run_id,
+            )
+            depth = json.loads(dashboard_path.read_text(encoding="utf-8"))["conversions"][0]["listingDepth"]
+            self.assertTrue(depth["verified"])
+            self.assertEqual(depth["nearFloorUnits"], 6)
+            self.assertEqual(depth["pressure"], "HIGH")
+            self.assertAlmostEqual(depth["nearFloorSupplyDays"], 2.0)
+            self.assertEqual(depth["weightedUnitCount"], 20)
 
             history_path = root / "web" / "data" / "history.json"
             history = export_currency_history(database_path, history_path, scope="Cactuar")

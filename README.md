@@ -7,15 +7,21 @@ Backend público de sólo lectura: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
 Sistema para analizar el Market Board, valorar conversiones de monedas y construir
 señales de demanda para expansiones y parches.
 
-La web tiene tres exploradores:
+La web tiene cinco exploradores:
 
 - **Conversiones:** recompensas comprables con monedas y su gil neto por moneda.
 - **Mercado:** rankings buscables, historial de precio y rentabilidad de recetas para gathering y crafting.
 - **Oportunidades:** cruces conservadores entre mundos de Aether, stock verificado y optimizador de capital para vender en Cactuar.
+- **Proyecciones:** radar determinista de posible subida basado en demanda, liquidez,
+  estabilidad y patrones históricos curados.
+- **Snipeos:** caídas anómalas del listing mínimo frente a referencias históricas;
+  exige descuento, margen, actividad y al menos tres snapshots.
 
 Las oportunidades son señales explicables, no garantías: aplican estrés de precio,
 fee, liquidez, frescura y persistencia. La shortlist comprueba hasta 20 listings por
 item y world; el precio debe confirmarse igualmente en el juego antes de comprar.
+Las conversiones mejor rankeadas muestrean además hasta 20 listings de Cactuar para
+medir competencia cerca del piso y días de oferta al ritmo de ventas observado.
 
 La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
 mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico

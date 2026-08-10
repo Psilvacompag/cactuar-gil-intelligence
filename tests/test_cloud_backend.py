@@ -9,6 +9,7 @@ from gil_intelligence.cloud.config import CloudSettings
 from gil_intelligence.cloud.dashboard import DashboardCache
 from gil_intelligence.cloud.gcs import StoredObject
 from gil_intelligence.cloud.quality import DataQualityError, evaluate_refresh_quality
+from gil_intelligence.cloud.runner import _conversion_depth_candidates
 from gil_intelligence.cloud.api import _accepts_gzip, _age_hours
 from gil_intelligence.storage import MarketImportSummary
 from gil_intelligence.storage.retention import prune_market_history
@@ -57,6 +58,23 @@ class CloudSettingsTests(unittest.TestCase):
         self.assertTrue(_accepts_gzip("br, gzip"))
         self.assertTrue(_accepts_gzip("*;q=0.5"))
         self.assertFalse(_accepts_gzip("gzip;q=0, br"))
+
+    def test_conversion_depth_shortlist_covers_currencies_and_deduplicates_rewards(self) -> None:
+        dashboard = {
+            "conversions": [
+                {"status": "FRESH", "rewardItemId": 100, "currencyItemId": 1, "netGilPerCurrency": 30, "dailySaleVelocity": None},
+                {"status": "FRESH", "rewardItemId": 100, "currencyItemId": 2, "netGilPerCurrency": 20, "dailySaleVelocity": 50},
+                {"status": "FRESH", "rewardItemId": 200, "currencyItemId": 2, "netGilPerCurrency": 10, "dailySaleVelocity": 25},
+                {"status": "STALE", "rewardItemId": 300, "currencyItemId": 3, "netGilPerCurrency": 999, "dailySaleVelocity": 99},
+            ]
+        }
+
+        candidates = _conversion_depth_candidates(dashboard, limit=3)
+
+        self.assertEqual(candidates, [
+            {"itemId": 100, "sourceWorldId": 79},
+            {"itemId": 200, "sourceWorldId": 79},
+        ])
 
 
 class DashboardCacheTests(unittest.TestCase):

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#071426" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
     />
     <meta
       name="description"
@@ -15,6 +15,9 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://psilvacompag.github.io/cactuar-gil-intelligence/opportunities.html" />
     <title>Oportunidades · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -33,6 +36,8 @@
         <a href="./">Conversiones</a>
         <a href="./market.html">Mercado</a>
         <a class="active" href="./opportunities.html" aria-current="page">Oportunidades</a>
+        <a href="./projections.html">Proyecciones</a>
+        <a href="./snipes.html">Snipeos</a>
       </nav>
       <div class="topbar-meta">
         <span class="live-dot" aria-hidden="true"></span>
@@ -138,6 +143,11 @@
               <option value="profit">Ganancia por unidad</option>
               <option value="velocity">Más vendidos</option>
               <option value="roi">Mayor retorno</option>
+              <option value="name">Nombre</option>
+              <option value="world">Mundo de compra</option>
+              <option value="buy">Menor compra</option>
+              <option value="sell">Mayor venta</option>
+              <option value="stock">Mayor stock</option>
             </select>
           </label>
           <label class="toggle-control">
@@ -153,15 +163,15 @@
           <table class="opportunities-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Comprar en</th>
-                <th class="numeric">Compra</th>
-                <th class="numeric">Venta conservadora</th>
-                <th class="numeric">Ganancia / u.</th>
-                <th class="numeric">ROI</th>
-                <th class="numeric">Ventas / día</th>
-                <th>Stock</th>
-                <th>Confianza</th>
+                <th data-sort="name"><button class="sort-button" type="button">Item<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort="world"><button class="sort-button" type="button">Comprar en<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="buy"><button class="sort-button" type="button">Compra<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="sell"><button class="sort-button" type="button">Venta conservadora<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="profit"><button class="sort-button" type="button">Ganancia / u.<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="roi"><button class="sort-button" type="button">ROI<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="numeric" data-sort="velocity"><button class="sort-button" type="button">Ventas / día<span class="help-tip" data-tip="Universalis a veces omite la velocidad mundial aunque existan ventas. ‘Sin datos Cactuar’ no equivale a cero ventas." aria-hidden="true">?</span><span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort="stock"><button class="sort-button" type="button">Stock<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th data-sort="confidence"><button class="sort-button" type="button">Confianza<span class="sort-indicator" aria-hidden="true"></span></button></th>
               </tr>
             </thead>
             <tbody id="opportunity-rows"></tbody>

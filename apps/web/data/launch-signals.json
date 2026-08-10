@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "kind": "launch-signal-evidence",
+  "curatedAt": "2026-08-10",
+  "patterns": [
+    {
+      "key": "crystals",
+      "label": "Cristales de crafting",
+      "itemIds": [8, 10, 12],
+      "categoryNames": ["Crystals"],
+      "historicalWeight": 18,
+      "evidence": "Dawntrail y Shadowbringers mostraron absorción rápida y picos de precio en cristales.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1dzu6kj/weekly_thread_craftinggathering_market_thread_wed/"
+    },
+    {
+      "key": "overmeld_materia",
+      "label": "Materia de overmeld",
+      "itemIds": [33926, 41764, 41775, 41776, 41778, 41779, 41780],
+      "categoryNames": ["Materia"],
+      "historicalWeight": 22,
+      "evidence": "La preparación DoH/DoL y Savage produjo demanda extraordinaria de materia IX-XII.",
+      "sourceUrl": "https://thestudium.gg/articles/dawntrail-crafting-and-gathering-market-overview-pre-savage-edition"
+    },
+    {
+      "key": "leveling_collectables",
+      "label": "Ingredientes de leves y collectables",
+      "itemIds": [44073, 43985, 43986, 43978, 44034, 27756],
+      "categoryNames": [],
+      "historicalWeight": 20,
+      "evidence": "Los cuellos de botella de nivelación movieron stacks rápidamente durante varios lanzamientos.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/ca1m5e"
+    },
+    {
+      "key": "monster_fate_materials",
+      "label": "Materiales de monstruos y FATE",
+      "itemIds": [36242, 36247, 27736, 27742],
+      "categoryNames": ["Leather"],
+      "historicalWeight": 18,
+      "evidence": "La fricción de adquisición creó cuellos de botella en Endwalker y Shadowbringers.",
+      "sourceUrl": "https://www.reddit.com/r/ffxivdiscussion/comments/rd33lu"
+    },
+    {
+      "key": "precrafts",
+      "label": "Intermedios y precrafts",
+      "itemIds": [44007, 36172, 36212, 36200, 36251, 36187, 27757, 27759],
+      "categoryNames": ["Metal", "Lumber", "Cloth", "Leather"],
+      "historicalWeight": 17,
+      "evidence": "Los intermedios mantuvieron mejor demanda que parte del equipo final, cuyo precio cayó rápido.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/s25wz1"
+    },
+    {
+      "key": "crafting_consumables",
+      "label": "Consumibles de crafting",
+      "itemIds": [44091, 44169],
+      "categoryNames": ["Meals", "Medicine"],
+      "historicalWeight": 14,
+      "evidence": "Comida y tisanas HQ fueron insumos funcionales para las recetas de Savage.",
+      "sourceUrl": "https://na.finalfantasyxiv.com/lodestone/topics/detail/da01b0d2d5434cd2ccfcc87f733df7a590f97c00"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071426" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="description" content="Proyecciones explicables de precio y demanda para el Market Board de Cactuar." />
+    <title>Proyecciones · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-signal-view="projections">
+    <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio"><span class="brand-mark" aria-hidden="true">G</span><span><strong>Gil Intelligence</strong><small>Datos de mercado para FFXIV</small></span></a>
+      <nav class="site-nav" aria-label="Secciones principales">
+        <a href="./">Conversiones</a><a href="./market.html">Mercado</a><a href="./opportunities.html">Oportunidades</a><a class="active" href="./projections.html" aria-current="page">Proyecciones</a><a href="./snipes.html">Snipeos</a>
+      </nav>
+      <div class="topbar-meta"><span class="live-dot" aria-hidden="true"></span><span id="scope-label">Cactuar</span><span class="separator">/</span><span id="updated-label">Cargando…</span></div>
+    </header>
+    <main>
+      <section class="page-hero signal-hero"><div><p class="eyebrow">SEÑALES · REGLAS EXPLICABLES</p><h1>Qué podría subir después.</h1><p class="hero-lede">Combina aceleración de demanda, liquidez, estabilidad e ítems que históricamente fueron cuellos de botella. Es una priorización para investigar, no una promesa de precio.</p></div><div class="hero-index" aria-hidden="true"><span>04</span><small>Proyecciones</small></div></section>
+      <section class="metrics" aria-label="Resumen de proyecciones">
+        <article class="metric-card featured"><span class="metric-label">Radar priorizado</span><strong id="metric-signals">—</strong><small>top 150 por puntaje explicable</small></article>
+        <article class="metric-card"><span class="metric-label">Alcistas</span><strong id="metric-strong">—</strong><small>puntaje de 72 o más</small></article>
+        <article class="metric-card"><span class="metric-label">Snapshots</span><strong id="metric-history">—</strong><small>ventana histórica local</small></article>
+        <article class="metric-card"><span class="metric-label">Con patrón histórico</span><strong id="metric-coverage">—</strong><small>evidencia de lanzamientos previos</small></article>
+      </section>
+      <section class="explorer signal-explorer" aria-labelledby="explorer-title">
+        <div class="section-heading"><div><p class="eyebrow">RADAR</p><h2 id="explorer-title">Proyecciones actuales</h2></div><p id="result-count" class="result-count" aria-live="polite">Preparando señales…</p></div>
+        <div class="toolbar signal-toolbar">
+          <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar ítem o categoría</span><input id="search-input" type="search" placeholder="Busca ítem o categoría…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
+          <label class="select-control"><span>Señal</span><select id="band-select"><option value="">Todas</option><option value="ALCISTA">Alcista</option><option value="VIGILAR">Vigilar</option><option value="TEMPRANA">Temprana</option></select></label>
+          <label class="select-control"><span>Ordenar</span><select id="sort-select"><option value="score">Mayor puntaje</option><option value="velocity">Más vendidos</option><option value="price">Mayor precio</option><option value="name">Nombre</option></select></label>
+        </div>
+        <div id="signal-grid" class="signal-grid"></div>
+        <div id="empty-state" class="empty-state signal-empty" hidden><span aria-hidden="true">◇</span><h3>No hay proyecciones con esos filtros</h3><p>Amplía el nivel de señal o prueba otro nombre.</p></div>
+      </section>
+      <section class="method-note"><div><p class="eyebrow">CÓMO SE CALCULA</p><h2>Señal, no adivinación.</h2></div><div class="method-grid"><p><span>01</span> Demanda al alza, liquidez e historial suficiente elevan el puntaje.</p><p><span>02</span> Los patrones repetidos en lanzamientos aportan contexto, nunca reemplazan el mercado actual.</p><p><span>03</span> Volatilidad alta y demanda enfriándose restan puntaje. La señal se recalcula con cada snapshot.</p></div></section>
+    </main>
+    <dialog id="detail-dialog" class="detail-dialog"><button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
+    <footer><span>Gil Intelligence</span><span>Universalis + evidencia histórica curada</span><span>No automatiza acciones dentro del juego.</span></footer>
+    <script src="./config.js" defer></script><script src="./signals.js" defer></script>
+  </body>
+</html>

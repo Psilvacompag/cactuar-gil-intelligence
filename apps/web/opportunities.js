@@ -8,6 +8,7 @@ const state = {
   confidence: "recommended",
   world: "",
   sort: "confidence",
+  sortDirection: "desc",
   watchOnly: false,
   watchlist: loadWatchlist(),
   page: 1,
@@ -110,17 +111,26 @@ function applyFilters() {
     return normalize([item.name, item.itemId, item.categoryName, item.sourceWorldName, item.quality, item.stockStatus].join(" ")).includes(query);
   });
   state.filtered.sort(sorter(state.sort));
+  updateSortHeaders();
   renderRows();
   renderWatchSummary();
 }
 
 function sorter(sort) {
-  const descending = (field) => (a, b) => numberOrLow(b[field]) - numberOrLow(a[field]) || b.confidenceScore - a.confidenceScore;
-  if (sort === "trip") return descending("estimatedTripProfit");
-  if (sort === "profit") return descending("unitProfit");
-  if (sort === "velocity") return descending("dailySaleVelocity");
-  if (sort === "roi") return descending("roi");
-  return (a, b) => b.confidenceScore - a.confidenceScore || b.estimatedTripProfit - a.estimatedTripProfit || nameCollator.compare(a.name, b.name);
+  let compare;
+  if (sort === "trip") compare = (a, b) => numberOrLow(a.estimatedTripProfit) - numberOrLow(b.estimatedTripProfit);
+  else if (sort === "profit") compare = (a, b) => numberOrLow(a.unitProfit) - numberOrLow(b.unitProfit);
+  else if (sort === "velocity") compare = (a, b) => numberOrLow(a.dailySaleVelocity) - numberOrLow(b.dailySaleVelocity);
+  else if (sort === "roi") compare = (a, b) => numberOrLow(a.roi) - numberOrLow(b.roi);
+  else if (sort === "buy") compare = (a, b) => numberOrLow(a.averagePurchasePrice ?? a.sourcePrice) - numberOrLow(b.averagePurchasePrice ?? b.sourcePrice);
+  else if (sort === "sell") compare = (a, b) => numberOrLow(a.conservativeSellPrice) - numberOrLow(b.conservativeSellPrice);
+  else if (sort === "stock") compare = (a, b) => numberOrLow(a.availableUnits) - numberOrLow(b.availableUnits);
+  else if (sort === "name") compare = (a, b) => nameCollator.compare(a.name, b.name);
+  else if (sort === "world") compare = (a, b) => nameCollator.compare(a.sourceWorldName, b.sourceWorldName);
+  else compare = (a, b) => numberOrLow(a.confidenceScore) - numberOrLow(b.confidenceScore);
+  return state.sortDirection === "asc"
+    ? (a, b) => compare(a, b) || nameCollator.compare(a.name, b.name)
+    : (a, b) => -compare(a, b) || nameCollator.compare(a.name, b.name);
 }
 
 function renderRows() {
@@ -144,13 +154,13 @@ function createRow(item) {
   const row = document.createElement("tr");
   row.tabIndex = 0;
   row.innerHTML = `
-    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button><span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon()}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
     <td data-label="Comprar en"><div class="entity source-world"><strong>${escapeHtml(item.sourceWorldName)}</strong><small>Aether · World ${item.sourceWorldId}</small></div></td>
     <td data-label="Compra" class="numeric">${gil(item.averagePurchasePrice ?? item.sourcePrice)}</td>
     <td data-label="Venta conservadora" class="numeric">${gil(item.conservativeSellPrice)}</td>
     <td data-label="Ganancia / u." class="numeric net-cell">${gil(item.unitProfit)}</td>
     <td data-label="ROI" class="numeric">${percentFormat.format(item.roi)}</td>
-    <td data-label="Ventas / día" class="numeric">${velocity(item.dailySaleVelocity)}</td>
+    <td data-label="Ventas / día" class="numeric velocity-cell ${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "missing-data" : ""}" title="${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas." : ""}">${velocity(item.dailySaleVelocity)}</td>
     <td data-label="Stock"><span class="stock-pill ${item.stockVerified ? "verified" : "unverified"}">${item.stockVerified ? `${integerFormat.format(item.availableUnits)} u.` : "SIN VERIFICAR"}</span></td>
     <td data-label="Confianza"><span class="confidence-pill ${item.confidenceBand.toLowerCase()}">${confidenceLabel(item.confidenceBand)} · ${item.confidenceScore}</span></td>
   `;
@@ -255,6 +265,32 @@ function calculateCapitalPlan() {
     <p class="optimizer-note">Estimación greedy por ROI, con venta estresada, fee, stock observado y un máximo de ${percentFormat.format(maxShare)} por item. No considera impuestos de compra ni cambios posteriores.</p>`;
 }
 
+function itemIcon() {
+  return '<span class="item-icon gold" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h10M10 3l4 4-4 4M20 17H10M14 13l-4 4 4 4"/></svg></span>';
+}
+
+function defaultSortDirection(mode) { return ["name", "world", "buy"].includes(mode) ? "asc" : "desc"; }
+function setSort(mode, toggle = false) {
+  state.sortDirection = toggle && state.sort === mode
+    ? (state.sortDirection === "asc" ? "desc" : "asc")
+    : defaultSortDirection(mode);
+  state.sort = mode;
+  elements.sort.value = mode;
+  state.page = 1;
+  applyFilters();
+}
+function updateSortHeaders() {
+  document.querySelectorAll("th[data-sort]").forEach((header) => {
+    if (header.dataset.sort === state.sort) header.setAttribute("aria-sort", state.sortDirection === "asc" ? "ascending" : "descending");
+    else header.removeAttribute("aria-sort");
+  });
+}
+function bindSortableHeaders() {
+  document.querySelectorAll("th[data-sort] .sort-button").forEach((button) => {
+    button.addEventListener("click", () => setSort(button.closest("th").dataset.sort, true));
+  });
+}
+
 function scoreRow(label, value = 0, maximum) {
   return `<div class="score-row"><span>${escapeHtml(label)}</span><progress max="${maximum}" value="${Math.max(0, Math.min(maximum, value))}">${decimalFormat.format(value)}</progress><strong>${decimalFormat.format(value)}/${maximum}</strong></div>`;
 }
@@ -314,7 +350,7 @@ function confidenceLabel(value) { return ({ HIGH: "ALTA", MEDIUM: "MEDIA", WATCH
 function normalize(value) { return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
 function numberOrLow(value) { return Number.isFinite(value) ? value : -Infinity; }
 function gil(value) { return value === null || value === undefined ? "—" : `${gilFormat.format(value)} gil`; }
-function velocity(value) { return value === null || value === undefined ? "—" : `${decimalFormat.format(value)} /d`; }
+function velocity(value) { return value === null || value === undefined ? "Sin datos Cactuar" : `${decimalFormat.format(value)} /d`; }
 function relativeTime(value) {
   if (!value) return "sin fecha";
   const deltaMinutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
@@ -328,7 +364,7 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (cha
 elements.search.addEventListener("input", (event) => { state.search = event.target.value; state.page = 1; applyFilters(); });
 elements.confidence.addEventListener("change", (event) => { state.confidence = event.target.value; state.page = 1; applyFilters(); });
 elements.world.addEventListener("change", (event) => { state.world = event.target.value; state.page = 1; applyFilters(); });
-elements.sort.addEventListener("change", (event) => { state.sort = event.target.value; state.page = 1; applyFilters(); });
+elements.sort.addEventListener("change", (event) => setSort(event.target.value));
 elements.watchOnly.addEventListener("change", (event) => { state.watchOnly = event.target.checked; state.page = 1; applyFilters(); });
 elements.capitalForm.addEventListener("submit", (event) => { event.preventDefault(); calculateCapitalPlan(); });
 elements.pagePrevious.addEventListener("click", () => goToPage(state.page - 1));
@@ -338,4 +374,5 @@ document.querySelector("#dialog-close").addEventListener("click", () => elements
 elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });
 document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); } });
 
+bindSortableHeaders();
 loadOpportunities();

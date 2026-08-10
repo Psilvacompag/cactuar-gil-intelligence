@@ -6,6 +6,8 @@ __pycache__/
 data/
 !apps/web/data/
 !apps/web/data/dashboard.json
+!docs/data/
+!docs/data/expansion_launch_evidence.json
 models/
 *.duckdb
 *.parquet
