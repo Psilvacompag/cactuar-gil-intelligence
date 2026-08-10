@@ -21,13 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `9b5c507` (`Expand cross-world snipes across North America`).
-- HEAD funcional desplegado: `9b5c507`.
+- Código productivo verificado: `f35425c` (`Add unified signal ledger and watch center`).
+- HEAD funcional desplegado: `f35425c`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v14`, digest
-  `sha256:c490db34dc46c54b6f1348dcb1309a596bc0cd79c63975fefd5051e2e2ab0a70`.
+- Imagen desplegada al cierre: `backend:v15`, digest
+  `sha256:7f6eba79ecf77871acdb8ac18be74bcce111a466494a2bba568ae93e6379c85f`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -111,6 +111,24 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
   Aether.
 - Ninguna cantidad recomendada excedió el stock verificado y el API declaró
   `sourceScope=North-America`, `sourceScopeLevel=REGION`, destino Cactuar.
+
+### Centro unificado de señales
+
+- GitHub Pages publicó `f35425c`; Cloud Run sirve `backend:v15` desde
+  `cactuar-api-00015-gq2`, con 100% del tráfico y ambos jobs en `v15`.
+- La ejecución `cactuar-refresh-5qvhr` terminó correctamente en 9m16s y publicó
+  el snapshot `universalis:3bc579bf299ed787f8698088`.
+- El endpoint `/v1/signals` publicó 542 señales y 542 observaciones iniciales:
+  150 Conversiones, 250 Mercado, 26 Proyecciones, 75 Oportunidades y 41 Snipeos.
+- `signal_observations` quedó creado en BigQuery con las mismas 542 filas, cinco
+  módulos y 542 claves distintas. El ledger SQLite no tiene FK al snapshot de
+  mercado, por lo que sobrevive a la ventana operativa de 14 corridas.
+- La watchlist usa una clave común en las cinco vistas y migra las selecciones
+  anteriores del navegador. Las alertas se emiten para vigilados de puntaje alto.
+- El Centro calcula cambio, máximo y drawdown desde la primera observación; los
+  retornos 7/30/90 permanecen `Acumulando` hasta cumplir cada horizonte.
+- Validación final: 41 pruebas correctas, todos los endpoints HTTP 200, cero claves
+  duplicadas o incompletas y smoke visual productivo desktop/móvil.
 
 ## Funcionalidad disponible
 
