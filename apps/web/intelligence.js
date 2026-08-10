@@ -11,25 +11,9 @@
     projection: "Proyección", snipe: "Snipeo",
   };
 
-  function endpoints(kind) {
-    const api = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-    const files = { dashboard: "dashboard", "market-items": "market-items", "market-history": "market-history", opportunities: "opportunities", signals: "signals" };
-    return api ? [`${api}/v1/${kind}`, `./data/${files[kind]}.json`] : [`./data/${files[kind]}.json`];
-  }
-
   async function fetchDocument(kind) {
     if (documentCache.has(kind)) return documentCache.get(kind);
-    const promise = (async () => {
-      let lastError;
-      for (const endpoint of endpoints(kind)) {
-        try {
-          const response = await fetch(endpoint);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return await response.json();
-        } catch (error) { lastError = error; }
-      }
-      throw lastError || new Error(`${kind} no disponible`);
-    })();
+    const promise = GilAuth.data(`/v1/${kind}`);
     documentCache.set(kind, promise);
     try { return await promise; }
     catch (error) { documentCache.delete(kind); throw error; }

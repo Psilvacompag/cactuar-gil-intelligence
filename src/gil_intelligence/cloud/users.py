@@ -95,6 +95,11 @@ class FirebaseUserService:
             "emailVerified": bool(identity.get("email_verified")),
         }
 
+    def authorize(self, authorization: str | None) -> dict[str, Any]:
+        """Require an approved account before serving protected market data."""
+        _, profile = self._authorized_profile(authorization)
+        return self._public_profile(profile)
+
     def favorites(self, authorization: str | None) -> list[dict[str, Any]]:
         _, profile = self._authorized_profile(authorization)
         documents = self._users().document(profile["uid"]).collection("favorites").stream()

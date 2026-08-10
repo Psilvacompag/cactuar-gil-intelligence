@@ -49,14 +49,7 @@ async function loadLedger() {
 }
 
 async function fetchDocument(kind) {
-  const api = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-  const endpoints = api ? [`${api}/v1/${kind}`, `./data/${kind}.json`] : [`./data/${kind}.json`];
-  let lastError;
-  for (const endpoint of endpoints) {
-    try { const response = await fetch(endpoint); if (!response.ok) throw new Error(`HTTP ${response.status}`); return await response.json(); }
-    catch (error) { lastError = error; }
-  }
-  throw lastError || new Error("Ledger no disponible");
+  return GilAuth.data(`/v1/${kind}`);
 }
 
 function applyFilters() {

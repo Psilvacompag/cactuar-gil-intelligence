@@ -25,8 +25,8 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v20`, digest
-  `sha256:4aadfd684ba066efec29a394432de41407558b692d948cfa622515efb9e499e5`.
+- Imagen desplegada al cierre: `backend:v21`, digest
+  `sha256:9200670fd3d477d6463409a976d634edcb4d8e3d87cdbeb8edda7e4d3f1d9d42`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -177,8 +177,8 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Los favoritos viven en `cactuar_users/{uid}/favorites`. Las cuatro claves antiguas
   de favoritos se eliminan de `localStorage` sin leerlas ni migrarlas: todos parten
   desde cero.
-- Los endpoints privados verifican Firebase ID tokens en Cloud Run; los datos de
-  mercado siguen públicos. La revisión `cactuar-api-00021-6b7` sirve `backend:v20`.
+- Los endpoints privados verifican Firebase ID tokens en Cloud Run. La revisión
+  `cactuar-api-00022-wd7` sirve `backend:v21`.
 - Firestore se creó en `us-central1` con protección de borrado. La identidad de
   Cloud Run usa ADC y roles acotados; no se creó ninguna llave de cuenta de servicio.
 - Las reglas publicadas en `cloud.firestore` deniegan toda lectura/escritura directa
@@ -186,6 +186,18 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - La configuración web se obtiene en runtime desde Secret Manager y no está en Git.
 - Validación: 50 pruebas Python, sintaxis JavaScript, compilación Python, health 200,
   acceso anónimo privado 401 y preflight CORS 204.
+
+### Login obligatorio para toda la aplicación
+
+- Todas las páginas nacen con `auth-required`; la interfaz permanece oculta hasta
+  validar una cuenta Google con estado `ACTIVE`.
+- Cuentas nuevas ven una pantalla de espera hasta aprobación y las suspendidas no
+  pueden volver a las tablas.
+- Los seis endpoints de datos ahora verifican el ID token y el estado en servidor;
+  anónimo recibe 401 y `PENDING` recibe 403.
+- GitHub Pages dejó de incluir snapshots estáticos de dashboard, mercado, historial,
+  oportunidades y señales. Solo conserva la evidencia histórica de lanzamiento.
+- Validación local: 51 pruebas Python y sintaxis de todo el JavaScript correctas.
 
 ## Funcionalidad disponible
 

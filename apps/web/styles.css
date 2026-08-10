@@ -136,6 +136,43 @@ button, select { cursor: pointer; }
 .auth-trigger.has-avatar::before { content: ""; width: 22px; height: 22px; border-radius: 50%; background: var(--avatar) center / cover; box-shadow: 0 0 0 1px rgba(255,255,255,.18); }
 .auth-trigger.has-avatar svg { display: none; }
 
+html.auth-required:not(.auth-granted) { overflow: hidden; }
+html.auth-required:not(.auth-granted) body > :not(.auth-gate):not(.account-dialog) { visibility: hidden; }
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  visibility: visible !important;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 70% 5%, rgba(50, 111, 207, .24), transparent 38%),
+    radial-gradient(circle at 12% 78%, rgba(45, 92, 164, .12), transparent 32%),
+    #050e1d;
+}
+.auth-gate[hidden] { display: none !important; }
+.auth-gate-card {
+  width: min(520px, 100%);
+  padding: clamp(30px, 5vw, 48px);
+  position: relative;
+  border: 1px solid rgba(136, 172, 224, .22);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(14, 33, 61, .98), rgba(8, 23, 44, .98));
+  box-shadow: 0 34px 110px rgba(0, 4, 14, .7);
+  overflow: hidden;
+}
+.auth-gate-card::before { content: ""; position: absolute; width: 280px; height: 280px; right: -150px; top: -160px; border-radius: 50%; background: rgba(67, 128, 221, .22); filter: blur(38px); pointer-events: none; }
+.auth-gate-brand { margin-bottom: 48px; display: flex; align-items: center; gap: 12px; }
+.auth-gate-brand strong, .auth-gate-brand small { display: block; }
+.auth-gate-brand strong { font-size: .85rem; }
+.auth-gate-brand small { margin-top: 3px; color: var(--quiet); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; }
+.auth-gate-card h1 { margin: 8px 0 14px; font-size: clamp(2rem, 7vw, 3.35rem); line-height: 1.03; }
+.auth-gate-card > p:not(.eyebrow):not(.account-message) { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.7; }
+.auth-gate-card .account-profile { margin-top: 22px; }
+.auth-gate-spinner { width: 26px; height: 26px; margin-bottom: 24px; border: 2px solid rgba(115,169,255,.17); border-top-color: var(--mint); border-radius: 50%; animation: intel-spin .8s linear infinite; }
+
 .account-dialog {
   width: min(470px, calc(100% - 24px));
   padding: 0;

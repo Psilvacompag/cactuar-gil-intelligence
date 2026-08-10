@@ -25,10 +25,15 @@ jobs:
         uses: actions/checkout@v6
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      - name: Prepare authenticated site
+        run: |
+          mkdir -p _site/data
+          rsync -a --exclude 'data/*.json' apps/web/ _site/
+          cp apps/web/data/launch-signals.json _site/data/launch-signals.json
       - name: Upload static dashboard
         uses: actions/upload-pages-artifact@v4
         with:
-          path: apps/web
+          path: _site
 
   deploy:
     environment:

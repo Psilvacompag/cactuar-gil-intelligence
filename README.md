@@ -1,8 +1,8 @@
 # FFXIV Gil Intelligence
 
-Dashboard público: https://psilvacompag.github.io/cactuar-gil-intelligence/
+Dashboard con acceso Google obligatorio: https://psilvacompag.github.io/cactuar-gil-intelligence/
 
-Backend público de sólo lectura: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
+Backend: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
 
 Sistema para analizar el Market Board, valorar conversiones de monedas y construir
 señales de demanda para expansiones y parches.
@@ -27,6 +27,11 @@ calidad y minigráficos de historial real. El acceso usa Google y cada cuenta ac
 mantiene una lista privada de favoritos sincronizada entre dispositivos. Las cuentas
 nuevas requieren aprobación desde el panel administrador; notas, límites y reglas
 personalizadas siguen como TODO explícito.
+
+La aplicación completa y sus endpoints de datos exigen una cuenta `ACTIVE`. Antes de
+validar la sesión solo se muestran la pantalla de acceso, la configuración pública de
+Firebase y el health técnico. GitHub Pages tampoco publica los snapshots estáticos de
+mercado, por lo que quitar visualmente el bloqueo no permite recuperar las tablas.
 
 Las oportunidades son señales explicables, no garantías: aplican estrés de precio,
 fee, liquidez, frescura y persistencia. La shortlist comprueba hasta 20 listings por

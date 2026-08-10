@@ -7,6 +7,7 @@
   let currentUser = null;
   let currentProfile = null;
   let bootError = null;
+  let bootComplete = false;
   let resolveReady;
   const ready = new Promise((resolve) => { resolveReady = resolve; });
 
@@ -16,6 +17,30 @@
   trigger.setAttribute("aria-label", "Abrir cuenta");
   trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm-8 9a8 8 0 0 1 16 0"/></svg><span>Ingresar</span>';
   document.querySelector(".topbar-meta")?.append(trigger);
+
+  const gate = document.createElement("section");
+  gate.className = "auth-gate";
+  gate.setAttribute("aria-live", "polite");
+  gate.innerHTML = `
+    <div class="auth-gate-card">
+      <div class="auth-gate-brand"><span class="brand-mark" aria-hidden="true">G</span><div><strong>Gil Intelligence</strong><small>Acceso privado</small></div></div>
+      <div id="gate-spinner" class="auth-gate-spinner" aria-label="Comprobando sesión"></div>
+      <p class="eyebrow">CUENTA · CACTUAR</p>
+      <h1 id="gate-title">Comprobando tu sesión.</h1>
+      <p id="gate-copy">Estamos validando tu acceso de forma segura.</p>
+      <div id="gate-profile" class="account-profile" hidden>
+        <img id="gate-avatar" alt="" referrerpolicy="no-referrer" />
+        <div><strong id="gate-name"></strong><small id="gate-email"></small></div>
+        <span id="gate-status" class="account-status"></span>
+      </div>
+      <p id="gate-message" class="account-message" role="status" hidden></p>
+      <div class="account-actions">
+        <button id="gate-login" class="google-login" type="button" hidden><span aria-hidden="true">G</span> Continuar con Google</button>
+        <button id="gate-logout" class="secondary-action" type="button" hidden>Cerrar sesión</button>
+      </div>
+      <small class="account-privacy">Solo las cuentas aprobadas pueden acceder a los datos y herramientas.</small>
+    </div>`;
+  document.body.append(gate);
 
   const dialog = document.createElement("dialog");
   dialog.className = "account-dialog";
@@ -56,6 +81,17 @@
     login: dialog.querySelector("#account-login"),
     logout: dialog.querySelector("#account-logout"),
     admin: dialog.querySelector("#account-admin"),
+    gateSpinner: gate.querySelector("#gate-spinner"),
+    gateTitle: gate.querySelector("#gate-title"),
+    gateCopy: gate.querySelector("#gate-copy"),
+    gateProfile: gate.querySelector("#gate-profile"),
+    gateAvatar: gate.querySelector("#gate-avatar"),
+    gateName: gate.querySelector("#gate-name"),
+    gateEmail: gate.querySelector("#gate-email"),
+    gateStatus: gate.querySelector("#gate-status"),
+    gateMessage: gate.querySelector("#gate-message"),
+    gateLogin: gate.querySelector("#gate-login"),
+    gateLogout: gate.querySelector("#gate-logout"),
   };
 
   function snapshot() {
@@ -74,9 +110,11 @@
   }
 
   function setMessage(message, tone = "error") {
-    ui.message.hidden = !message;
-    ui.message.textContent = message || "";
-    ui.message.dataset.tone = tone;
+    [ui.message, ui.gateMessage].forEach((element) => {
+      element.hidden = !message;
+      element.textContent = message || "";
+      element.dataset.tone = tone;
+    });
   }
 
   function render() {
@@ -110,6 +148,45 @@
       ui.title.textContent = "Tus favoritos, en cualquier dispositivo.";
       ui.copy.textContent = "Ingresa con Google para guardar una lista privada. Las cuentas nuevas deben ser aprobadas por un administrador.";
     }
+    renderGate();
+  }
+
+  function renderGate() {
+    const profile = currentProfile;
+    const signedIn = Boolean(currentUser);
+    const active = profile?.status === "ACTIVE";
+    const loading = !bootComplete || (signedIn && !profile && !bootError);
+    document.documentElement.classList.toggle("auth-granted", active);
+    gate.hidden = active;
+    if (active) return;
+    ui.gateSpinner.hidden = !loading;
+    ui.gateLogin.hidden = loading || signedIn || Boolean(bootError);
+    ui.gateLogout.hidden = !signedIn;
+    ui.gateProfile.hidden = !signedIn;
+    if (signedIn) {
+      ui.gateName.textContent = profile?.displayName || currentUser.displayName || "Cuenta Google";
+      ui.gateEmail.textContent = profile?.email || currentUser.email || "";
+      ui.gateStatus.textContent = statusLabel(profile?.status || "PENDING");
+      ui.gateStatus.dataset.status = profile?.status || "PENDING";
+      ui.gateAvatar.src = profile?.photoURL || currentUser.photoURL || "";
+      ui.gateAvatar.hidden = !ui.gateAvatar.src;
+    }
+    if (loading) {
+      ui.gateTitle.textContent = "Comprobando tu sesión.";
+      ui.gateCopy.textContent = "Estamos validando tu acceso de forma segura.";
+    } else if (bootError) {
+      ui.gateTitle.textContent = "El acceso no está disponible.";
+      ui.gateCopy.textContent = "No mostramos la aplicación cuando no podemos comprobar la identidad.";
+    } else if (!signedIn) {
+      ui.gateTitle.textContent = "Ingresa para ver Gil Intelligence.";
+      ui.gateCopy.textContent = "El mercado, las proyecciones y tus favoritos requieren una cuenta Google aprobada.";
+    } else if (profile?.status === "SUSPENDED") {
+      ui.gateTitle.textContent = "Tu cuenta está suspendida.";
+      ui.gateCopy.textContent = "Un administrador debe reactivarla antes de que puedas volver a entrar.";
+    } else {
+      ui.gateTitle.textContent = "Tu acceso está pendiente.";
+      ui.gateCopy.textContent = "La cuenta ya fue registrada. Un administrador debe aprobarla para mostrar la aplicación.";
+    }
   }
 
   async function request(path, options = {}, retry = true) {
@@ -130,6 +207,15 @@
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw apiError(payload.error || "request_failed", response.status, payload.detail);
     return payload;
+  }
+
+  async function data(path) {
+    await ready;
+    if (bootError) throw bootError;
+    if (currentProfile?.status !== "ACTIVE") {
+      throw apiError(currentUser ? "account_pending" : "authentication_required", 403);
+    }
+    return request(path);
   }
 
   function apiError(code, status, detail) {
@@ -165,6 +251,7 @@
     if (!firebaseAuth || !authSdk) throw apiError("auth_config_unavailable", 503);
     setMessage("");
     ui.login.disabled = true;
+    ui.gateLogin.disabled = true;
     try {
       const provider = new authSdk.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
@@ -176,6 +263,7 @@
       throw error;
     } finally {
       ui.login.disabled = false;
+      ui.gateLogin.disabled = false;
     }
   }
 
@@ -214,6 +302,8 @@
       setMessage(friendlyError(error));
       emit();
     } finally {
+      bootComplete = true;
+      emit();
       resolveReady(snapshot());
     }
   }
@@ -223,10 +313,13 @@
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   ui.login.addEventListener("click", () => void login().catch(() => {}));
   ui.logout.addEventListener("click", () => void logout());
+  ui.gateLogin.addEventListener("click", () => void login().catch(() => {}));
+  ui.gateLogout.addEventListener("click", () => void logout());
 
   window.GilAuth = {
     ready,
     request,
+    data,
     login,
     logout,
     open: () => dialog.showModal(),

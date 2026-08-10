@@ -42,32 +42,18 @@ const gilFormat = new Intl.NumberFormat("es-CL", { notation: "compact", maximumF
 const highlightedCurrencyIds = [20, 21, 22, 28, 48, 47, 26807, 26533, 41784, 41785, 28063];
 
 async function loadDashboard() {
-  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-  const endpoints = apiBaseUrl
-    ? [
-        { url: `${apiBaseUrl}/v1/dashboard`, source: "cloud" },
-        { url: "./data/dashboard.json", source: "static" },
-      ]
-    : [{ url: "./data/dashboard.json", source: "static" }];
-  const errors = [];
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint.url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      state.data = await response.json();
-      state.dataSource = endpoint.source;
-      hydrateMeta();
-      renderChips();
-      applyFilters();
-      return;
-    } catch (error) {
-      errors.push(`${endpoint.source}: ${error.message}`);
-    }
+  try {
+    state.data = await GilAuth.data("/v1/dashboard");
+    state.dataSource = "cloud-authenticated";
+    hydrateMeta();
+    renderChips();
+    applyFilters();
+  } catch (error) {
+    elements.count.textContent = "No pudimos cargar los datos";
+    elements.empty.hidden = false;
+    elements.empty.querySelector("h3").textContent = "Dashboard sin datos";
+    elements.empty.querySelector("p").textContent = error.message;
   }
-  elements.count.textContent = "No pudimos cargar los datos";
-  elements.empty.hidden = false;
-  elements.empty.querySelector("h3").textContent = "Dashboard sin datos";
-  elements.empty.querySelector("p").textContent = `El backend y el respaldo estático no respondieron. (${errors.join("; ")})`;
 }
 
 function hydrateMeta() {
@@ -501,13 +487,7 @@ function depthMarkup(depth) {
 async function loadHistory() {
   if (state.history) return state.history;
   if (state.historyPromise) return state.historyPromise;
-  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-  if (!apiBaseUrl) throw new Error("El historial requiere el backend cloud");
-  state.historyPromise = fetch(`${apiBaseUrl}/v1/history`)
-    .then((response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    })
+  state.historyPromise = GilAuth.data("/v1/history")
     .then((payload) => {
       state.history = new Map(payload.series.map((series) => [series.key, series]));
       return state.history;

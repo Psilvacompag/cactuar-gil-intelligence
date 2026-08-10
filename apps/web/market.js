@@ -45,39 +45,21 @@ const percentFormat = new Intl.NumberFormat("es-CL", { style: "percent", maximum
 const nameCollator = new Intl.Collator("es", { sensitivity: "base", numeric: true });
 
 async function loadMarket() {
-  const errors = [];
-  for (const endpoint of dataEndpoints("market-items")) {
-    try {
-      const response = await fetch(endpoint.url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json();
-      if (payload.kind !== "market-items" || !Array.isArray(payload.items)) throw new Error("formato inesperado");
-      state.data = payload;
-      state.dataSource = endpoint.source;
-      hydrateMeta();
-      renderCategoryOptions();
-      applyFilters();
-      return;
-    } catch (error) {
-      errors.push(`${endpoint.source}: ${error.message}`);
-    }
+  try {
+    const payload = await GilAuth.data("/v1/market-items");
+    if (payload.kind !== "market-items" || !Array.isArray(payload.items)) throw new Error("formato inesperado");
+    state.data = payload;
+    state.dataSource = "Backend autenticado";
+    hydrateMeta();
+    renderCategoryOptions();
+    applyFilters();
+  } catch (error) {
+    elements.count.textContent = "No pudimos cargar los datos";
+    elements.empty.hidden = false;
+    elements.empty.querySelector("h3").textContent = "Mercado sin datos";
+    elements.empty.querySelector("p").textContent = error.message;
+    elements.pagination.hidden = true;
   }
-  elements.count.textContent = "No pudimos cargar los datos";
-  elements.empty.hidden = false;
-  elements.empty.querySelector("h3").textContent = "Mercado sin datos";
-  elements.empty.querySelector("p").textContent = errors.join(" · ");
-  elements.pagination.hidden = true;
-}
-
-function dataEndpoints(kind) {
-  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-  const filename = kind === "market-history" ? "market-history.json" : "market-items.json";
-  return apiBaseUrl
-    ? [
-        { url: `${apiBaseUrl}/v1/${kind}`, source: "Backend Google Cloud" },
-        { url: `./data/${filename}`, source: "respaldo estático" },
-      ]
-    : [{ url: `./data/${filename}`, source: "respaldo estático" }];
 }
 
 function hydrateMeta() {
@@ -280,20 +262,11 @@ function historyMarkup(series, loading) {
 async function loadHistory() {
   if (state.history) return state.history;
   if (state.historyPromise) return state.historyPromise;
-  state.historyPromise = (async () => {
-    const errors = [];
-    for (const endpoint of dataEndpoints("market-history")) {
-      try {
-        const response = await fetch(endpoint.url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payload = await response.json();
-        if (payload.kind !== "market-history" || !Array.isArray(payload.series)) throw new Error("formato inesperado");
-        state.history = payload;
-        return payload;
-      } catch (error) { errors.push(error.message); }
-    }
-    throw new Error(errors.join(" · "));
-  })();
+  state.historyPromise = GilAuth.data("/v1/market-history").then((payload) => {
+    if (payload.kind !== "market-history" || !Array.isArray(payload.series)) throw new Error("formato inesperado");
+    state.history = payload;
+    return payload;
+  });
   return state.historyPromise;
 }
 

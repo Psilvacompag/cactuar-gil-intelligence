@@ -199,6 +199,8 @@ def build_handler(
             if origin is not None and origin not in allowed_origins:
                 self._send_json(HTTPStatus.FORBIDDEN, {"error": "origin_not_allowed"})
                 return
+            if not self._authorize_market_request(origin):
+                return
             try:
                 document = document_cache.get()
             except Exception as exc:
@@ -222,13 +224,48 @@ def build_handler(
             self._send_security_headers(origin)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
-            self.send_header("Cache-Control", "public, max-age=300, stale-while-revalidate=900")
+            self.send_header("Cache-Control", "private, max-age=300, stale-while-revalidate=900")
             self.send_header("Vary", "Accept-Encoding")
             if use_gzip:
                 self.send_header("Content-Encoding", "gzip")
             self.send_header("ETag", etag)
             self.end_headers()
             self.wfile.write(content)
+
+        def _authorize_market_request(self, origin: str | None) -> bool:
+            if user_service is None:
+                self._send_json(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    {"error": "authentication_not_configured"},
+                    origin=origin,
+                )
+                return False
+            try:
+                user_service.authorize(self.headers.get("Authorization"))
+            except UserApiError as exc:
+                response = {"error": exc.code}
+                if exc.detail:
+                    response["detail"] = exc.detail
+                self._send_json(exc.status, response, origin=origin)
+                return False
+            except Exception as exc:
+                print(
+                    _json_bytes(
+                        {
+                            "severity": "ERROR",
+                            "message": "Market authorization failed",
+                            "error": type(exc).__name__,
+                        }
+                    ).decode("utf-8"),
+                    flush=True,
+                )
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {"error": "internal_error"},
+                    origin=origin,
+                )
+                return False
+            return True
 
         def _allowed_request_origin(self) -> str | None | bool:
             origin = self.headers.get("Origin")

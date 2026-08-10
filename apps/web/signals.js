@@ -45,13 +45,7 @@ async function loadSignals() {
 }
 
 async function fetchDocument(kind) {
-  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-  const endpoints = apiBaseUrl ? [`${apiBaseUrl}/v1/${kind}`, `./data/${kind}.json`] : [`./data/${kind}.json`];
-  let lastError;
-  for (const endpoint of endpoints) {
-    try { return await fetch(endpoint).then(requireJson); } catch (error) { lastError = error; }
-  }
-  throw lastError || new Error(`No se pudo cargar ${kind}`);
+  return GilAuth.data(`/v1/${kind}`);
 }
 
 async function requireJson(response) {

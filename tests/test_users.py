@@ -129,6 +129,14 @@ class FirebaseUserServiceTests(unittest.TestCase):
         self.service.delete_favorite("Bearer member", "market:123:NQ")
         self.assertEqual(self.service.favorites("Bearer member"), [])
 
+    def test_market_access_requires_an_active_account(self):
+        self.service.register("Bearer owner")
+        self.service.register("Bearer member")
+
+        self.assertEqual(self.service.authorize("Bearer owner")["role"], "ADMIN")
+        with self.assertRaisesRegex(UserApiError, "account_pending"):
+            self.service.authorize("Bearer member")
+
     def test_normal_user_cannot_list_users_and_admin_cannot_demote_self(self):
         self.service.register("Bearer owner")
         self.service.register("Bearer member")

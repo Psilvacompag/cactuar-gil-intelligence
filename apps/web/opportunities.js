@@ -43,34 +43,22 @@ const percentFormat = new Intl.NumberFormat("es-CL", { style: "percent", maximum
 const nameCollator = new Intl.Collator("es", { sensitivity: "base", numeric: true });
 
 async function loadOpportunities() {
-  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
-  const endpoints = apiBaseUrl
-    ? [
-        { url: `${apiBaseUrl}/v1/opportunities`, source: "Backend Google Cloud" },
-        { url: "./data/opportunities.json", source: "respaldo estático" },
-      ]
-    : [{ url: "./data/opportunities.json", source: "respaldo estático" }];
-  const errors = [];
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint.url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json();
-      if (payload.kind !== "market-opportunities" || !Array.isArray(payload.opportunities)) throw new Error("formato inesperado");
-      state.data = payload;
-      state.dataSource = endpoint.source;
-      hydrateMeta();
-      renderWorldOptions();
-      applyFilters();
-      calculateCapitalPlan();
-      return;
-    } catch (error) { errors.push(`${endpoint.source}: ${error.message}`); }
+  try {
+    const payload = await GilAuth.data("/v1/opportunities");
+    if (payload.kind !== "market-opportunities" || !Array.isArray(payload.opportunities)) throw new Error("formato inesperado");
+    state.data = payload;
+    state.dataSource = "Backend autenticado";
+    hydrateMeta();
+    renderWorldOptions();
+    applyFilters();
+    calculateCapitalPlan();
+  } catch (error) {
+    elements.count.textContent = "No pudimos cargar los datos";
+    elements.empty.hidden = false;
+    elements.empty.querySelector("h3").textContent = "Señales sin datos";
+    elements.empty.querySelector("p").textContent = error.message;
+    elements.pagination.hidden = true;
   }
-  elements.count.textContent = "No pudimos cargar los datos";
-  elements.empty.hidden = false;
-  elements.empty.querySelector("h3").textContent = "Señales sin datos";
-  elements.empty.querySelector("p").textContent = errors.join(" · ");
-  elements.pagination.hidden = true;
 }
 
 function hydrateMeta() {
