@@ -122,16 +122,70 @@ class FirebaseUserServiceTests(unittest.TestCase):
 
         self.service.update_user("Bearer owner", "uid-member", {"status": "ACTIVE"})
         saved = self.service.put_favorite(
-            "Bearer member", "market:123:NQ", {"name": "Item", "unsafe": "discarded"}
+            "Bearer member",
+            "market:123:NQ",
+            {
+                "name": "Item", "unsafe": "discarded", "buyTarget": "1200",
+                "sellTarget": 1900, "maxCapital": 50000, "notes": "Lote corto",
+                "preferredWorldName": "Siren", "alertsEnabled": True,
+            },
         )
 
         self.assertEqual(saved["key"], "market:123:NQ")
         self.assertEqual(saved["name"], "Item")
+        self.assertEqual(saved["buyTarget"], 1200)
+        self.assertEqual(saved["notes"], "Lote corto")
         self.assertNotIn("unsafe", saved)
         self.assertEqual(len(self.service.favorites("Bearer member")), 1)
 
         self.service.delete_favorite("Bearer member", "market:123:NQ")
         self.assertEqual(self.service.favorites("Bearer member"), [])
+
+    def test_refresh_records_idempotent_favorite_history(self):
+        self.service.register("Bearer owner")
+        self.service.register("Bearer member")
+        self.service.update_user("Bearer owner", "uid-member", {"status": "ACTIVE"})
+        self.service.put_favorite(
+            "Bearer member",
+            "market:123:NQ",
+            {"module": "market", "itemId": 123, "quality": "NQ", "name": "Item"},
+        )
+        payloads = {
+            "dashboard": {"conversions": []},
+            "market_items": {
+                "meta": {"marketCollectedAt": "2026-08-10T12:00:00+00:00"},
+                "items": [{
+                    "itemId": 123, "quality": "NQ", "minListingPrice": 1000,
+                    "averageSalePrice": 1500, "dailySaleVelocity": 8,
+                    "trend": {"signal": "DEMAND_UP"},
+                }],
+            },
+            "opportunities": {"opportunities": []},
+            "signals": {
+                "meta": {"marketSnapshotId": "snapshot-1"},
+                "signals": [{
+                    "key": "market:123:NQ", "state": "PROFITABLE", "metricValue": 4000,
+                }],
+            },
+        }
+
+        first = self.service.record_favorite_observations(**payloads)
+        second = self.service.record_favorite_observations(**payloads)
+        favorite = self.service.favorites("Bearer member")[0]
+
+        self.assertEqual(first, {"watched": 1, "recorded": 1})
+        self.assertEqual(second, {"watched": 1, "recorded": 1})
+        self.assertEqual(len(favorite["history"]), 1)
+        self.assertEqual(favorite["history"][0]["currentBuyPrice"], 1000)
+        self.assertEqual(favorite["history"][0]["currentSellPrice"], 1500)
+
+        self.service.delete_favorite("Bearer member", "market:123:NQ")
+        self.assertEqual(self.service.favorites("Bearer member"), [])
+        history_documents = [
+            path for path in self.service.collection.store
+            if "favorites" in path and "history" in path
+        ]
+        self.assertEqual(history_documents, [])
 
     def test_admin_can_preapprove_email_before_first_login(self):
         self.service.register("Bearer owner")

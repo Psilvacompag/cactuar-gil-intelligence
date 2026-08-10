@@ -7,7 +7,7 @@ Backend: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
 Sistema para analizar el Market Board, valorar conversiones de monedas y construir
 señales de demanda para expansiones y parches.
 
-La web tiene seis exploradores:
+La web tiene siete exploradores:
 
 - **Conversiones:** recompensas comprables con una o varias monedas, con gil neto
   por moneda o por canje completo según corresponda.
@@ -21,12 +21,15 @@ La web tiene seis exploradores:
 - **Hoy:** resumen accionable de Conversiones, Mercado, Oportunidades, Proyecciones
   y Snipeos, con calidad de datos, planes concretos y resultados medidos a 7, 30 y
   90 días.
+- **Mi radar:** favoritos privados con objetivos de compra y venta, capital máximo,
+  notas, World preferido, estados automáticos e historial desde que se agregan.
 
-Las seis vistas comparten búsqueda global, ficha universal por ítem, etiquetas de
+Las siete vistas comparten búsqueda global, ficha universal por ítem, etiquetas de
 calidad y minigráficos de historial real. El acceso usa Google y cada cuenta activa
 mantiene una lista privada de favoritos sincronizada entre dispositivos. Las cuentas
-nuevas requieren aprobación desde el panel administrador; notas, límites y reglas
-personalizadas siguen como TODO explícito.
+nuevas requieren aprobación desde el panel administrador. El radar reevalúa las reglas
+personales después de cada refresh; las notificaciones con la página cerrada permanecen
+en la segunda etapa del roadmap.
 
 La aplicación completa y sus endpoints de datos exigen una cuenta `ACTIVE`. Antes de
 validar la sesión solo se muestran la pantalla de acceso, la configuración pública de
@@ -51,6 +54,10 @@ categorías, recetas e ingredientes se extrae de los archivos locales del juego 
 requests de catálogo adicionales. El navegador convierte las rutas de textura en PNG
 mediante XIVAPI v2 y conserva un SVG minimalista como fallback. El ML permanece pospuesto hasta acumular historial
 suficiente para medirlo contra estas reglas deterministas.
+
+La segunda etapa está descrita en [docs/ROADMAP.md](docs/ROADMAP.md): notificaciones
+con la página cerrada, auditoría administrativa, snipeos más frecuentes, evaluación
+real de señales y ML sujeto a un benchmark temporal.
 
 ## Ejecutar pruebas locales
 

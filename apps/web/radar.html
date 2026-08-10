@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es" class="auth-required">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071426" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://v2.xivapi.com https://lh3.googleusercontent.com; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; frame-src https://cactuar-gil-intelligence-8148.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Mi radar · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio"><span class="brand-mark" aria-hidden="true">G</span><span><strong>Gil Intelligence</strong><small>Radar personal</small></span></a>
+      <nav class="site-nav" aria-label="Secciones principales">
+        <a href="./">Conversiones</a><a href="./market.html">Mercado</a><a href="./opportunities.html">Oportunidades</a><a href="./projections.html">Proyecciones</a><a href="./snipes.html">Snipeos</a><a href="./signals.html">Hoy</a><a class="active" href="./radar.html" aria-current="page">Mi radar</a><a class="admin-nav-link" href="./admin.html" hidden>Admin</a>
+      </nav>
+      <div class="topbar-meta"><span class="live-dot" aria-hidden="true"></span><span id="scope-label">Cactuar</span><span class="separator">/</span><span id="updated-label">Preparando radar…</span></div>
+    </header>
+    <main>
+      <section class="page-hero radar-hero">
+        <div><p class="eyebrow">PRIVADO · SINCRONIZADO</p><h1>Tu mercado, bajo vigilancia.</h1><p class="hero-lede">Reúne favoritos de todos los módulos, define tus precios y convierte cada actualización en una decisión clara.</p></div>
+        <div class="hero-index" aria-hidden="true"><span>★</span><small>Mi radar</small></div>
+      </section>
+      <section class="metrics" aria-label="Resumen del radar">
+        <article class="metric-card featured"><span class="metric-label">Favoritos</span><strong id="radar-total">—</strong><small>sincronizados en tu cuenta</small></article>
+        <article class="metric-card"><span class="metric-label">Alertas activas</span><strong id="radar-alerts">—</strong><small>reglas cumplidas ahora</small></article>
+        <article class="metric-card"><span class="metric-label">Capital planificado</span><strong id="radar-capital">—</strong><small>máximo asignado</small></article>
+        <article class="metric-card"><span class="metric-label">Con historial</span><strong id="radar-history">—</strong><small>desde que los agregaste</small></article>
+      </section>
+      <section class="radar-alert-strip" aria-labelledby="radar-alert-title">
+        <div><p class="eyebrow">AHORA</p><h2 id="radar-alert-title">Alertas personales</h2><p id="radar-alert-copy">Evaluando tus reglas con el último snapshot…</p></div>
+        <div id="radar-alert-list" class="radar-alert-list"></div>
+      </section>
+      <section class="explorer radar-explorer" aria-labelledby="radar-list-title">
+        <div class="section-heading"><div><p class="eyebrow">TODOS LOS MÓDULOS</p><h2 id="radar-list-title">Lista personal</h2></div><p id="radar-result-count" class="result-count">Cargando favoritos…</p></div>
+        <div class="toolbar radar-toolbar">
+          <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar favorito</span><input id="radar-search" type="search" placeholder="Busca ítem, nota, módulo o World…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
+          <label class="select-control"><span>Estado</span><select id="radar-status"><option value="">Todos</option><option value="BUY">Comprar</option><option value="SELL">Salida lista</option><option value="WATCH">Vigilar</option><option value="COOLING">Enfriándose</option><option value="OUT">Fuera de precio</option><option value="NO_DATA">Sin datos</option></select></label>
+          <label class="select-control"><span>Módulo</span><select id="radar-module"><option value="">Todos</option><option value="conversion">Conversiones</option><option value="market">Mercado</option><option value="opportunity">Oportunidades</option><option value="projection">Proyecciones</option><option value="snipe">Snipeos</option></select></label>
+          <label class="select-control"><span>Ordenar</span><select id="radar-sort"><option value="alert">Alertas primero</option><option value="recent">Agregados recientes</option><option value="capital">Mayor capital</option><option value="name">Nombre</option></select></label>
+        </div>
+        <div id="radar-grid" class="radar-grid"></div>
+        <div id="radar-empty" class="empty-state" hidden><span aria-hidden="true">☆</span><h3>Tu radar está vacío</h3><p>Usa la estrella de cualquier tabla o señal para agregar tu primer ítem.</p></div>
+      </section>
+      <section class="radar-roadmap" aria-labelledby="roadmap-title">
+        <div><p class="eyebrow">ROADMAP · ANOTADO</p><h2 id="roadmap-title">Lo siguiente, todavía no activo.</h2><p>Estas capas quedan documentadas para la próxima fase; no se simulan ni se presentan como terminadas.</p></div>
+        <ol><li><span>01</span><p><strong>Notificaciones con la página cerrada</strong><small>Push o correo desde servidor cuando una regla personal se cumpla.</small></p></li><li><span>02</span><p><strong>Auditoría administrativa</strong><small>Registro de quién dio o quitó acceso y cuándo.</small></p></li><li><span>03</span><p><strong>Mayor frecuencia para snipeos</strong><small>Refresh dedicado sujeto a presupuesto y límites de Universalis.</small></p></li><li><span>04</span><p><strong>Evaluación de señales</strong><small>Comparar decisiones con retornos reales y falsos positivos.</small></p></li><li><span>05</span><p><strong>ML con benchmark</strong><small>Sólo si supera las reglas deterministas con historial suficiente.</small></p></li></ol>
+      </section>
+    </main>
+    <dialog id="radar-editor" class="radar-editor">
+      <form id="radar-form" class="radar-form">
+        <button id="radar-editor-close" class="dialog-close" type="button" aria-label="Cerrar">×</button>
+        <div id="radar-editor-heading" class="radar-editor-heading"></div>
+        <div class="radar-form-grid">
+          <label><span>Comprar hasta</span><div class="money-input"><input id="radar-buy-target" type="number" min="0" step="1" placeholder="Sin límite" /><small>gil/u.</small></div></label>
+          <label><span>Vender desde</span><div class="money-input"><input id="radar-sell-target" type="number" min="0" step="1" placeholder="Sin objetivo" /><small>gil/u.</small></div></label>
+          <label><span>Capital máximo</span><div class="money-input"><input id="radar-max-capital" type="number" min="0" step="1000" placeholder="Sin asignar" /><small>gil</small></div></label>
+          <label><span>World preferido</span><input id="radar-preferred-world" type="text" maxlength="80" list="radar-worlds" placeholder="Ruta automática" /></label>
+        </div>
+        <datalist id="radar-worlds"></datalist>
+        <label class="radar-notes"><span>Notas personales</span><textarea id="radar-notes" maxlength="800" rows="4" placeholder="Ej.: comprar en lotes de 20, revisar antes del martes…"></textarea><small><span id="radar-note-count">0</span>/800</small></label>
+        <label class="toggle-control radar-alert-toggle"><input id="radar-alert-enabled" type="checkbox" checked /><span class="toggle-ui"></span><span>Evaluar mis objetivos en cada actualización</span></label>
+        <p id="radar-form-message" class="account-message" role="status" hidden></p>
+        <div class="radar-form-actions"><button id="radar-remove" class="danger-action" type="button">Quitar del radar</button><button id="radar-save" class="primary-action" type="submit">Guardar reglas</button></div>
+      </form>
+    </dialog>
+    <footer><span>Gil Intelligence</span><span>Radar privado · reglas por usuario</span><span>Confirma precios dentro del juego.</span></footer>
+    <script src="./config.js" defer></script><script src="./auth.js" defer></script><script src="./watchlist.js" defer></script><script src="./item-icons.js" defer></script><script src="./intelligence.js" defer></script><script src="./radar.js" defer></script>
+  </body>
+</html>

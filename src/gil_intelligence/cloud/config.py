@@ -41,6 +41,7 @@ class CloudSettings:
     firebase_web_config_json: str = ""
     bootstrap_admin_email: str = ""
     users_collection: str = "cactuar_users"
+    radar_history_enabled: bool = False
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str] | None = None) -> "CloudSettings":
@@ -102,6 +103,9 @@ class CloudSettings:
             firebase_web_config_json=source.get("CACTUAR_FIREBASE_WEB_CONFIG", "").strip(),
             bootstrap_admin_email=source.get("CACTUAR_BOOTSTRAP_ADMIN_EMAIL", "").strip(),
             users_collection=source.get("CACTUAR_USERS_COLLECTION", "cactuar_users").strip(),
+            radar_history_enabled=source.get(
+                "CACTUAR_RADAR_HISTORY_ENABLED", "false"
+            ).strip().casefold() in {"1", "true", "yes", "on"},
         )
         settings.validate()
         return settings

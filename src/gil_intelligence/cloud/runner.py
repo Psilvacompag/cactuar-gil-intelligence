@@ -36,6 +36,7 @@ from .bigquery_archive import BigQueryArchive
 from .config import CloudSettings
 from .gcs import GcsObjectStore
 from .quality import evaluate_refresh_quality
+from .users import FirebaseUserService
 
 
 def _emit(message: str, *, severity: str = "INFO", **fields: Any) -> None:
@@ -239,6 +240,27 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         market_items=json.loads(market_items_path.read_text(encoding="utf-8")),
         opportunities=json.loads(opportunities_path.read_text(encoding="utf-8")),
     )
+    radar_summary = {"watched": 0, "recorded": 0}
+    if settings.radar_history_enabled:
+        try:
+            radar_summary = FirebaseUserService(
+                project_id=settings.project_id,
+                bootstrap_admin_email=settings.bootstrap_admin_email,
+                collection_name=settings.users_collection,
+            ).record_favorite_observations(
+                dashboard=json.loads(dashboard_path.read_text(encoding="utf-8")),
+                market_items=json.loads(market_items_path.read_text(encoding="utf-8")),
+                opportunities=json.loads(opportunities_path.read_text(encoding="utf-8")),
+                signals=json.loads(signals_path.read_text(encoding="utf-8")),
+            )
+            _emit("Favorite radar observations recorded", **radar_summary)
+        except Exception as exc:
+            _emit(
+                "Favorite radar history could not be recorded",
+                severity="WARNING",
+                error=type(exc).__name__,
+                detail=str(exc),
+            )
     archive = BigQueryArchive(
         project_id=settings.project_id,
         dataset_id=settings.bigquery_dataset,
@@ -297,6 +319,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "stockVerifiedOpportunities": opportunities_summary.stock_verified,
         "currentSignals": signal_summary.current_signals,
         "signalObservations": signal_summary.observations,
+        "favoriteRadar": radar_summary,
         "quality": asdict(quality_summary),
         "bigQuery": asdict(archive_summary),
         "retainedMarketSnapshots": retention_summary.kept_snapshots,

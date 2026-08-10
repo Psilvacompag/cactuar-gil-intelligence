@@ -65,6 +65,48 @@
     }
   }
 
+  async function update(key, metadata) {
+    if (!activeAccount()) throw new Error("authentication_required");
+    const normalizedKey = String(key || "").trim();
+    const previous = records[normalizedKey] || null;
+    if (!previous) throw new Error("favorite_not_found");
+    records[normalizedKey] = { ...previous, ...metadata, updatedAt: new Date().toISOString() };
+    publish();
+    try {
+      const saved = await window.GilAuth.request("/v1/me/favorites", {
+        method: "PUT",
+        body: JSON.stringify({ key: normalizedKey, metadata }),
+      });
+      records[normalizedKey] = saved;
+      publish();
+      return saved;
+    } catch (error) {
+      records[normalizedKey] = previous;
+      publish();
+      throw error;
+    }
+  }
+
+  async function remove(key) {
+    if (!activeAccount()) throw new Error("authentication_required");
+    const normalizedKey = String(key || "").trim();
+    const previous = records[normalizedKey] || null;
+    if (!previous) return false;
+    delete records[normalizedKey];
+    publish();
+    try {
+      await window.GilAuth.request("/v1/me/favorites", {
+        method: "DELETE",
+        body: JSON.stringify({ key: normalizedKey }),
+      });
+      return true;
+    } catch (error) {
+      records[normalizedKey] = previous;
+      publish();
+      throw error;
+    }
+  }
+
   window.GilWatchlist = {
     has: (key) => Boolean(records[key]),
     get: (key) => records[key] || null,
@@ -72,6 +114,8 @@
     keys: () => new Set(Object.keys(records)),
     total: () => Object.keys(records).length,
     reload,
+    update,
+    remove,
     toggle(key, metadata = {}) {
       if (!activeAccount()) {
         window.GilAuth?.open();

@@ -63,7 +63,8 @@ configurados. Health responde 503 cuando los datos de mercado superan la edad m�
   confirmar una cuenta `ACTIVE`; no hay flash de tablas durante el arranque.
 - El artefacto de GitHub Pages excluye los snapshots estáticos de mercado. Solo
   conserva `launch-signals.json`, que contiene reglas históricas sin precios actuales.
-- Firestore guarda `cactuar_users/{uid}` y la subcolección privada `favorites`.
+- Firestore guarda `cactuar_users/{uid}`, la subcolección privada `favorites` y el
+  historial de cada regla bajo `favorites/{favorite}/history`.
 - Los favoritos históricos del navegador se eliminan y no se importan.
 - Cloud Run usa Application Default Credentials; no existen archivos JSON de cuenta
   de servicio ni llaves privadas.
@@ -79,6 +80,11 @@ La imagen usa `Dockerfile` y sirve la API por defecto. El job reemplaza el coman
 ```text
 python -m gil_intelligence.cloud.runner
 ```
+
+El job productivo define `CACTUAR_RADAR_HISTORY_ENABLED=true`. Después de publicar
+los artefactos, registra de forma idempotente un punto por favorito usando el ID del
+snapshot. Un fallo al escribir este historial se registra como warning y no invalida
+el refresh de mercado.
 
 Antes de cambiar el Scheduler se debe ejecutar el job manualmente y comprobar:
 

@@ -277,6 +277,97 @@ html.auth-required:not(.auth-granted) body > :not(.auth-gate):not(.account-dialo
 .admin-empty { padding: 60px 22px; color: var(--quiet); text-align: center; }
 .user-status[data-status="INVITED"] { color: #f1d7a4; border-color: rgba(214,189,138,.28); background: rgba(214,189,138,.09); }
 
+.radar-hero { min-height: 430px; }
+.radar-alert-strip { margin-bottom: 30px; padding: 28px; display: grid; grid-template-columns: minmax(260px, .7fr) minmax(0, 1.3fr); gap: 28px; border: 1px solid rgba(115,169,255,.2); border-radius: 18px; background: linear-gradient(135deg, rgba(23,55,99,.46), rgba(8,21,40,.82)); box-shadow: var(--shadow); }
+.radar-alert-strip h2 { margin: 5px 0 9px; font: 600 1.6rem var(--font-display); }
+.radar-alert-strip p { margin: 0; color: var(--muted); font-size: .72rem; line-height: 1.55; }
+.radar-alert-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-content: center; }
+.radar-alert { min-width: 0; padding: 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 11px; background: rgba(5,15,30,.56); text-align: left; }
+.radar-alert span, .radar-alert strong, .radar-alert small { display: block; overflow-wrap: anywhere; }
+.radar-alert span { color: var(--mint); font-size: .55rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.radar-alert strong { margin: 5px 0 4px; font-size: .71rem; }
+.radar-alert small { color: var(--quiet); font-size: .58rem; }
+.radar-alert.status-sell span { color: var(--gold); }
+.radar-alert.status-cooling span { color: var(--danger); }
+.radar-explorer { padding-top: 86px; }
+.radar-toolbar { grid-template-columns: minmax(280px, 1.5fr) repeat(3, minmax(150px, .5fr)); }
+.radar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.radar-card { min-width: 0; padding: 21px; border: 1px solid var(--line); border-radius: 17px; background: linear-gradient(145deg, rgba(13,31,56,.92), rgba(7,19,37,.92)); box-shadow: 0 18px 50px rgba(0,5,16,.22); }
+.radar-card.status-buy { border-color: rgba(115,169,255,.38); }
+.radar-card.status-sell { border-color: rgba(214,189,138,.4); }
+.radar-card.status-cooling { border-color: rgba(255,170,163,.25); }
+.radar-card-head { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.radar-card-head .item-icon { width: 48px; height: 48px; border-radius: 12px; }
+.radar-card-head small, .radar-card-head h3, .radar-card-head p { display: block; overflow-wrap: anywhere; }
+.radar-card-head small { color: var(--mint); font-size: .56rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
+.radar-card-head h3 { margin: 4px 0 3px; font: 600 1.02rem/1.22 var(--font-display); }
+.radar-card-head p { margin: 0; color: var(--quiet); font-size: .59rem; }
+.radar-card-head p strong { color: var(--muted); }
+.radar-status { align-self: start; padding: 6px 8px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; background: rgba(5,15,30,.45); font-size: .53rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.status-buy .radar-status { color: var(--mint-bright); border-color: rgba(115,169,255,.32); background: rgba(115,169,255,.1); }
+.status-sell .radar-status { color: var(--gold); border-color: rgba(214,189,138,.3); background: rgba(214,189,138,.09); }
+.status-cooling .radar-status { color: var(--danger); border-color: rgba(255,170,163,.25); background: rgba(255,170,163,.07); }
+.radar-status-detail { min-height: 36px; margin: 14px 0; color: var(--muted); font-size: .67rem; line-height: 1.5; }
+.radar-price-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.radar-price-grid > div { min-width: 0; padding: 12px; border-right: 1px solid var(--line); background: rgba(4,14,29,.4); }
+.radar-price-grid > div:last-child { border-right: 0; }
+.radar-price-grid small, .radar-price-grid strong, .radar-price-grid span { display: block; overflow-wrap: anywhere; }
+.radar-price-grid small { color: var(--quiet); font-size: .53rem; text-transform: uppercase; }
+.radar-price-grid strong { margin: 5px 0 3px; font-size: .78rem; }
+.radar-price-grid span { color: var(--quiet); font-size: .54rem; }
+.radar-history { margin-top: 12px; padding: 13px; display: grid; grid-template-columns: minmax(130px, .7fr) minmax(140px, 1fr) auto; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 12px; background: rgba(5,15,30,.38); }
+.radar-history small, .radar-history strong { display: block; }
+.radar-history small { color: var(--quiet); font-size: .52rem; letter-spacing: .06em; }
+.radar-history strong { margin-top: 5px; font-size: .68rem; }
+.radar-history svg { width: 100%; height: 48px; overflow: visible; }
+.radar-history polyline { fill: none; stroke: var(--mint); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.radar-history > p { margin: 0; color: var(--quiet); font-size: .57rem; text-align: right; }
+.radar-history-single { width: 100%; height: 2px; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--mint), transparent); }
+.radar-plan { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.radar-plan > div { min-width: 0; padding: 10px; border-radius: 10px; background: rgba(115,169,255,.055); }
+.radar-plan small, .radar-plan strong { display: block; overflow-wrap: anywhere; }
+.radar-plan small { color: var(--quiet); font-size: .5rem; }
+.radar-plan strong { margin-top: 4px; font-size: .68rem; }
+.radar-plan strong.negative { color: var(--danger); }
+.radar-card-note { margin: 12px 0 0; padding-left: 10px; color: var(--muted); border-left: 2px solid rgba(115,169,255,.28); font-size: .65rem; font-style: italic; line-height: 1.55; overflow-wrap: anywhere; }
+.radar-card-actions { margin-top: 15px; display: flex; align-items: center; gap: 10px; }
+.radar-card-actions button, .radar-card-actions a { min-height: 34px; padding: 0 10px; display: inline-flex; align-items: center; color: var(--mint-bright); border: 1px solid var(--line); border-radius: 8px; background: rgba(8,22,42,.72); font-size: .59rem; font-weight: 750; text-decoration: none; }
+.radar-card-actions small { margin-left: auto; color: var(--quiet); font-size: .53rem; }
+.radar-editor { width: min(720px, calc(100% - 24px)); padding: 0; color: var(--ink); border: 1px solid rgba(115,169,255,.28); border-radius: 20px; background: #08172b; box-shadow: 0 42px 130px rgba(0,0,0,.78); }
+.radar-editor::backdrop { background: rgba(2,7,17,.8); backdrop-filter: blur(8px); }
+.radar-form { padding: 34px; position: relative; }
+.radar-editor-heading { margin-right: 40px; display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 13px; }
+.radar-editor-heading .item-icon { width: 54px; height: 54px; border-radius: 13px; }
+.radar-editor-heading .eyebrow { margin-bottom: 5px; font-size: .55rem; }
+.radar-editor-heading h2 { margin: 0 0 4px; font: 600 1.4rem var(--font-display); overflow-wrap: anywhere; }
+.radar-editor-heading span { color: var(--quiet); font-size: .6rem; }
+.radar-form-grid { margin-top: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.radar-form label > span { display: block; margin-bottom: 7px; color: var(--quiet); font-size: .58rem; font-weight: 750; text-transform: uppercase; }
+.radar-form input[type="number"], .radar-form input[type="text"], .radar-form textarea { width: 100%; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; outline: 0; background: rgba(4,14,29,.58); }
+.radar-form input[type="number"], .radar-form input[type="text"] { min-height: 42px; padding: 0 12px; }
+.radar-form textarea { padding: 12px; resize: vertical; line-height: 1.5; }
+.radar-form input:focus, .radar-form textarea:focus { border-color: rgba(115,169,255,.55); }
+.radar-form .money-input { grid-template-columns: minmax(0, 1fr) auto; }
+.radar-notes { margin-top: 14px; position: relative; display: block; }
+.radar-notes > small { position: absolute; right: 10px; bottom: 8px; color: var(--quiet); font-size: .52rem; }
+.radar-alert-toggle { margin-top: 15px; width: fit-content; }
+.radar-form .account-message { margin-top: 14px; }
+.radar-form-actions { margin-top: 24px; display: flex; justify-content: space-between; gap: 10px; }
+.danger-action, .primary-action { min-height: 42px; padding: 0 15px; border-radius: 10px; font-size: .68rem; font-weight: 800; }
+.danger-action { color: var(--danger); border: 1px solid rgba(255,170,163,.2); background: rgba(255,170,163,.05); }
+.primary-action { color: #081426; border: 0; background: var(--mint-bright); }
+.danger-action:disabled, .primary-action:disabled { opacity: .5; cursor: wait; }
+.radar-roadmap { margin: 100px 0 90px; padding: 34px; display: grid; grid-template-columns: minmax(250px, .65fr) minmax(0, 1.35fr); gap: 42px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.radar-roadmap h2 { margin: 5px 0 12px; font: 600 1.8rem var(--font-display); }
+.radar-roadmap > div > p:last-child { color: var(--muted); font-size: .72rem; line-height: 1.6; }
+.radar-roadmap ol { margin: 0; padding: 0; display: grid; list-style: none; }
+.radar-roadmap li { padding: 12px 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; border-bottom: 1px solid var(--line); }
+.radar-roadmap li:last-child { border-bottom: 0; }
+.radar-roadmap li > span { color: var(--mint); font: 600 .68rem var(--font-display); }
+.radar-roadmap li p, .radar-roadmap li strong, .radar-roadmap li small { margin: 0; display: block; }
+.radar-roadmap li strong { font-size: .71rem; }
+.radar-roadmap li small { margin-top: 4px; color: var(--quiet); font-size: .6rem; line-height: 1.45; }
+
 .site-nav {
   grid-column: 1 / -1;
   grid-row: 2;
@@ -1160,6 +1251,9 @@ footer { min-height: 100px; display: flex; align-items: center; justify-content:
   .admin-access-message { grid-column: 1 / -1; }
   .admin-user { grid-template-columns: 46px minmax(0, 1fr) auto; }
   .admin-meta, .admin-actions { grid-column: 2 / -1; text-align: left; justify-content: start; }
+  .radar-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .radar-toolbar .search-box { grid-column: 1 / -1; }
+  .radar-alert-strip, .radar-roadmap { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
@@ -1255,6 +1349,17 @@ footer { min-height: 100px; display: flex; align-items: center; justify-content:
   .admin-user { grid-template-columns: 42px minmax(0, 1fr); padding: 16px; }
   .admin-user > .user-status { grid-column: 2; justify-self: start; }
   .admin-meta, .admin-actions { grid-column: 1 / -1; }
+  .radar-alert-list, .radar-grid { grid-template-columns: 1fr; }
+  .radar-toolbar { grid-template-columns: 1fr; }
+  .radar-toolbar .search-box { grid-column: auto; }
+  .radar-price-grid, .radar-plan { grid-template-columns: 1fr; }
+  .radar-price-grid > div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .radar-price-grid > div:last-child { border-bottom: 0; }
+  .radar-history { grid-template-columns: 1fr; }
+  .radar-history > p { text-align: left; }
+  .radar-form { padding: 30px 20px; }
+  .radar-form-grid { grid-template-columns: 1fr; }
+  .radar-roadmap { padding-inline: 8px; }
 }
 
 @media (max-width: 430px) {

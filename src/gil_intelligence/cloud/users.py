@@ -114,7 +114,18 @@ class FirebaseUserService:
     def favorites(self, authorization: str | None) -> list[dict[str, Any]]:
         _, profile = self._authorized_profile(authorization)
         documents = self._users().document(profile["uid"]).collection("favorites").stream()
-        favorites = [self._serialize(document.to_dict() or {}) for document in documents]
+        favorites = []
+        for document in documents:
+            favorite = document.to_dict() or {}
+            history = [
+                observation.to_dict() or {}
+                for observation in document.reference.collection("history").stream()
+            ]
+            favorite["history"] = sorted(
+                (self._serialize(observation) for observation in history),
+                key=lambda item: str(item.get("observedAt") or ""),
+            )[-180:]
+            favorites.append(self._serialize(favorite))
         return sorted(favorites, key=lambda item: str(item.get("addedAt") or ""), reverse=True)
 
     def put_favorite(
@@ -144,7 +155,51 @@ class FirebaseUserService:
     def delete_favorite(self, authorization: str | None, key: str) -> None:
         _, profile = self._authorized_profile(authorization)
         normalized_key = self._validate_favorite_key(key)
-        self._favorite_reference(profile["uid"], normalized_key).delete()
+        reference = self._favorite_reference(profile["uid"], normalized_key)
+        for observation in reference.collection("history").stream():
+            observation.reference.delete()
+        reference.delete()
+
+    def record_favorite_observations(
+        self,
+        *,
+        dashboard: dict[str, Any],
+        market_items: dict[str, Any],
+        opportunities: dict[str, Any],
+        signals: dict[str, Any],
+    ) -> dict[str, int]:
+        """Persist one idempotent market point per favorite after a successful refresh."""
+        observed_at = str(market_items.get("meta", {}).get("marketCollectedAt") or "")
+        market_snapshot_id = str(signals.get("meta", {}).get("marketSnapshotId") or "")
+        if not observed_at or not market_snapshot_id:
+            raise ValueError("Favorite observations require a market timestamp and snapshot id")
+        context = _favorite_observation_context(
+            dashboard=dashboard,
+            market_items=market_items,
+            opportunities=opportunities,
+            signals=signals,
+        )
+        observation_id = hashlib.sha256(market_snapshot_id.encode("utf-8")).hexdigest()
+        watched = 0
+        recorded = 0
+        for user_snapshot in self._users().stream():
+            favorites = user_snapshot.reference.collection("favorites").stream()
+            for favorite_snapshot in favorites:
+                watched += 1
+                favorite = favorite_snapshot.to_dict() or {}
+                observation = _favorite_observation(
+                    favorite,
+                    context=context,
+                    market_snapshot_id=market_snapshot_id,
+                    observed_at=observed_at,
+                )
+                if observation is None:
+                    continue
+                favorite_snapshot.reference.collection("history").document(observation_id).set(
+                    observation
+                )
+                recorded += 1
+        return {"watched": watched, "recorded": recorded}
 
     def list_users(self, authorization: str | None) -> list[dict[str, Any]]:
         self._authorized_profile(authorization, require_admin=True)
@@ -372,9 +427,30 @@ class FirebaseUserService:
             raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_metadata")
         allowed = {
             "module", "itemId", "quality", "name", "currencyItemId",
-            "currencyName", "sourceWorldId", "targetValue",
+            "currencyName", "sourceWorldId", "sourceWorldName", "targetValue",
+            "targetPrice", "buyTarget", "sellTarget", "maxCapital", "notes",
+            "preferredWorldName", "alertsEnabled", "iconId",
         }
         result = {key: value[key] for key in allowed if key in value}
+        for key in ("itemId", "currencyItemId", "sourceWorldId", "iconId"):
+            if key in result and result[key] is not None:
+                number = int(result[key])
+                if number <= 0:
+                    raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_metadata")
+                result[key] = number
+        for key in ("targetValue", "targetPrice", "buyTarget", "sellTarget", "maxCapital"):
+            if key in result and result[key] not in (None, ""):
+                number = float(result[key])
+                if number < 0 or number != number or number == float("inf"):
+                    raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_metadata")
+                result[key] = number
+            elif key in result:
+                result[key] = None
+        for key, maximum in (("notes", 800), ("preferredWorldName", 80), ("sourceWorldName", 80)):
+            if key in result:
+                result[key] = str(result[key] or "").strip()[:maximum]
+        if "alertsEnabled" in result:
+            result["alertsEnabled"] = bool(result["alertsEnabled"])
         if len(str(result)) > 4000:
             raise UserApiError(HTTPStatus.BAD_REQUEST, "metadata_too_large")
         return result
@@ -411,3 +487,104 @@ class FirebaseUserService:
         if isinstance(value, (list, tuple)):
             return [cls._serialize(item) for item in value]
         return value
+
+
+def _favorite_observation_context(
+    *,
+    dashboard: dict[str, Any],
+    market_items: dict[str, Any],
+    opportunities: dict[str, Any],
+    signals: dict[str, Any],
+) -> dict[str, dict[Any, dict[str, Any]]]:
+    market = {
+        (int(item["itemId"]), str(item.get("quality") or "NQ")): item
+        for item in market_items.get("items", [])
+        if item.get("itemId")
+    }
+    routes: dict[str, dict[str, Any]] = {}
+    for item in opportunities.get("opportunities", []):
+        suffix = f'{item.get("itemId")}:{item.get("quality") or "NQ"}:{item.get("sourceWorldId")}'
+        routes[f"opportunity:{suffix}"] = item
+        routes[f"snipe:{suffix}"] = item
+    conversions = {
+        "conversion:" + ":".join(
+            str(value)
+            for value in (
+                item.get("currencyItemId"), item.get("currencyQuantity"),
+                item.get("rewardItemId"), item.get("rewardQuantity"),
+                1 if item.get("rewardIsHq") else 0,
+            )
+        ): item
+        for item in dashboard.get("conversions", [])
+    }
+    signal_map = {
+        str(item["key"]): item
+        for item in signals.get("signals", [])
+        if item.get("key")
+    }
+    return {"market": market, "routes": routes, "conversions": conversions, "signals": signal_map}
+
+
+def _favorite_observation(
+    favorite: dict[str, Any],
+    *,
+    context: dict[str, dict[Any, dict[str, Any]]],
+    market_snapshot_id: str,
+    observed_at: str,
+) -> dict[str, Any] | None:
+    key = str(favorite.get("key") or "")
+    item_id = favorite.get("itemId")
+    quality = str(favorite.get("quality") or "NQ")
+    try:
+        market = context["market"].get((int(item_id), quality)) if item_id else None
+    except (TypeError, ValueError):
+        market = None
+    route = context["routes"].get(key)
+    conversion = context["conversions"].get(key)
+    signal = context["signals"].get(key)
+    buy_price = _finite_number(
+        (route or {}).get("averagePurchasePrice")
+        or (route or {}).get("sourcePrice")
+        or (market or {}).get("minListingPrice")
+        or (conversion or {}).get("marketUnitPrice")
+    )
+    sell_price = _finite_number(
+        (route or {}).get("conservativeSellPrice")
+        or (market or {}).get("averageSalePrice")
+        or (conversion or {}).get("marketUnitPrice")
+    )
+    velocity = _finite_number(
+        (route or {}).get("dailySaleVelocity")
+        or (market or {}).get("dailySaleVelocity")
+        or (conversion or {}).get("dailySaleVelocity")
+        or (signal or {}).get("context", {}).get("velocity")
+    )
+    state = (
+        (signal or {}).get("state")
+        or (market or {}).get("trend", {}).get("signal")
+        or (route or {}).get("confidenceBand")
+    )
+    if buy_price is None and sell_price is None and velocity is None and not state:
+        return None
+    return {
+        "marketSnapshotId": market_snapshot_id,
+        "observedAt": observed_at,
+        "itemId": int(item_id) if item_id else None,
+        "quality": quality,
+        "currentBuyPrice": buy_price,
+        "currentSellPrice": sell_price,
+        "dailySaleVelocity": velocity,
+        "state": state,
+        "sourceWorldName": (route or {}).get("sourceWorldName"),
+        "metricValue": _finite_number((signal or {}).get("metricValue")),
+    }
+
+
+def _finite_number(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number == number and abs(number) != float("inf") else None
