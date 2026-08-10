@@ -11,7 +11,7 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 
 - valorar conversiones de monedas especiales;
 - encontrar materiales de gathering y crafting con demanda;
-- detectar compras baratas en Aether para vender en Cactuar;
+- detectar compras baratas en North America para vender en Cactuar;
 - acumular historial por categoría para lanzamientos de expansiones y parches;
 - incorporar ML sólo cuando exista suficiente historial para compararlo contra
   reglas deterministas.
@@ -21,13 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `f294f2e` (`Add actionable expansion signals and verified snipes`).
-- HEAD funcional desplegado: `f294f2e`.
+- Código productivo verificado: `9b5c507` (`Expand cross-world snipes across North America`).
+- HEAD funcional desplegado: `9b5c507`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v13`, digest
-  `sha256:db7facb8ddb315338d710f5b3e0ae6e03b345bb412fd0f333eac97b11b7e031f`.
+- Imagen desplegada al cierre: `backend:v14`, digest
+  `sha256:c490db34dc46c54b6f1348dcb1309a596bc0cd79c63975fefd5051e2e2ab0a70`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -99,6 +99,19 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Validación final: 40 pruebas correctas, sintaxis JavaScript/JSON válida y smoke
   visual desktop/móvil y productivo.
 
+### Snipeos regionales North America → Cactuar
+
+- GitHub Pages publicó `9b5c507`; Cloud Run sirve `backend:v14` desde
+  `cactuar-api-00014-6cm`, con 100% del tráfico y ambos jobs en `v14`.
+- La ejecución `cactuar-refresh-5t2jf` terminó correctamente en 10m04s.
+- El mínimo de compra usa `scope_level=REGION`, cubriendo los 32 Worlds de Aether,
+  Primal, Crystal y Dynamis. La venta, velocidad y estrés siguen siendo Cactuar.
+- Producción publicó 74 oportunidades con stock verificado. Snipeos aceptó 41 rutas
+  en 19 Worlds: 9 Aether, 10 Primal, 10 Crystal y 12 Dynamis; 32 quedaron fuera de
+  Aether.
+- Ninguna cantidad recomendada excedió el stock verificado y el API declaró
+  `sourceScope=North-America`, `sourceScopeLevel=REGION`, destino Cactuar.
+
 ## Funcionalidad disponible
 
 ### Conversiones
@@ -134,7 +147,7 @@ Caso de regresión verificado:
 
 ### Oportunidades entre mundos
 
-- Compra sugerida en otros mundos de Aether y venta en Cactuar.
+- Compra sugerida en cualquier World accesible de North America y venta en Cactuar.
 - Precio estresado, fee, ROI, ventas/día, persistencia y confianza explicable.
 - Stock de la shortlist verificado mediante consultas detalladas.
 - Optimizador de capital y cantidad recomendada.
