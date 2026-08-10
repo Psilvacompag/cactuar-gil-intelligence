@@ -91,3 +91,4 @@ Lee `sqpack`, no el proceso del juego. Las rutas detectadas en esta máquina pue
 Arquitectura: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
 Currency Exchange: [docs/CURRENCY_EXCHANGE.md](docs/CURRENCY_EXCHANGE.md)
 Feasibility spike: [docs/FEASIBILITY.md](docs/FEASIBILITY.md)
+Memoria para retomar: [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md)
