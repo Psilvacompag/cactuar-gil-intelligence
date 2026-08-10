@@ -8,6 +8,7 @@
   const listeners = new Set();
   let records = {};
   let loadSequence = 0;
+  let reloadPromise = null;
 
   // Favorites intentionally start from zero. Legacy browser data is discarded,
   // never read or sent to the server.
@@ -23,22 +24,33 @@
   }
 
   async function reload() {
-    const sequence = ++loadSequence;
     if (!activeAccount()) {
+      loadSequence += 1;
+      reloadPromise = null;
       records = {};
       publish();
       return;
     }
+    if (reloadPromise) return reloadPromise;
+    const sequence = ++loadSequence;
+    const currentReload = (async () => {
+      try {
+        const payload = await window.GilAuth.request("/v1/me/favorites");
+        if (sequence !== loadSequence) return;
+        records = Object.fromEntries((payload.favorites || []).map((entry) => [entry.key, entry]));
+        publish();
+      } catch (error) {
+        if (sequence !== loadSequence) return;
+        records = {};
+        publish();
+        window.GilAuth.reportError?.(error);
+      }
+    })();
+    reloadPromise = currentReload;
     try {
-      const payload = await window.GilAuth.request("/v1/me/favorites");
-      if (sequence !== loadSequence) return;
-      records = Object.fromEntries((payload.favorites || []).map((entry) => [entry.key, entry]));
-      publish();
-    } catch (error) {
-      if (sequence !== loadSequence) return;
-      records = {};
-      publish();
-      window.GilAuth.reportError?.(error);
+      return await currentReload;
+    } finally {
+      if (reloadPromise === currentReload) reloadPromise = null;
     }
   }
 

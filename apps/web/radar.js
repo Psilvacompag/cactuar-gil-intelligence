@@ -349,5 +349,6 @@
   elements.form.addEventListener("submit", (event) => void saveEditor(event));
   elements.remove.addEventListener("click", () => void removeEditing());
   document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); } });
+  GilWatchlist.subscribe(() => { if (state.data) rebuild(); });
   loadRadar();
 })();
