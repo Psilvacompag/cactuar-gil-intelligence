@@ -21,13 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `f35425c` (`Add unified signal ledger and watch center`).
-- HEAD funcional desplegado: `f35425c`.
+- Código productivo verificado: `09f1765` (`Add original FFXIV item icons across dashboard`).
+- HEAD funcional desplegado: `09f1765`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v15`, digest
-  `sha256:7f6eba79ecf77871acdb8ac18be74bcce111a466494a2bba568ae93e6379c85f`.
+- Imagen desplegada al cierre: `backend:v16`, digest
+  `sha256:45a0cea8110edcd1d72c26f06b90a334b3b98a61e500da7c94ea6e4c1fc14553`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -130,6 +130,24 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Validación final: 41 pruebas correctas, todos los endpoints HTTP 200, cero claves
   duplicadas o incompletas y smoke visual productivo desktop/móvil.
 
+### Iconos originales y catálogo estático v6
+
+- GitHub Pages publicó `09f1765`; Cloud Run sirve `backend:v16` desde
+  `cactuar-api-00017-mrh`, con 100% del tráfico y ambos jobs actualizados a `v16`.
+- Se conservó el catálogo anterior en
+  `catalog/archive/static_snapshot-v5-pre-icons-20260810.json` antes de publicar v6.
+- El catálogo v6 contiene 52.800 assets y 50.775 `iconId`; BigQuery archivó las
+  mismas cantidades bajo `sqpack:2026.08.05.0000.0000:schema-6`.
+- La ejecución `cactuar-archive-kkhkx` republicó desde el último SQLite en 2m42s,
+  sin nuevas solicitudes a Universalis.
+- Producción entrega iconos en 2.221 conversiones, 4.065 filas de mercado, 70
+  oportunidades y 534 señales. Las seis vistas usan los PNG originales y un SVG
+  minimalista local si el asset externo falla.
+- `Khloe's Gold Certificate of Commendation` usa `iconId=26191`; tanto el nombre de
+  moneda como la recompensa se verificaron completos en desktop y móvil.
+- Validación final: 42 pruebas Python, sintaxis JavaScript, compilación Python,
+  consulta BigQuery y smoke visual productivo correctos.
+
 ## Funcionalidad disponible
 
 ### Conversiones
@@ -181,9 +199,8 @@ Caso de regresión verificado:
   Commendation.
 - Las tres tablas conservan el selector y además permiten ordenar al pulsar sus
   encabezados, alternando ascendente y descendente.
-- Se incorporaron Manrope y Space Grotesk, superficies más definidas e iconos SVG
-  minimalistas. Los iconos originales quedan pospuestos hasta extraer `iconId` desde
-  `sqpack`; el ID de ítem no identifica de forma segura su icono.
+- Se incorporaron Manrope y Space Grotesk, superficies más definidas, iconos
+  originales extraídos desde `sqpack` y SVG minimalistas como fallback.
 - Se añadieron `Proyecciones` y `Snipeos`. Proyecciones usa el mapping v2 para Evercold:
   los ganadores históricos definen roles y sólo equivalentes actuales explícitos
   pueden entrar. No admite matches genéricos por categoría. Snipeos detecta descuentos
@@ -204,8 +221,8 @@ Caso de regresión verificado:
 
 ## Datos y frecuencia
 
-- El catálogo estático v5 se extrajo desde los archivos locales `sqpack`; incluye
-  categorías, recetas, ingredientes y Grand Company seals.
+- El catálogo estático v6 se extrajo desde los archivos locales `sqpack`; incluye
+  iconos, categorías, recetas, ingredientes y Grand Company seals.
 - Una corrida consulta 1 vez `/marketable`, aproximadamente 169 lotes agregados y
   unos 7 lotes detallados: cerca de 177 requests.
 - Ritmo máximo configurado: 1 request/s, una conexión y hasta dos reintentos HTTP.
@@ -251,7 +268,7 @@ $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 ```
 
-Estado al cierre: 40 pruebas exitosas.
+Estado al cierre: 42 pruebas exitosas.
 
 Health productivo:
 
