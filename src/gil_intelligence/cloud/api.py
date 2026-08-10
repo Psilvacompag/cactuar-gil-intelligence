@@ -91,7 +91,10 @@ def build_handler(
             if path == "/v1/admin/users":
                 self._serve_private(
                     lambda service: {
-                        "users": service.list_users(self.headers.get("Authorization"))
+                        "users": service.list_users(self.headers.get("Authorization")),
+                        "invitations": service.list_invitations(
+                            self.headers.get("Authorization")
+                        ),
                     }
                 )
                 return
@@ -125,6 +128,14 @@ def build_handler(
                     lambda service: service.register(self.headers.get("Authorization"))
                 )
                 return
+            if path == "/v1/admin/invitations":
+                self._serve_private(
+                    lambda service: service.grant_access(
+                        self.headers.get("Authorization"),
+                        str(self._read_json().get("email") or ""),
+                    )
+                )
+                return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
         def do_PUT(self) -> None:  # noqa: N802
@@ -154,6 +165,16 @@ def build_handler(
                     return {"deleted": True}
 
                 self._serve_private(remove)
+                return
+            if path == "/v1/admin/invitations":
+                def revoke_invitation(service: Any) -> dict[str, Any]:
+                    service.revoke_invitation(
+                        self.headers.get("Authorization"),
+                        str(self._read_json().get("id") or ""),
+                    )
+                    return {"deleted": True}
+
+                self._serve_private(revoke_invitation)
                 return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 

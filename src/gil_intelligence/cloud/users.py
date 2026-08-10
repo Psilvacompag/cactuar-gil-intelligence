@@ -31,10 +31,14 @@ class FirebaseUserService:
         project_id: str,
         bootstrap_admin_email: str,
         collection_name: str = "cactuar_users",
+        invitation_collection_name: str | None = None,
     ) -> None:
         self.project_id = project_id
         self.bootstrap_admin_email = bootstrap_admin_email.strip().casefold()
         self.collection_name = collection_name
+        self.invitation_collection_name = (
+            invitation_collection_name or f"{collection_name}_invitations"
+        )
         self._auth: Any = None
         self._firestore: Any = None
         self._database: Any = None
@@ -56,13 +60,16 @@ class FirebaseUserService:
         existing = existing_snapshot.to_dict() if existing_snapshot.exists else None
         now = datetime.now(timezone.utc)
         is_bootstrap_admin = email.casefold() == self.bootstrap_admin_email
+        invitation_reference = self._invitation_reference(email)
+        invitation_snapshot = invitation_reference.get()
+        is_preapproved = invitation_snapshot.exists
         if existing is None:
             profile = {
                 "uid": uid,
                 "email": email,
                 "displayName": identity.get("name") or email.split("@", 1)[0],
                 "photoURL": identity.get("picture"),
-                "status": "ACTIVE" if is_bootstrap_admin else "PENDING",
+                "status": "ACTIVE" if is_bootstrap_admin or is_preapproved else "PENDING",
                 "role": "ADMIN" if is_bootstrap_admin else "USER",
                 "createdAt": now,
                 "lastLoginAt": now,
@@ -79,7 +86,11 @@ class FirebaseUserService:
             }
             if is_bootstrap_admin:
                 profile.update({"status": "ACTIVE", "role": "ADMIN"})
+            elif is_preapproved and profile.get("status") == "PENDING":
+                profile["status"] = "ACTIVE"
             reference.set(profile, merge=True)
+        if is_preapproved:
+            invitation_reference.delete()
         expected_claims = {
             "admin": profile.get("role") == "ADMIN",
             "approved": profile.get("status") == "ACTIVE",
@@ -152,6 +163,65 @@ class FirebaseUserService:
             ),
         )
 
+    def list_invitations(self, authorization: str | None) -> list[dict[str, Any]]:
+        self._authorized_profile(authorization, require_admin=True)
+        invitations = [
+            self._public_invitation(snapshot.id, snapshot.to_dict() or {})
+            for snapshot in self._invitations().stream()
+        ]
+        return sorted(invitations, key=lambda item: str(item.get("email") or "").casefold())
+
+    def grant_access(self, authorization: str | None, email: str) -> dict[str, Any]:
+        _, admin_profile = self._authorized_profile(authorization, require_admin=True)
+        normalized_email = self._validate_email(email)
+        now = datetime.now(timezone.utc)
+        for snapshot in self._users().stream():
+            profile = snapshot.to_dict() or {}
+            if str(profile.get("email") or "").strip().casefold() != normalized_email:
+                continue
+            profile.update(
+                {
+                    "uid": snapshot.id,
+                    "status": "ACTIVE",
+                    "updatedAt": now,
+                    "updatedBy": admin_profile["uid"],
+                }
+            )
+            snapshot.reference.set(profile, merge=True)
+            self._invitation_reference(normalized_email).delete()
+            self._sync_claims(snapshot.id, profile)
+            self._auth.update_user(snapshot.id, disabled=False)
+            return {"kind": "USER", "user": self._public_profile(profile)}
+
+        invitation_id = hashlib.sha256(normalized_email.encode("utf-8")).hexdigest()
+        reference = self._invitations().document(invitation_id)
+        existing_snapshot = reference.get()
+        existing = existing_snapshot.to_dict() if existing_snapshot.exists else {}
+        invitation = {
+            **existing,
+            "email": normalized_email,
+            "createdAt": existing.get("createdAt") or now,
+            "updatedAt": now,
+            "updatedBy": admin_profile["uid"],
+        }
+        reference.set(invitation)
+        return {
+            "kind": "INVITATION",
+            "invitation": self._public_invitation(invitation_id, invitation),
+        }
+
+    def revoke_invitation(self, authorization: str | None, invitation_id: str) -> None:
+        self._authorized_profile(authorization, require_admin=True)
+        normalized_id = str(invitation_id or "").strip().casefold()
+        if len(normalized_id) != 64 or any(
+            character not in "0123456789abcdef" for character in normalized_id
+        ):
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_invitation_id")
+        reference = self._invitations().document(normalized_id)
+        if not reference.get().exists:
+            raise UserApiError(HTTPStatus.NOT_FOUND, "invitation_not_found")
+        reference.delete()
+
     def update_user(
         self,
         authorization: str | None,
@@ -188,6 +258,8 @@ class FirebaseUserService:
             }
         )
         reference.set(profile, merge=True)
+        if profile.get("email"):
+            self._invitation_reference(str(profile["email"])).delete()
         self._sync_claims(uid, profile)
         self._auth.update_user(uid, disabled=status == "SUSPENDED")
         return self._public_profile(profile)
@@ -249,6 +321,15 @@ class FirebaseUserService:
         self._initialize()
         return self._database.collection(self.collection_name)
 
+    def _invitations(self) -> Any:
+        self._initialize()
+        return self._database.collection(self.invitation_collection_name)
+
+    def _invitation_reference(self, email: str) -> Any:
+        normalized_email = self._validate_email(email)
+        document_id = hashlib.sha256(normalized_email.encode("utf-8")).hexdigest()
+        return self._invitations().document(document_id)
+
     def _sync_claims(self, uid: str, profile: dict[str, Any]) -> None:
         self._initialize()
         self._auth.set_custom_user_claims(
@@ -269,6 +350,21 @@ class FirebaseUserService:
         if not key or len(key) > 300:
             raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_favorite_key")
         return key
+
+    @staticmethod
+    def _validate_email(value: str) -> str:
+        email = str(value or "").strip().casefold()
+        if (
+            not email
+            or len(email) > 254
+            or email.count("@") != 1
+            or any(character.isspace() for character in email)
+        ):
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_email")
+        local, domain = email.split("@", 1)
+        if not local or not domain or "." not in domain:
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_email")
+        return email
 
     @staticmethod
     def _favorite_metadata(value: dict[str, Any]) -> dict[str, Any]:
@@ -292,6 +388,17 @@ class FirebaseUserService:
                     "uid", "email", "displayName", "photoURL", "status", "role",
                     "createdAt", "lastLoginAt", "updatedAt",
                 )
+            }
+        )
+
+    @classmethod
+    def _public_invitation(cls, invitation_id: str, invitation: dict[str, Any]) -> dict[str, Any]:
+        return cls._serialize(
+            {
+                "id": invitation_id,
+                "email": invitation.get("email"),
+                "createdAt": invitation.get("createdAt"),
+                "updatedAt": invitation.get("updatedAt"),
             }
         )
 

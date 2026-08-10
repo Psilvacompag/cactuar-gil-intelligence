@@ -69,6 +69,7 @@ class InMemoryUserService(FirebaseUserService):
         super().__init__(project_id="test", bootstrap_admin_email="owner@example.com")
         self.identities = identities
         self.collection = FakeCollection()
+        self.invitation_collection = FakeCollection(path=("invitations",))
         self._auth = FakeAuth()
         self._database = object()
 
@@ -80,6 +81,9 @@ class InMemoryUserService(FirebaseUserService):
 
     def _users(self):
         return self.collection
+
+    def _invitations(self):
+        return self.invitation_collection
 
 
 def google_identity(uid, email):
@@ -129,6 +133,38 @@ class FirebaseUserServiceTests(unittest.TestCase):
         self.service.delete_favorite("Bearer member", "market:123:NQ")
         self.assertEqual(self.service.favorites("Bearer member"), [])
 
+    def test_admin_can_preapprove_email_before_first_login(self):
+        self.service.register("Bearer owner")
+        granted = self.service.grant_access("Bearer owner", " Member@Example.com ")
+
+        self.assertEqual(granted["kind"], "INVITATION")
+        self.assertEqual(granted["invitation"]["email"], "member@example.com")
+        self.assertEqual(len(self.service.list_invitations("Bearer owner")), 1)
+
+        member = self.service.register("Bearer member")
+
+        self.assertEqual((member["status"], member["role"]), ("ACTIVE", "USER"))
+        self.assertEqual(self.service.list_invitations("Bearer owner"), [])
+
+    def test_granting_access_activates_an_existing_pending_user(self):
+        self.service.register("Bearer owner")
+        self.service.register("Bearer member")
+
+        granted = self.service.grant_access("Bearer owner", "member@example.com")
+
+        self.assertEqual(granted["kind"], "USER")
+        self.assertEqual(granted["user"]["status"], "ACTIVE")
+        self.assertFalse(self.service._auth.disabled["uid-member"])
+
+    def test_admin_can_revoke_unused_invitation(self):
+        self.service.register("Bearer owner")
+        invitation = self.service.grant_access("Bearer owner", "member@example.com")["invitation"]
+
+        self.service.revoke_invitation("Bearer owner", invitation["id"])
+
+        self.assertEqual(self.service.list_invitations("Bearer owner"), [])
+        self.assertEqual(self.service.register("Bearer member")["status"], "PENDING")
+
     def test_market_access_requires_an_active_account(self):
         self.service.register("Bearer owner")
         self.service.register("Bearer member")
@@ -144,6 +180,10 @@ class FirebaseUserServiceTests(unittest.TestCase):
 
         with self.assertRaisesRegex(UserApiError, "admin_required"):
             self.service.list_users("Bearer member")
+        with self.assertRaisesRegex(UserApiError, "admin_required"):
+            self.service.grant_access("Bearer member", "someone@example.com")
+        with self.assertRaisesRegex(UserApiError, "admin_required"):
+            self.service.list_invitations("Bearer member")
         with self.assertRaises(UserApiError) as context:
             self.service.update_user("Bearer owner", "uid-owner", {"role": "USER"})
         self.assertEqual(context.exception.code, "cannot_lock_current_admin")

@@ -23,23 +23,30 @@
     </header>
     <main class="admin-main">
       <section class="admin-hero">
-        <div><p class="eyebrow">ACCESO · USUARIOS</p><h1>Administración.</h1><p>Aprueba cuentas nuevas, suspende accesos y asigna administradores. El mercado, los perfiles y los favoritos requieren una cuenta autorizada.</p></div>
+        <div><p class="eyebrow">ACCESO · USUARIOS</p><h1>Quién puede entrar.</h1><p>Autoriza correos Google, revisa solicitudes y quita acceso cuando quieras. El rol administrador es un permiso adicional y separado.</p></div>
         <div class="admin-summary" aria-label="Resumen de usuarios">
-          <div><strong id="admin-total">—</strong><small>Total</small></div>
-          <div><strong id="admin-pending">—</strong><small>Pendientes</small></div>
-          <div><strong id="admin-active">—</strong><small>Activos</small></div>
+          <div><strong id="admin-total">—</strong><small>Registrados</small></div>
+          <div><strong id="admin-pending">—</strong><small>Solicitudes</small></div>
+          <div><strong id="admin-active">—</strong><small>Con acceso</small></div>
+          <div><strong id="admin-invited">—</strong><small>Preautorizados</small></div>
         </div>
       </section>
       <section id="admin-panel" class="admin-panel" aria-live="polite">
+        <form id="admin-access-form" class="admin-access-form">
+          <div><small>LISTA DE ACCESO</small><strong>Autorizar un correo Google</strong><p>Puede ser Gmail o Google Workspace. Cuando esa persona ingrese, tendrá acceso sin esperar aprobación.</p></div>
+          <label for="admin-access-email"><span>Correo autorizado</span><input id="admin-access-email" type="email" placeholder="persona@gmail.com" autocomplete="email" required /></label>
+          <button id="admin-access-submit" class="primary" type="submit">Dar acceso</button>
+          <p id="admin-access-message" class="admin-access-message" role="status" hidden></p>
+        </form>
         <div class="admin-toolbar">
           <label class="sr-only" for="admin-search">Buscar usuario</label><input id="admin-search" type="search" placeholder="Buscar por nombre o correo…" autocomplete="off" />
-          <label class="sr-only" for="admin-status-filter">Estado</label><select id="admin-status-filter"><option value="ALL">Todos los estados</option><option value="PENDING">Pendientes</option><option value="ACTIVE">Activos</option><option value="SUSPENDED">Suspendidos</option></select>
+          <label class="sr-only" for="admin-status-filter">Estado</label><select id="admin-status-filter"><option value="ALL">Todos los estados</option><option value="PENDING">Solicitudes pendientes</option><option value="ACTIVE">Con acceso</option><option value="SUSPENDED">Sin acceso</option><option value="INVITED">Preautorizados</option></select>
           <button id="admin-refresh" class="secondary-action" type="button">Actualizar</button>
         </div>
         <div id="admin-users" class="admin-users"><p class="admin-empty">Comprobando permisos…</p></div>
       </section>
     </main>
-    <footer><span>Gil Intelligence</span><span>Acceso restringido a administradores.</span><span>No automatiza acciones dentro del juego.</span></footer>
+    <footer><span>Gil Intelligence</span><span>Sólo tú decides quién accede.</span><span>Administración protegida en el servidor.</span></footer>
     <script src="./config.js" defer></script>
     <script src="./auth.js" defer></script>
     <script src="./admin.js" defer></script>
