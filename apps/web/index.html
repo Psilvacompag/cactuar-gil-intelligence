@@ -10,7 +10,7 @@
     />
     <meta
       name="description"
-      content="Conversor de monedas y oportunidades de Market Board para FFXIV."
+      content="Tabla de conversiones de monedas de FFXIV con precios observados en Cactuar."
     />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://psilvacompag.github.io/cactuar-gil-intelligence/" />
@@ -19,7 +19,7 @@
     <meta property="og:title" content="Gil Intelligence · Cactuar" />
     <meta
       property="og:description"
-      content="Busca conversiones de monedas a gil usando precios y liquidez observados en Cactuar."
+      content="Conversiones de monedas de FFXIV con precios y velocidad de venta observados en Cactuar."
     />
     <meta property="og:url" content="https://psilvacompag.github.io/cactuar-gil-intelligence/" />
     <title>Gil Intelligence · Cactuar</title>
@@ -34,7 +34,7 @@
         <span class="brand-mark" aria-hidden="true">G</span>
         <span>
           <strong>Gil Intelligence</strong>
-          <small>Market clarity for FFXIV</small>
+          <small>Datos de mercado para FFXIV</small>
         </span>
       </a>
       <div class="topbar-meta">
@@ -48,11 +48,10 @@
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">CACTUAR · CURRENCY INTELLIGENCE</p>
-          <h1>Convierte tus monedas en <em>gil</em>, con criterio.</h1>
+          <p class="eyebrow">CACTUAR · CONVERSIONES DE MONEDAS</p>
+          <h1>Valor de monedas en Cactuar.</h1>
           <p class="hero-lede">
-            Precios reales, liquidez y frescura en una sola vista. Sin promesas mágicas:
-            cada resultado explica de dónde sale su valor.
+            Compara recompensas por gil neto, precio observado y velocidad de venta.
           </p>
         </div>
         <div class="hero-orbit" aria-hidden="true">
@@ -64,14 +63,14 @@
 
       <section class="metrics" aria-label="Resumen del mercado">
         <article class="metric-card featured">
-          <span class="metric-label">Conversiones directas</span>
+          <span class="metric-label">Conversiones</span>
           <strong id="metric-conversions">—</strong>
           <small>recompensas vendibles observadas</small>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Monedas detectadas</span>
+          <span class="metric-label">Monedas</span>
           <strong id="metric-currencies">—</strong>
-          <small>tokens y activos intercambiables</small>
+          <small>con conversiones disponibles</small>
         </article>
         <article class="metric-card">
           <span class="metric-label">Datos frescos</span>
@@ -88,8 +87,8 @@
       <section class="explorer" aria-labelledby="explorer-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">EXPLORADOR</p>
-            <h2 id="explorer-title">Encuentra la mejor salida</h2>
+            <p class="eyebrow">DATOS</p>
+            <h2 id="explorer-title">Tabla de conversiones</h2>
           </div>
           <p id="result-count" class="result-count" aria-live="polite">Preparando datos…</p>
         </div>
@@ -151,13 +150,13 @@
 
       <section class="method-note">
         <div>
-          <p class="eyebrow">CÓMO LEERLO</p>
-          <h2>Valor no es lo mismo que venta garantizada.</h2>
+          <p class="eyebrow">METODOLOGÍA</p>
+          <h2>Notas sobre los datos</h2>
         </div>
         <div class="method-grid">
-          <p><span>01</span> El gil por moneda descuenta el fee configurado.</p>
-          <p><span>02</span> La velocidad indica ventas observadas, no tu probabilidad exacta.</p>
-          <p><span>03</span> Los datos antiguos se mantienen visibles, pero señalados.</p>
+          <p><span>01</span> El gil por moneda incluye el fee configurado.</p>
+          <p><span>02</span> La velocidad corresponde a ventas observadas.</p>
+          <p><span>03</span> Los datos fuera de la ventana de frescura se marcan como antiguos.</p>
         </div>
       </section>
     </main>
@@ -170,7 +169,7 @@
     <footer>
       <span>Gil Intelligence</span>
       <span id="footer-source">Universalis + datos estáticos locales</span>
-      <span>Decisiones informadas, ejecución manual.</span>
+      <span>No automatiza acciones dentro del juego.</span>
     </footer>
 
     <template id="row-template">
