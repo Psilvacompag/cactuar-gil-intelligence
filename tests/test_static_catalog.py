@@ -173,6 +173,40 @@ class StaticCatalogImportTests(unittest.TestCase):
 
             self.assertFalse((root / "catalog.sqlite3").exists())
 
+    def test_imports_schema_three_production_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 3
+            payload["assets"][1].update(
+                {
+                    "craftable": True,
+                    "craftTypeName": "Goldsmith",
+                    "gatherable": True,
+                    "gatheringType": "MINER_BOTANIST",
+                }
+            )
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+
+            connection = sqlite3.connect(database_path)
+            try:
+                production = connection.execute(
+                    """
+                    SELECT craftable, craft_type_name, gatherable, gathering_type
+                    FROM dim_asset
+                    WHERE snapshot_id = ? AND item_id = 100
+                    """,
+                    (summary.snapshot_id,),
+                ).fetchone()
+            finally:
+                connection.close()
+            self.assertEqual(summary.snapshot_id, "sqpack:2026.08.05.0000.0000:schema-3")
+            self.assertEqual(production, (1, "Goldsmith", 1, "MINER_BOTANIST"))
+
 
 if __name__ == "__main__":
     unittest.main()

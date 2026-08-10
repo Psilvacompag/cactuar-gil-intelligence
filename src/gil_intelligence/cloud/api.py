@@ -20,6 +20,8 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
 def build_handler(
     cache: DashboardCache,
     history_cache: DashboardCache,
+    market_items_cache: DashboardCache,
+    opportunities_cache: DashboardCache,
     settings: CloudSettings,
 ) -> type[BaseHTTPRequestHandler]:
     allowed_origins = frozenset(settings.allowed_origins)
@@ -48,6 +50,8 @@ def build_handler(
                         "service": "cactuar-gil-intelligence",
                         "dashboard": "/v1/dashboard",
                         "history": "/v1/history",
+                        "marketItems": "/v1/market-items",
+                        "opportunities": "/v1/opportunities",
                         "health": "/v1/health",
                     },
                 )
@@ -60,6 +64,12 @@ def build_handler(
                 return
             if path == "/v1/history":
                 self._serve_document(history_cache)
+                return
+            if path == "/v1/market-items":
+                self._serve_document(market_items_cache)
+                return
+            if path == "/v1/opportunities":
+                self._serve_document(opportunities_cache)
                 return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
@@ -97,7 +107,7 @@ def build_handler(
             except Exception as exc:
                 self._send_json(
                     HTTPStatus.SERVICE_UNAVAILABLE,
-                    {"error": "dashboard_unavailable", "detail": type(exc).__name__},
+                    {"error": "document_unavailable", "detail": type(exc).__name__},
                     origin=origin,
                 )
                 return
@@ -184,10 +194,22 @@ def main() -> int:
         ttl_seconds=settings.cache_seconds,
         expected_kind="currency-history",
     )
+    market_items_cache = DashboardCache(
+        store,
+        settings.market_items_object,
+        ttl_seconds=settings.cache_seconds,
+        expected_kind="market-items",
+    )
+    opportunities_cache = DashboardCache(
+        store,
+        settings.opportunities_object,
+        ttl_seconds=settings.cache_seconds,
+        expected_kind="market-opportunities",
+    )
     port = int(os.environ.get("PORT", "8080"))
     server = ThreadingHTTPServer(
         ("0.0.0.0", port),
-        build_handler(cache, history_cache, settings),
+        build_handler(cache, history_cache, market_items_cache, opportunities_cache, settings),
     )
     print(
         _json_bytes(

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07110f" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <meta
+      name="description"
+      content="Señales conservadoras para comprar items en otros mundos de Aether y venderlos en Cactuar."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://psilvacompag.github.io/cactuar-gil-intelligence/opportunities.html" />
+    <title>Oportunidades · Gil Intelligence</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio">
+        <span class="brand-mark" aria-hidden="true">G</span>
+        <span>
+          <strong>Gil Intelligence</strong>
+          <small>Datos de mercado para FFXIV</small>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Secciones principales">
+        <a href="./">Conversiones</a>
+        <a href="./market.html">Mercado</a>
+        <a class="active" href="./opportunities.html" aria-current="page">Oportunidades</a>
+      </nav>
+      <div class="topbar-meta">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="scope-label">Cactuar</span>
+        <span class="separator">/</span>
+        <span id="updated-label">Cargando…</span>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="page-hero opportunity-hero">
+        <div>
+          <p class="eyebrow">AETHER → CACTUAR</p>
+          <h1>Compras con margen y demanda.</h1>
+          <p class="hero-lede">
+            Señales para viajar, comprar más barato y volver a vender en Cactuar. El cálculo exige
+            liquidez, datos recientes y beneficio incluso después de estresar el precio de venta.
+          </p>
+        </div>
+        <div class="hero-index gold" aria-hidden="true">
+          <span>02</span>
+          <small>Señales</small>
+        </div>
+      </section>
+
+      <aside class="caution-note" aria-label="Advertencia importante">
+        <strong>Es una señal, no una garantía.</strong>
+        <span>Confirma en el Market Board que el listing y la cantidad sigan disponibles antes de viajar.</span>
+      </aside>
+
+      <section class="metrics" aria-label="Resumen de oportunidades">
+        <article class="metric-card featured">
+          <span class="metric-label">Señales</span>
+          <strong id="metric-total">—</strong>
+          <small>superan los filtros conservadores</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Confianza alta</span>
+          <strong id="metric-high">—</strong>
+          <small>mejor combinación de margen y demanda</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Confianza media</span>
+          <strong id="metric-medium">—</strong>
+          <small>requieren mayor revisión</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Estrés aplicado</span>
+          <strong id="metric-stress">—</strong>
+          <small id="metric-fee">antes del fee de mercado</small>
+        </article>
+      </section>
+
+      <section class="explorer" aria-labelledby="explorer-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">CRUCE DE MUNDOS</p>
+            <h2 id="explorer-title">Oportunidades observadas</h2>
+          </div>
+          <p id="result-count" class="result-count" aria-live="polite">Preparando datos…</p>
+        </div>
+
+        <div class="toolbar opportunity-toolbar">
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="sr-only">Buscar item o mundo</span>
+            <input id="search-input" type="search" placeholder="Busca item, categoría o mundo…" autocomplete="off" />
+            <kbd>Ctrl K</kbd>
+          </label>
+          <label class="select-control">
+            <span>Confianza</span>
+            <select id="confidence-select">
+              <option value="recommended">Altas y medias</option>
+              <option value="HIGH">Sólo alta</option>
+              <option value="MEDIUM">Sólo media</option>
+              <option value="WATCH">En observación</option>
+              <option value="">Todas</option>
+            </select>
+          </label>
+          <label class="select-control">
+            <span>Origen</span>
+            <select id="world-select"><option value="">Todo Aether</option></select>
+          </label>
+          <label class="select-control">
+            <span>Ordenar</span>
+            <select id="sort-select">
+              <option value="confidence">Mayor confianza</option>
+              <option value="trip">Ganancia por viaje</option>
+              <option value="profit">Ganancia por unidad</option>
+              <option value="velocity">Más vendidos</option>
+              <option value="roi">Mayor retorno</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-shell">
+          <table class="opportunities-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Comprar en</th>
+                <th class="numeric">Compra</th>
+                <th class="numeric">Venta conservadora</th>
+                <th class="numeric">Ganancia / u.</th>
+                <th class="numeric">ROI</th>
+                <th class="numeric">Ventas / día</th>
+                <th>Confianza</th>
+              </tr>
+            </thead>
+            <tbody id="opportunity-rows"></tbody>
+          </table>
+          <div id="empty-state" class="empty-state" hidden>
+            <span aria-hidden="true">◇</span>
+            <h3>No hay señales para esos filtros</h3>
+            <p>Amplía el nivel de confianza, elige otro mundo o cambia la búsqueda.</p>
+          </div>
+        </div>
+
+        <nav id="pagination" class="pagination" aria-label="Páginas de oportunidades">
+          <button id="page-previous" class="page-step" type="button">← Anterior</button>
+          <div id="page-numbers" class="page-numbers"></div>
+          <button id="page-next" class="page-step" type="button">Siguiente →</button>
+          <label class="page-size">
+            <span>Filas</span>
+            <select id="page-size-select">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </nav>
+      </section>
+
+      <section class="method-note">
+        <div>
+          <p class="eyebrow">PUNTAJE EXPLICABLE</p>
+          <h2>Conservador, no mágico.</h2>
+        </div>
+        <div class="method-grid">
+          <p><span>01</span> La venta usa el menor precio observado y luego lo reduce un 20%.</p>
+          <p><span>02</span> Se descuenta el fee, se exige al menos 5 ventas/día y un beneficio mínimo por unidad.</p>
+          <p><span>03</span> La confianza combina margen, liquidez, frescura y persistencia en los últimos snapshots.</p>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="detail-dialog" class="detail-dialog opportunity-dialog">
+      <button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button>
+      <div id="dialog-content"></div>
+    </dialog>
+
+    <footer>
+      <span>Gil Intelligence</span>
+      <span id="footer-source">Universalis · datos agregados</span>
+      <span>Verifica precio y stock dentro del juego.</span>
+    </footer>
+
+    <script src="./config.js" defer></script>
+    <script src="./opportunities.js" defer></script>
+  </body>
+</html>

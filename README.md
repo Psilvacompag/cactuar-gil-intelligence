@@ -7,6 +7,15 @@ Backend público de sólo lectura: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
 Sistema para analizar el Market Board, valorar conversiones de monedas y construir
 señales de demanda para expansiones y parches.
 
+La web tiene tres exploradores:
+
+- **Conversiones:** recompensas comprables con monedas y su gil neto por moneda.
+- **Mercado:** rankings buscables de items de gathering y crafting por ventas e ingreso diario.
+- **Oportunidades:** cruces conservadores entre mundos de Aether para vender en Cactuar.
+
+Las oportunidades son señales explicables, no garantías: aplican estrés de precio,
+fee, liquidez, frescura y persistencia, pero el stock debe confirmarse en el juego.
+
 La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
 mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico
 analítico antes de cada poda. El catálogo de ítems y sus categorías se extrae de

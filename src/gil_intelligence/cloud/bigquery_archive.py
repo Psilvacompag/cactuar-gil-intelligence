@@ -127,6 +127,10 @@ TABLES: dict[str, dict[str, Any]] = {
             ("search_category_name", "STRING", "NULLABLE"),
             ("ui_category_id", "INTEGER", "NULLABLE"),
             ("ui_category_name", "STRING", "NULLABLE"),
+            ("craftable", "BOOLEAN", "NULLABLE"),
+            ("craft_type_name", "STRING", "NULLABLE"),
+            ("gatherable", "BOOLEAN", "NULLABLE"),
+            ("gathering_type", "STRING", "NULLABLE"),
         ),
         "partition": "extracted_at",
         "cluster": ("item_id", "search_category_id", "game_version"),
@@ -177,6 +181,16 @@ class BigQueryArchive:
             table.time_partitioning = bigquery.TimePartitioning(field=spec["partition"])
             table.clustering_fields = list(spec["cluster"])
             self.client.create_table(table, exists_ok=True)
+            current = self.client.get_table(self._table_id(table_name))
+            existing_fields = {field.name for field in current.schema}
+            missing_fields = [
+                bigquery.SchemaField(*field)
+                for field in spec["schema"]
+                if field[0] not in existing_fields
+            ]
+            if missing_fields:
+                current.schema = [*current.schema, *missing_fields]
+                self.client.update_table(current, ["schema"])
 
     def archive_all(
         self,
@@ -521,6 +535,10 @@ def _catalog_rows(
             "search_category_name",
             "ui_category_id",
             "ui_category_name",
+            "craftable",
+            "craft_type_name",
+            "gatherable",
+            "gathering_type",
         )
     }
     rows = connection.execute(
@@ -529,7 +547,9 @@ def _catalog_rows(
                source.extracted_at, asset.item_id, asset.name,
                asset.marketable_candidate,
                {optional['search_category_id']}, {optional['search_category_name']},
-               {optional['ui_category_id']}, {optional['ui_category_name']}
+               {optional['ui_category_id']}, {optional['ui_category_name']},
+               {optional['craftable']}, {optional['craft_type_name']},
+               {optional['gatherable']}, {optional['gathering_type']}
         FROM dim_asset AS asset
         JOIN source_snapshot AS source ON source.snapshot_id = asset.snapshot_id
         WHERE asset.snapshot_id = ?
@@ -540,6 +560,10 @@ def _catalog_rows(
     for row in rows:
         payload = dict(row)
         payload["marketable_candidate"] = bool(payload["marketable_candidate"])
+        if payload["craftable"] is not None:
+            payload["craftable"] = bool(payload["craftable"])
+        if payload["gatherable"] is not None:
+            payload["gatherable"] = bool(payload["gatherable"])
         yield payload
 
 

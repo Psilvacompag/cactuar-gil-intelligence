@@ -6,7 +6,12 @@ import sqlite3
 from dataclasses import asdict
 from pathlib import Path
 
-from gil_intelligence.publishing import export_currency_dashboard, export_currency_history
+from gil_intelligence.publishing import (
+    export_currency_dashboard,
+    export_currency_history,
+    export_market_items,
+    export_opportunities,
+)
 from gil_intelligence.storage import import_static_snapshot
 
 from .bigquery_archive import BigQueryArchive
@@ -22,7 +27,16 @@ def main() -> int:
     static_path = work_dir / "static_snapshot.json"
     dashboard_path = work_dir / "dashboard.json"
     history_path = work_dir / "history.json"
-    for path in (database_path, static_path, dashboard_path, history_path):
+    market_items_path = work_dir / "market-items.json"
+    opportunities_path = work_dir / "opportunities.json"
+    for path in (
+        database_path,
+        static_path,
+        dashboard_path,
+        history_path,
+        market_items_path,
+        opportunities_path,
+    ):
         path.unlink(missing_ok=True)
     store = GcsObjectStore(settings.bucket)
     if not store.download_if_exists(settings.database_object, database_path):
@@ -39,6 +53,18 @@ def main() -> int:
     archive_summary = archive.archive_all(database_path, scope=settings.scope, work_dir=work_dir)
     dashboard_summary = export_currency_dashboard(database_path, dashboard_path, scope=settings.scope)
     history_summary = export_currency_history(database_path, history_path, scope=settings.scope)
+    market_items_summary = export_market_items(
+        database_path,
+        market_items_path,
+        scope=settings.scope,
+        freshness_hours=settings.freshness_hours,
+    )
+    opportunities_summary = export_opportunities(
+        database_path,
+        opportunities_path,
+        scope=settings.scope,
+        fee_rate=settings.fee_rate,
+    )
     store.upload_file(
         database_path,
         settings.database_object,
@@ -57,6 +83,18 @@ def main() -> int:
         content_type="application/json; charset=utf-8",
         cache_control="public, max-age=60",
     )
+    store.upload_file(
+        market_items_path,
+        settings.market_items_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    store.upload_file(
+        opportunities_path,
+        settings.opportunities_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
     print(
         json.dumps(
             {
@@ -64,6 +102,11 @@ def main() -> int:
                 "dashboardConversions": dashboard_summary.conversions,
                 "historySeries": history_summary.series,
                 "historyPoints": history_summary.points,
+                "marketRows": market_items_summary.rows,
+                "gatheringItems": market_items_summary.gathering_items,
+                "craftingItems": market_items_summary.crafting_items,
+                "opportunities": opportunities_summary.opportunities,
+                "highConfidenceOpportunities": opportunities_summary.high_confidence,
             },
             ensure_ascii=False,
             indent=2,

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSIONS = {1, 2}
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3}
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,8 +66,9 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
                 INSERT INTO dim_asset (
                     snapshot_id, item_id, name, marketable_candidate,
                     search_category_id, search_category_name,
-                    ui_category_id, ui_category_name
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ui_category_id, ui_category_name, craftable,
+                    craft_type_name, gatherable, gathering_type
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     (
@@ -79,6 +80,10 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
                         row.get("searchCategoryName"),
                         row.get("uiCategoryId"),
                         row.get("uiCategoryName"),
+                        int(row.get("craftable", False)),
+                        row.get("craftTypeName"),
+                        int(row.get("gatherable", False)),
+                        row.get("gatheringType"),
                     )
                     for row in normalized["assets"]
                 ),
@@ -217,6 +222,10 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             search_category_name TEXT,
             ui_category_id INTEGER,
             ui_category_name TEXT,
+            craftable INTEGER NOT NULL DEFAULT 0 CHECK (craftable IN (0, 1)),
+            craft_type_name TEXT,
+            gatherable INTEGER NOT NULL DEFAULT 0 CHECK (gatherable IN (0, 1)),
+            gathering_type TEXT,
             PRIMARY KEY (snapshot_id, item_id),
             FOREIGN KEY (snapshot_id) REFERENCES source_snapshot(snapshot_id) ON DELETE CASCADE
         );
@@ -330,6 +339,30 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     )
     _ensure_column(
         connection,
+        "dim_asset",
+        "craftable",
+        "INTEGER NOT NULL DEFAULT 0 CHECK (craftable IN (0, 1))",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
+        "craft_type_name",
+        "TEXT",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
+        "gatherable",
+        "INTEGER NOT NULL DEFAULT 0 CHECK (gatherable IN (0, 1))",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
+        "gathering_type",
+        "TEXT",
+    )
+    _ensure_column(
+        connection,
         "bridge_offer_reward",
         "is_hq",
         "INTEGER NOT NULL DEFAULT 0 CHECK (is_hq IN (0, 1))",
@@ -398,10 +431,19 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
                 isinstance(value, bool) or not isinstance(value, int) or value <= 0
             ):
                 raise ValueError(f"assets[{index}].{field} must be a positive integer")
-        for field in ("searchCategoryName", "uiCategoryName"):
+        for field in ("searchCategoryName", "uiCategoryName", "craftTypeName"):
             value = row.get(field)
             if value is not None and not isinstance(value, str):
                 raise ValueError(f"assets[{index}].{field} must be a string")
+        for field in ("craftable", "gatherable"):
+            value = row.get(field)
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f"assets[{index}].{field} must be a boolean")
+        gathering_type = row.get("gatheringType")
+        if gathering_type is not None and gathering_type not in {"MINER_BOTANIST", "FISHING"}:
+            raise ValueError(
+                f"assets[{index}].gatheringType must be MINER_BOTANIST or FISHING"
+            )
     return payload
 
 

@@ -7,7 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gil_intelligence.storage import import_static_snapshot, import_universalis_aggregates
-from gil_intelligence.publishing import export_currency_dashboard, export_currency_history
+from gil_intelligence.publishing import (
+    export_currency_dashboard,
+    export_currency_history,
+    export_market_items,
+    export_opportunities,
+)
 from gil_intelligence.valuation import build_currency_valuations, get_top_currency_conversions
 
 from test_static_catalog import example_snapshot
@@ -19,8 +24,17 @@ class CurrencyValuationTests(unittest.TestCase):
             root = Path(directory)
             database_path = root / "catalog.sqlite3"
             static_payload = example_snapshot()
+            static_payload["schemaVersion"] = 3
             static_payload["assets"][1]["itemId"] = 2
             static_payload["assets"][1]["name"] = "Fire Shard"
+            static_payload["assets"][1].update(
+                {
+                    "craftable": True,
+                    "craftTypeName": "Goldsmith",
+                    "gatherable": True,
+                    "gatheringType": "MINER_BOTANIST",
+                }
+            )
             static_payload["rewards"][0].update(
                 {"itemId": 2, "quantity": 2, "isHq": False}
             )
@@ -53,7 +67,8 @@ class CurrencyValuationTests(unittest.TestCase):
                             },
                             "hq": {},
                             "worldUploadTimes": [
-                                {"worldId": 57, "timestamp": 1786309130257}
+                                {"worldId": 57, "timestamp": 1786309130257},
+                                {"worldId": 79, "timestamp": 1786309130257},
                             ],
                         }
                     ],
@@ -107,6 +122,91 @@ class CurrencyValuationTests(unittest.TestCase):
                 exported_history["series"][0]["points"][0]["netGilPerCurrency"],
                 7.6,
             )
+
+            market_path = root / "web" / "data" / "market-items.json"
+            market = export_market_items(
+                database_path,
+                market_path,
+                scope="Cactuar",
+                freshness_hours=24,
+            )
+            exported_market = json.loads(market_path.read_text(encoding="utf-8"))
+            self.assertEqual(market.rows, 1)
+            self.assertEqual(market.gathering_items, 1)
+            self.assertEqual(market.crafting_items, 1)
+            self.assertEqual(exported_market["kind"], "market-items")
+            self.assertEqual(exported_market["items"][0]["name"], "Fire Shard")
+            self.assertTrue(exported_market["items"][0]["gatherable"])
+
+    def test_exports_conservative_cross_world_opportunity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database_path = root / "catalog.sqlite3"
+            static_payload = example_snapshot()
+            static_payload["schemaVersion"] = 3
+            static_payload["assets"][1].update(
+                {
+                    "name": "Fire Shard",
+                    "craftable": True,
+                    "craftTypeName": "Goldsmith",
+                    "gatherable": True,
+                    "gatheringType": "MINER_BOTANIST",
+                }
+            )
+            snapshot_path = root / "static.json"
+            snapshot_path.write_text(json.dumps(static_payload), encoding="utf-8")
+            import_static_snapshot(snapshot_path, database_path)
+            now = datetime.now(timezone.utc)
+            upload_millis = int(now.timestamp() * 1000)
+            import_universalis_aggregates(
+                {
+                    "results": [
+                        {
+                            "itemId": 100,
+                            "nq": {
+                                "minListing": {
+                                    "world": {"price": 10000, "worldId": 79},
+                                    "dc": {"price": 3000, "worldId": 57},
+                                },
+                                "medianListing": {
+                                    "world": {"price": 11000},
+                                    "dc": {"price": 3500},
+                                },
+                                "recentPurchase": {},
+                                "averageSalePrice": {
+                                    "world": {"price": 9000},
+                                    "dc": {"price": 3300},
+                                },
+                                "dailySaleVelocity": {
+                                    "world": {"quantity": 20},
+                                    "dc": {"quantity": 100},
+                                },
+                            },
+                            "hq": {},
+                            "worldUploadTimes": [
+                                {"worldId": 57, "timestamp": upload_millis},
+                                {"worldId": 79, "timestamp": upload_millis},
+                            ],
+                        }
+                    ],
+                    "failedItems": [],
+                },
+                database_path,
+                scope="Cactuar",
+                collected_at=now.isoformat(),
+                requested_items=1,
+            )
+
+            output_path = root / "opportunities.json"
+            summary = export_opportunities(database_path, output_path, scope="Cactuar")
+            exported = json.loads(output_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(summary.opportunities, 1)
+            opportunity = exported["opportunities"][0]
+            self.assertEqual(opportunity["sourceWorldName"], "Siren")
+            self.assertEqual(opportunity["recommendedQuantity"], 5)
+            self.assertAlmostEqual(opportunity["unitProfit"], 3840)
+            self.assertEqual(opportunity["confidenceBand"], "HIGH")
 
     def test_rejects_invalid_fee(self) -> None:
         with self.assertRaisesRegex(ValueError, "fee_rate"):

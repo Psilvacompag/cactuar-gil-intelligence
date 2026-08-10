@@ -11,7 +11,12 @@ from typing import Any
 
 from gil_intelligence.collectors import collect_aggregated_market
 from gil_intelligence.probes.http import JsonHttpClient
-from gil_intelligence.publishing import export_currency_dashboard, export_currency_history
+from gil_intelligence.publishing import (
+    export_currency_dashboard,
+    export_currency_history,
+    export_market_items,
+    export_opportunities,
+)
 from gil_intelligence.storage import (
     import_static_snapshot,
     import_universalis_aggregates,
@@ -41,8 +46,17 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     database_path = work_dir / "gil_intelligence.sqlite3"
     dashboard_path = work_dir / "dashboard.json"
     history_path = work_dir / "history.json"
+    market_items_path = work_dir / "market-items.json"
+    opportunities_path = work_dir / "opportunities.json"
     static_path = work_dir / "static_snapshot.json"
-    for generated_path in (database_path, dashboard_path, history_path, static_path):
+    for generated_path in (
+        database_path,
+        dashboard_path,
+        history_path,
+        market_items_path,
+        opportunities_path,
+        static_path,
+    ):
         generated_path.unlink(missing_ok=True)
 
     has_database = store.download_if_exists(settings.database_object, database_path)
@@ -134,6 +148,18 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         history_path,
         scope=settings.scope,
     )
+    market_items_summary = export_market_items(
+        database_path,
+        market_items_path,
+        scope=settings.scope,
+        freshness_hours=settings.freshness_hours,
+    )
+    opportunities_summary = export_opportunities(
+        database_path,
+        opportunities_path,
+        scope=settings.scope,
+        fee_rate=settings.fee_rate,
+    )
     completed_at = datetime.now(timezone.utc).isoformat()
     result = {
         "status": "success",
@@ -151,6 +177,11 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "currencies": dashboard_summary.currencies,
         "historySeries": history_summary.series,
         "historyPoints": history_summary.points,
+        "marketRows": market_items_summary.rows,
+        "gatheringItems": market_items_summary.gathering_items,
+        "craftingItems": market_items_summary.crafting_items,
+        "opportunities": opportunities_summary.opportunities,
+        "highConfidenceOpportunities": opportunities_summary.high_confidence,
         "quality": asdict(quality_summary),
         "bigQuery": asdict(archive_summary),
         "retainedMarketSnapshots": retention_summary.kept_snapshots,
@@ -158,6 +189,8 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "databaseBytes": database_path.stat().st_size,
         "dashboardBytes": dashboard_path.stat().st_size,
         "historyBytes": history_path.stat().st_size,
+        "marketItemsBytes": market_items_path.stat().st_size,
+        "opportunitiesBytes": opportunities_path.stat().st_size,
     }
 
     store.upload_file(
@@ -175,6 +208,18 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     store.upload_file(
         history_path,
         settings.history_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    store.upload_file(
+        market_items_path,
+        settings.market_items_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    store.upload_file(
+        opportunities_path,
+        settings.opportunities_object,
         content_type="application/json; charset=utf-8",
         cache_control="public, max-age=60",
     )

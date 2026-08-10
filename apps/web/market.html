@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07110f" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <meta
+      name="description"
+      content="Ranking buscable de materiales recolectados y objetos crafteados por ventas e ingreso observado en Cactuar."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://psilvacompag.github.io/cactuar-gil-intelligence/market.html" />
+    <title>Mercado de producción · Gil Intelligence</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio">
+        <span class="brand-mark" aria-hidden="true">G</span>
+        <span>
+          <strong>Gil Intelligence</strong>
+          <small>Datos de mercado para FFXIV</small>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Secciones principales">
+        <a href="./">Conversiones</a>
+        <a class="active" href="./market.html" aria-current="page">Mercado</a>
+        <a href="./opportunities.html">Oportunidades</a>
+      </nav>
+      <div class="topbar-meta">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="scope-label">Cactuar</span>
+        <span class="separator">/</span>
+        <span id="updated-label">Cargando…</span>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="page-hero">
+        <div>
+          <p class="eyebrow">CACTUAR · PRODUCCIÓN</p>
+          <h1>Qué se vende al recolectar y craftear.</h1>
+          <p class="hero-lede">
+            Ordena el mercado por ventas diarias o gil estimado. Cada objeto viene clasificado
+            desde los datos del juego, con su oficio y categoría reales.
+          </p>
+        </div>
+        <div class="hero-index" aria-hidden="true">
+          <span>01</span>
+          <small>Mercado</small>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Resumen de producción">
+        <article class="metric-card featured">
+          <span class="metric-label">Gathering</span>
+          <strong id="metric-gathering">—</strong>
+          <small>items vendibles con actividad</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Crafting</span>
+          <strong id="metric-crafting">—</strong>
+          <small>items vendibles con actividad</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Filas frescas</span>
+          <strong id="metric-fresh">—</strong>
+          <small id="fresh-window">según uploads de Cactuar</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Ranking</span>
+          <strong>Ventas</strong>
+          <small>velocidad e ingreso diario estimado</small>
+        </article>
+      </section>
+
+      <section class="explorer" aria-labelledby="explorer-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">EXPLORADOR</p>
+            <h2 id="explorer-title">Mercado de producción</h2>
+          </div>
+          <p id="result-count" class="result-count" aria-live="polite">Preparando datos…</p>
+        </div>
+
+        <div class="segment-tabs" role="tablist" aria-label="Tipo de producción">
+          <button id="gathering-tab" class="segment-tab active" type="button" role="tab" aria-selected="true">
+            Gathering
+            <small>Miner · Botanist · Fishing</small>
+          </button>
+          <button id="crafting-tab" class="segment-tab" type="button" role="tab" aria-selected="false">
+            Crafting
+            <small>Todos los oficios</small>
+          </button>
+        </div>
+
+        <div class="toolbar market-toolbar">
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="sr-only">Buscar item, oficio o categoría</span>
+            <input id="search-input" type="search" placeholder="Busca item, oficio o categoría…" autocomplete="off" />
+            <kbd>Ctrl K</kbd>
+          </label>
+          <label class="select-control">
+            <span>Ordenar</span>
+            <select id="sort-select">
+              <option value="velocity">Más vendidos</option>
+              <option value="revenue">Mayor gil / día</option>
+              <option value="price">Mayor precio medio</option>
+              <option value="name">Nombre</option>
+            </select>
+          </label>
+          <label class="select-control">
+            <span>Categoría</span>
+            <select id="category-select"><option value="">Todas</option></select>
+          </label>
+          <label class="toggle-control">
+            <input id="fresh-toggle" type="checkbox" checked />
+            <span class="toggle-ui" aria-hidden="true"></span>
+            Sólo frescos
+          </label>
+        </div>
+
+        <div class="table-shell">
+          <table class="production-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Origen / oficio</th>
+                <th>Categoría</th>
+                <th class="numeric">Precio medio</th>
+                <th class="numeric">Ventas / día</th>
+                <th class="numeric">Gil / día</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="market-rows"></tbody>
+          </table>
+          <div id="empty-state" class="empty-state" hidden>
+            <span aria-hidden="true">◇</span>
+            <h3>No hay items para esos filtros</h3>
+            <p>Prueba otra categoría, quita “Sólo frescos” o cambia de Gathering a Crafting.</p>
+          </div>
+        </div>
+
+        <nav id="pagination" class="pagination" aria-label="Páginas de items">
+          <button id="page-previous" class="page-step" type="button">← Anterior</button>
+          <div id="page-numbers" class="page-numbers"></div>
+          <button id="page-next" class="page-step" type="button">Siguiente →</button>
+          <label class="page-size">
+            <span>Filas</span>
+            <select id="page-size-select">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </nav>
+      </section>
+
+      <section class="method-note">
+        <div>
+          <p class="eyebrow">CÓMO LEERLO</p>
+          <h2>Demanda antes que precio.</h2>
+        </div>
+        <div class="method-grid">
+          <p><span>01</span> “Más vendidos” usa la velocidad de ventas observada en Cactuar.</p>
+          <p><span>02</span> Gil / día multiplica el precio medio por esa velocidad; es una referencia, no una promesa.</p>
+          <p><span>03</span> Un item puede aparecer en ambas vistas si se obtiene tanto por gathering como por crafting.</p>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="detail-dialog" class="detail-dialog">
+      <button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button>
+      <div id="dialog-content"></div>
+    </dialog>
+
+    <footer>
+      <span>Gil Intelligence</span>
+      <span id="footer-source">Universalis + datos estáticos locales</span>
+      <span>No automatiza acciones dentro del juego.</span>
+    </footer>
+
+    <script src="./config.js" defer></script>
+    <script src="./market.js" defer></script>
+  </body>
+</html>

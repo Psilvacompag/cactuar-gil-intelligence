@@ -142,6 +142,11 @@ var requestedSheets = new[]
     "Item",
     "ItemSearchCategory",
     "ItemUICategory",
+    "Recipe",
+    "CraftType",
+    "GatheringItem",
+    "FishParameter",
+    "SpearfishingItem",
     "Level",
 };
 
@@ -319,6 +324,11 @@ static object ProbeLocalGameData(
     var itemType = excelAssembly.GetType("Lumina.Excel.Sheets.Item");
     var itemSearchCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.ItemSearchCategory");
     var itemUiCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.ItemUICategory");
+    var recipeType = excelAssembly.GetType("Lumina.Excel.Sheets.Recipe");
+    var craftType = excelAssembly.GetType("Lumina.Excel.Sheets.CraftType");
+    var gatheringItemType = excelAssembly.GetType("Lumina.Excel.Sheets.GatheringItem");
+    var fishParameterType = excelAssembly.GetType("Lumina.Excel.Sheets.FishParameter");
+    var spearfishingItemType = excelAssembly.GetType("Lumina.Excel.Sheets.SpearfishingItem");
     var itemCatalog = itemType is null
         ? null
         : BuildItemCatalog(
@@ -326,7 +336,12 @@ static object ProbeLocalGameData(
             getExcelSheet,
             itemType,
             itemSearchCategoryType,
-            itemUiCategoryType
+            itemUiCategoryType,
+            recipeType,
+            craftType,
+            gatheringItemType,
+            fishParameterType,
+            spearfishingItemType
         );
     var tomestonesItemType = excelAssembly.GetType("Lumina.Excel.Sheets.TomestonesItem");
     var tomestoneCatalog = tomestonesItemType is null
@@ -567,11 +582,19 @@ static object ExportSpecialShopSnapshot(
                     : null,
                 itemCatalog.UiCategoryNames.GetValueOrDefault(
                     itemCatalog.UiCategoryByItem.GetValueOrDefault(itemId)
-                )
+                ),
+                itemCatalog.CraftTypesByItem.ContainsKey(itemId),
+                itemCatalog.CraftTypesByItem.GetValueOrDefault(itemId),
+                itemCatalog.GatherableItems.Contains(itemId),
+                itemCatalog.FishingItems.Contains(itemId)
+                    ? "FISHING"
+                    : itemCatalog.GatherableItems.Contains(itemId)
+                        ? "MINER_BOTANIST"
+                        : null
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            2,
+            3,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -1092,7 +1115,12 @@ static ItemCatalog BuildItemCatalog(
     MethodInfo getExcelSheet,
     Type rowType,
     Type? searchCategoryType,
-    Type? uiCategoryType
+    Type? uiCategoryType,
+    Type? recipeType,
+    Type? craftType,
+    Type? gatheringItemType,
+    Type? fishParameterType,
+    Type? spearfishingItemType
 )
 {
     try
@@ -1107,6 +1135,9 @@ static ItemCatalog BuildItemCatalog(
                 new Dictionary<uint, string>(),
                 new Dictionary<uint, uint>(),
                 new Dictionary<uint, string>(),
+                new Dictionary<uint, string>(),
+                new HashSet<uint>(),
+                new HashSet<uint>(),
                 new { status = "FAIL", error = "Item sheet is not enumerable." }
             );
         }
@@ -1122,6 +1153,32 @@ static ItemCatalog BuildItemCatalog(
         var uiCategoryByItem = new Dictionary<uint, uint>();
         var searchCategoryNames = BuildCategoryNames(gameData, getExcelSheet, searchCategoryType);
         var uiCategoryNames = BuildCategoryNames(gameData, getExcelSheet, uiCategoryType);
+        var craftTypesByItem = BuildCraftTypesByItem(
+            gameData,
+            getExcelSheet,
+            recipeType,
+            craftType
+        );
+        var standardGatheringItems = BuildReferencedItemIds(
+            gameData,
+            getExcelSheet,
+            gatheringItemType,
+            "Item"
+        );
+        var fishingItems = BuildReferencedItemIds(
+            gameData,
+            getExcelSheet,
+            fishParameterType,
+            "Item"
+        );
+        fishingItems.UnionWith(BuildReferencedItemIds(
+            gameData,
+            getExcelSheet,
+            spearfishingItemType,
+            "Item"
+        ));
+        var gatherableItems = new HashSet<uint>(standardGatheringItems);
+        gatherableItems.UnionWith(fishingItems);
         foreach (var row in rows)
         {
             if (row is null)
@@ -1171,6 +1228,9 @@ static ItemCatalog BuildItemCatalog(
             tradableFlagItems,
             searchableItems,
             marketableCandidates,
+            craftableItems = craftTypesByItem.Count,
+            gatherableItems = gatherableItems.Count,
+            fishingItems = fishingItems.Count,
             poeticsMatches = names
                 .Where(pair => pair.Value.Contains("Poetics", StringComparison.OrdinalIgnoreCase))
                 .Select(pair => new { itemId = pair.Key, name = pair.Value })
@@ -1184,6 +1244,9 @@ static ItemCatalog BuildItemCatalog(
             searchCategoryNames,
             uiCategoryByItem,
             uiCategoryNames,
+            craftTypesByItem,
+            gatherableItems,
+            fishingItems,
             analysis
         );
     }
@@ -1196,9 +1259,104 @@ static ItemCatalog BuildItemCatalog(
             new Dictionary<uint, string>(),
             new Dictionary<uint, uint>(),
             new Dictionary<uint, string>(),
+            new Dictionary<uint, string>(),
+            new HashSet<uint>(),
+            new HashSet<uint>(),
             new { status = "FAIL", error = UnwrapException(exception).Message }
         );
     }
+}
+
+static Dictionary<uint, string> BuildCraftTypesByItem(
+    object gameData,
+    MethodInfo getExcelSheet,
+    Type? recipeType,
+    Type? craftType
+)
+{
+    var result = new Dictionary<uint, HashSet<string>>();
+    if (recipeType is null)
+    {
+        return new Dictionary<uint, string>();
+    }
+    var craftTypeNames = BuildCategoryNames(gameData, getExcelSheet, craftType);
+    var sheet = getExcelSheet.MakeGenericMethod(recipeType).Invoke(gameData, new object?[] { null, null });
+    if (sheet is not System.Collections.IEnumerable rows)
+    {
+        return new Dictionary<uint, string>();
+    }
+    foreach (var row in rows)
+    {
+        if (row is null)
+        {
+            continue;
+        }
+        var itemId = ReadRowRefId(ReadProperty(row, "ItemResult"));
+        if (itemId == 0)
+        {
+            continue;
+        }
+        var craftTypeId = ReadRowRefId(ReadProperty(row, "CraftType"));
+        var craftName = craftTypeNames.GetValueOrDefault(craftTypeId);
+        if (string.IsNullOrWhiteSpace(craftName))
+        {
+            craftName = craftTypeId > 0 ? $"Craft {craftTypeId}" : "Crafting";
+        }
+        craftName = craftName switch
+        {
+            "Crafting" => "Carpenter",
+            "Smithing" => "Blacksmith",
+            "Armorcraft" => "Armorer",
+            "Goldsmithing" => "Goldsmith",
+            "Leatherworking" => "Leatherworker",
+            "Clothcraft" => "Weaver",
+            "Alchemy" => "Alchemist",
+            "Cooking" => "Culinarian",
+            _ => craftName,
+        };
+        if (!result.TryGetValue(itemId, out var names))
+        {
+            names = new HashSet<string>(StringComparer.Ordinal);
+            result[itemId] = names;
+        }
+        names.Add(craftName);
+    }
+    return result.ToDictionary(
+        pair => pair.Key,
+        pair => string.Join(" / ", pair.Value.OrderBy(name => name, StringComparer.Ordinal))
+    );
+}
+
+static HashSet<uint> BuildReferencedItemIds(
+    object gameData,
+    MethodInfo getExcelSheet,
+    Type? rowType,
+    string propertyName
+)
+{
+    var result = new HashSet<uint>();
+    if (rowType is null)
+    {
+        return result;
+    }
+    var sheet = getExcelSheet.MakeGenericMethod(rowType).Invoke(gameData, new object?[] { null, null });
+    if (sheet is not System.Collections.IEnumerable rows)
+    {
+        return result;
+    }
+    foreach (var row in rows)
+    {
+        if (row is null)
+        {
+            continue;
+        }
+        var itemId = ReadRowRefId(ReadProperty(row, propertyName));
+        if (itemId > 0)
+        {
+            result.Add(itemId);
+        }
+    }
+    return result;
 }
 
 static Dictionary<uint, string> BuildCategoryNames(
@@ -1438,6 +1596,9 @@ sealed record ItemCatalog(
     Dictionary<uint, string> SearchCategoryNames,
     Dictionary<uint, uint> UiCategoryByItem,
     Dictionary<uint, string> UiCategoryNames,
+    Dictionary<uint, string> CraftTypesByItem,
+    HashSet<uint> GatherableItems,
+    HashSet<uint> FishingItems,
     object Analysis
 );
 
@@ -1453,7 +1614,11 @@ sealed record NormalizedAsset(
     uint? SearchCategoryId,
     string? SearchCategoryName,
     uint? UiCategoryId,
-    string? UiCategoryName
+    string? UiCategoryName,
+    bool Craftable,
+    string? CraftTypeName,
+    bool Gatherable,
+    string? GatheringType
 );
 sealed record NormalizedShop(uint ShopId, string? Name, byte UseCurrencyType);
 sealed record NormalizedOffer(uint ShopId, int OfferIndex, string SourceSubrowKey, string ParseStatus);
