@@ -16,6 +16,12 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 
 El catálogo estático se extrae desde `sqpack` sólo cuando cambia el parche. Cloud Run no accede a los archivos del juego. El esquema 6 incluye `iconId`; GitHub Pages solicita la conversión PNG directamente al endpoint de assets de XIVAPI, con caché del navegador y fallback SVG local.
 
+La valoración conserva canjes con múltiples costos como un paquete indivisible. El
+dashboard publica el listing y gil neto del canje completo, junto con cada moneda
+requerida; no divide arbitrariamente el retorno entre sus componentes. Los canjes
+no comerciables se cuentan para auditoría, pero no se presentan como oportunidad
+de gil.
+
 ## Política de requests
 
 El job utiliza una conexión, un máximo de 1 request por segundo, timeout de 10 segundos y hasta dos reintentos acotados. Una carga completa requiere aproximadamente 170 requests agregados y 7 lotes detallados para la shortlist. La programación normal es dos veces al día, en minutos no redondos, con zona horaria `America/Santiago`.

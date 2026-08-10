@@ -21,13 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `09f1765` (`Add original FFXIV item icons across dashboard`).
-- HEAD funcional desplegado: `09f1765`.
+- Código productivo verificado: `060e97a` (`Add shared market intelligence and combined currency exchanges`).
+- HEAD funcional desplegado: `060e97a`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v16`, digest
-  `sha256:45a0cea8110edcd1d72c26f06b90a334b3b98a61e500da7c94ea6e4c1fc14553`.
+- Imagen desplegada al cierre: `backend:v17`, digest
+  `sha256:b800c5a7ef5bcaf00a58929403d131c0bebffd043dc3704450e691dac071d859`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -148,6 +148,28 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Validación final: 42 pruebas Python, sintaxis JavaScript, compilación Python,
   consulta BigQuery y smoke visual productivo correctos.
 
+### Hoy, ficha universal y canjes combinados
+
+- GitHub Pages publicó `060e97a`; Cloud Run sirve `backend:v17` desde
+  `cactuar-api-00018-4f6`, con 100% del tráfico y ambos jobs en `v17`.
+- La ejecución `cactuar-archive-flk2s` terminó correctamente en 2m05s y republicó
+  desde el último SQLite sin nuevas solicitudes a Universalis.
+- Las seis vistas comparten búsqueda global, ficha universal, etiquetas de calidad,
+  sparklines reales y planes de acción deterministas. `Centro` pasó a `Hoy en
+  Cactuar` y prioriza seis decisiones entre todos los módulos.
+- La experiencia avanzada de Favoritos queda como TODO. La lista básica sigue
+  funcionando sólo en `localStorage`; no hay sincronización, notas ni reglas por
+  favorito.
+- Se incorporaron canjes con varias monedas sin atribuir el retorno completo a un
+  componente. Producción publica 2.577 rutas de catálogo y 270 monedas.
+- Regresión verificada: `5 Bozjan Gold Coin + 30 Bozjan Platinum Coin -> Modern
+  Aesthetics - Early to Rise`. El resultado es comerciable, aparece fresco y se
+  valora como gil neto por canje completo; ambas monedas encuentran la misma ruta.
+- Los objetos no comerciables siguen auditados en el backend, pero no inflan el
+  explorador público ni reciben un valor de gil ficticio.
+- Validación final: 44 pruebas Python, sintaxis de todo el JavaScript, compilación
+  Python, siete endpoints HTTP 200 y smoke productivo con origen Cloud correctos.
+
 ## Funcionalidad disponible
 
 ### Conversiones
@@ -155,6 +177,7 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Directorio buscable de más de 100 monedas, filtros y paginación.
 - Incluye Poetics, scrips, Bicolor Gemstones y Storm/Serpent/Flame Seals.
 - Ranking por gil neto por moneda y velocidad de venta.
+- Los canjes combinados muestran todos sus costos y gil neto por canje completo.
 - Historial por conversión.
 - El fee de Market Board configurado es 5%.
 
@@ -258,6 +281,8 @@ Caso de regresión verificado:
    pública.
 6. Revisar gasto real de Google Cloud después de varios días completos de operación;
    mantener Vertex AI deshabilitado mientras ML esté pospuesto.
+7. Diseñar la segunda fase de Favoritos: notas, umbrales personalizados,
+   agrupaciones y eventual sincronización opcional.
 
 ## Verificación y operación
 
@@ -268,7 +293,7 @@ $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 ```
 
-Estado al cierre: 42 pruebas exitosas.
+Estado al cierre: 44 pruebas exitosas.
 
 Health productivo:
 
@@ -288,6 +313,7 @@ republicación sin requests de mercado debe usarse `cactuar-archive`.
 
 ## Punto recomendado para continuar
 
-Observar durante varios refresh los falsos positivos de Snipeos y la estabilidad de
-las entradas de Proyecciones. Después conviene calibrar sus umbrales y trasladar el
-ledger local a un registro de señales del servidor para backtesting global 7/30/90d.
+Observar durante varios refresh los falsos positivos de Snipeos, la estabilidad de
+Proyecciones y la utilidad de las seis decisiones de Hoy. Después conviene calibrar
+umbrales y diseñar la segunda fase de Favoritos; ML continúa pospuesto hasta contar
+con suficiente historial para comparar contra las reglas deterministas actuales.
