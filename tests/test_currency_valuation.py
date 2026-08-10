@@ -268,6 +268,10 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertEqual(exported_market["kind"], "market-items")
             self.assertEqual(exported_market["items"][0]["name"], "Fire Shard")
             self.assertTrue(exported_market["items"][0]["gatherable"])
+            market_depth = exported_market["items"][0]["listingDepth"]
+            self.assertTrue(market_depth["verified"])
+            self.assertEqual(market_depth["nearFloorUnits"], 6)
+            self.assertEqual(market_depth["weightedUnitCount"], 20)
 
     def test_exports_conservative_cross_world_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .market_history import market_history_series
+from .listing_depth import detailed_listing_depth, summarize_listing_depth
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +109,11 @@ def export_market_items(
         recipe_demand, recipe_demand_meta = _ingredient_demand(
             connection,
             static_snapshot_id=static["snapshot_id"],
+        )
+        listing_depth = detailed_listing_depth(
+            connection,
+            market_snapshot_id=market["market_snapshot_id"],
+            home_world_id=home_world_id,
         )
     finally:
         connection.close()
@@ -210,6 +216,10 @@ def export_market_items(
                 "trend": trend,
                 "recipe": recipe_financials,
                 "recipeDemand": demand,
+                "listingDepth": summarize_listing_depth(
+                    listing_depth.get((row["item_id"], row["quality"])),
+                    velocity,
+                ),
                 "latestUploadAt": row["latest_upload_at"],
                 "status": status,
             }

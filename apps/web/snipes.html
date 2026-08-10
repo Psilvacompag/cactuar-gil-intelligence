@@ -27,11 +27,13 @@
         <article class="metric-card featured"><span class="metric-label">Candidatos</span><strong id="metric-signals">—</strong><small>descuento y margen mínimos</small></article>
         <article class="metric-card"><span class="metric-label">Urgentes</span><strong id="metric-strong">—</strong><small>puntaje de 75 o más</small></article>
         <article class="metric-card"><span class="metric-label">Snapshots</span><strong id="metric-history">—</strong><small>para calcular referencia</small></article>
-        <article class="metric-card"><span class="metric-label">Stock verificado</span><strong id="metric-coverage">—</strong><small>confírmalo en el juego por ahora</small></article>
+        <article class="metric-card"><span class="metric-label">Stock verificado</span><strong id="metric-coverage">—</strong><small>cantidad y precio ponderado</small></article>
       </section>
+      <section class="signal-control-panel compact" aria-label="Alertas de snipeos"><div><p class="eyebrow">RADAR PERSONAL</p><h2>Vigila sólo lo que te interesa.</h2><p>Abre una señal, agrégala a vigilancia y recibirás un aviso si vuelve a cumplir el precio objetivo mientras la página está activa.</p></div><button id="enable-alerts" class="secondary-button" type="button">Activar alertas del navegador</button></section>
+      <section class="alert-panel" aria-label="Alertas de vigilancia"><div><p class="eyebrow">LISTA DE VIGILANCIA</p><h2>Alertas activas</h2></div><div id="alert-list" class="alert-list"><p>No hay alertas activas en tu lista de vigilancia.</p></div></section>
       <section class="explorer signal-explorer" aria-labelledby="explorer-title">
         <div class="section-heading"><div><p class="eyebrow">RADAR</p><h2 id="explorer-title">Posibles snipeos</h2></div><p id="result-count" class="result-count" aria-live="polite">Buscando anomalías…</p></div>
-        <div class="caution-note snipe-caution"><strong>Antes de comprar</strong><span>Estas alertas no verifican todavía la cantidad del listing. Una sola unidad barata puede desaparecer antes de que llegues.</span></div>
+        <div class="caution-note snipe-caution"><strong>Filtro anti-señuelo</strong><span>Sólo aparecen candidatos con al menos dos unidades cerca del piso. La compra se calcula atravesando los tiers reales y descuenta el 5% de fee al estimar la salida.</span></div>
         <div class="toolbar signal-toolbar">
           <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar ítem o categoría</span><input id="search-input" type="search" placeholder="Busca ítem o categoría…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
           <label class="select-control"><span>Señal</span><select id="band-select"><option value="">Todas</option><option value="URGENTE">Urgente</option><option value="FUERTE">Fuerte</option><option value="REVISAR">Revisar</option></select></label>
@@ -40,7 +42,7 @@
         <div id="signal-grid" class="signal-grid"></div>
         <div id="empty-state" class="empty-state signal-empty" hidden><span aria-hidden="true">◇</span><h3>No hay anomalías con esos filtros</h3><p>Eso también es una buena señal: el mercado puede estar estable.</p></div>
       </section>
-      <section class="method-note"><div><p class="eyebrow">DETECCIÓN</p><h2>Descuento con contexto.</h2></div><div class="method-grid"><p><span>01</span> La referencia es el menor valor entre la mediana histórica del listing y el precio vendido.</p><p><span>02</span> Exige al menos 25% de caída, tres snapshots, actividad y margen posterior al fee.</p><p><span>03</span> Si el ítem ya es muy volátil, exige una caída de 50% para evitar falsas alarmas.</p></div></section>
+      <section class="method-note"><div><p class="eyebrow">DETECCIÓN</p><h2>Descuento con contexto y stock.</h2></div><div class="method-grid"><p><span>01</span> La referencia es el menor valor entre la mediana histórica del listing y el precio vendido.</p><p><span>02</span> Exige caída, actividad, dos o más unidades cerca del piso y margen positivo después de fee.</p><p><span>03</span> Precio ponderado, persistencia y volatilidad separan una oportunidad real de una unidad señuelo.</p></div></section>
     </main>
     <dialog id="detail-dialog" class="detail-dialog"><button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
     <footer><span>Gil Intelligence</span><span>Universalis · anomalías de Cactuar</span><span>Confirma todo dentro del juego.</span></footer>

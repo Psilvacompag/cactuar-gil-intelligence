@@ -27,20 +27,27 @@
         <article class="metric-card featured"><span class="metric-label">Equivalentes actuales</span><strong id="metric-signals">—</strong><small>comprables antes de 8.0</small></article>
         <article class="metric-card"><span class="metric-label">Alcistas</span><strong id="metric-strong">—</strong><small>puntaje de 72 o más</small></article>
         <article class="metric-card"><span class="metric-label">Snapshots</span><strong id="metric-history">—</strong><small>ventana histórica local</small></article>
-        <article class="metric-card"><span class="metric-label">Matches validados</span><strong id="metric-coverage">—</strong><small>pasado → equivalente actual</small></article>
+        <article class="metric-card"><span class="metric-label">Profundidad verificada</span><strong id="metric-coverage">—</strong><small>con stock actual de Cactuar</small></article>
       </section>
       <section class="projection-guardrail" aria-label="Alcance de las proyecciones"><div><span class="guardrail-icon" aria-hidden="true">↗</span><p><strong>Sólo candidatos actuales.</strong> Cristales persistentes, Materia XI y puentes de spiritbond pueden comprarse hoy y repetir un rol histórico.</p></div><div><span class="guardrail-icon muted" aria-hidden="true">◇</span><p><strong>Aún fuera del ranking.</strong> Los nuevos mats de monstruos, leves y precrafts aparecerán cuando 8.0 revele sus item IDs. El equipo para Bastion y physical ranged espera confirmación del Armoury Update.</p></div></section>
+      <section class="signal-control-panel" aria-label="Plan de capital y alertas">
+        <div><p class="eyebrow">PLAN DE CAPITAL</p><h2>Define cuánto quieres preparar.</h2><p>El tamaño máximo por ítem usa este capital, la confianza histórica, ventas/día y stock visible. No asume que debas gastarlo completo.</p></div>
+        <label><span>Capital de preparación</span><div class="money-input"><input id="budget-input" type="number" min="10000" step="100000" value="5000000" /><small>gil</small></div></label>
+        <button id="enable-alerts" class="secondary-button" type="button">Activar alertas del navegador</button>
+      </section>
+      <section class="alert-panel" aria-label="Alertas de vigilancia"><div><p class="eyebrow">LISTA DE VIGILANCIA</p><h2>Alertas activas</h2></div><div id="alert-list" class="alert-list"><p>No hay alertas activas en tu lista de vigilancia.</p></div></section>
       <section class="explorer signal-explorer" aria-labelledby="explorer-title">
         <div class="section-heading"><div><p class="eyebrow">MATCH HISTÓRICO → ACTUAL</p><h2 id="explorer-title">Candidatos para Evercold</h2></div><p id="result-count" class="result-count" aria-live="polite">Preparando señales…</p></div>
-        <div class="toolbar signal-toolbar">
+        <div class="toolbar signal-toolbar projection-toolbar">
           <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar ítem o categoría</span><input id="search-input" type="search" placeholder="Busca ítem o categoría…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
           <label class="select-control"><span>Señal</span><select id="band-select"><option value="">Todas</option><option value="ALCISTA">Alcista</option><option value="VIGILAR">Vigilar</option><option value="TEMPRANA">Temprana</option></select></label>
-          <label class="select-control"><span>Ordenar</span><select id="sort-select"><option value="score">Mayor puntaje</option><option value="velocity">Más vendidos</option><option value="price">Mayor precio</option><option value="name">Nombre</option></select></label>
+          <label class="select-control"><span>Fase</span><select id="phase-select"><option value="">Todas</option><option value="ACUMULAR_AHORA">Acumular ahora</option><option value="ULTIMO_MES">Último mes</option><option value="LANZAMIENTO_72H">Lanzamiento 0–72h</option><option value="LEVELING_SEMANA_1">Leveling semana 1</option><option value="PRE_SAVAGE">Pre-Savage</option><option value="SAVAGE_SEMANA_1">Savage semana 1</option></select></label>
+          <label class="select-control"><span>Ordenar</span><select id="sort-select"><option value="score">Mayor puntaje</option><option value="entry">Decisión de entrada</option><option value="velocity">Más vendidos</option><option value="price">Mayor precio</option><option value="name">Nombre</option></select></label>
         </div>
         <div id="signal-grid" class="signal-grid"></div>
         <div id="empty-state" class="empty-state signal-empty" hidden><span aria-hidden="true">◇</span><h3>No hay proyecciones con esos filtros</h3><p>Amplía el nivel de señal o prueba otro nombre.</p></div>
       </section>
-      <section class="method-note"><div><p class="eyebrow">CÓMO SE CALCULA</p><h2>El pasado enseña el rol, no el nombre.</h2></div><div class="method-grid"><p><span>01</span> La evidencia de Shadowbringers, Endwalker y Dawntrail identifica roles repetibles: cristales, overmeld y spiritbond.</p><p><span>02</span> Una regla explícita busca el equivalente vigente. Coincidir solamente por “Leather”, “Cloth” o “Metal” ya no alcanza.</p><p><span>03</span> Uso en recetas recientes, liquidez, tendencia y estabilidad ordenan los matches. Volatilidad y enfriamiento restan puntaje.</p></div></section>
+      <section class="method-note"><div><p class="eyebrow">CÓMO SE CALCULA</p><h2>El pasado enseña el rol, no el nombre.</h2></div><div class="method-grid"><p><span>01</span> La evidencia de Shadowbringers, Endwalker y Dawntrail identifica roles repetibles: cristales, overmeld y spiritbond.</p><p><span>02</span> Una regla explícita busca el equivalente vigente. Coincidir solamente por “Leather”, “Cloth” o “Metal” ya no alcanza.</p><p><span>03</span> Precio máximo y posición combinan referencia conservadora, liquidez, stock verificado y una fracción del capital configurado.</p></div></section>
     </main>
     <dialog id="detail-dialog" class="detail-dialog"><button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
     <footer><span>Gil Intelligence</span><span>Universalis + evidencia histórica curada</span><span>No automatiza acciones dentro del juego.</span></footer>

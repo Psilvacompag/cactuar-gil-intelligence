@@ -19,6 +19,7 @@ from gil_intelligence.publishing import (
     export_market_items,
     export_opportunities,
 )
+from gil_intelligence.publishing.signal_candidates import signal_depth_candidates
 from gil_intelligence.storage import (
     import_static_snapshot,
     import_detailed_listings,
@@ -144,12 +145,38 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     )
     candidate_payload = json.loads(opportunities_path.read_text(encoding="utf-8"))
     candidates = list(candidate_payload.get("opportunities", []))
+    export_market_items(
+        database_path,
+        market_items_path,
+        scope=settings.scope,
+        freshness_hours=settings.freshness_hours,
+        fee_rate=settings.fee_rate,
+    )
+    export_market_history(
+        database_path,
+        market_history_path,
+        scope=settings.scope,
+        max_snapshots=settings.retention_runs,
+    )
+    signal_candidates = signal_depth_candidates(
+        json.loads(market_items_path.read_text(encoding="utf-8")),
+        json.loads(market_history_path.read_text(encoding="utf-8")),
+    )
+    reserved_home_pairs = {
+        (candidate["sourceWorldId"], candidate["itemId"])
+        for candidate in signal_candidates
+    }
     dashboard_payload = json.loads(dashboard_path.read_text(encoding="utf-8"))
-    depth_candidates = _conversion_depth_candidates(dashboard_payload)
+    depth_candidates = _conversion_depth_candidates(
+        dashboard_payload,
+        limit=max(0, 100 - len(reserved_home_pairs)),
+    )
+    candidates.extend(signal_candidates)
     candidates.extend(depth_candidates)
     _emit(
         "Detailed listing shortlist prepared",
         opportunityCandidates=len(candidate_payload.get("opportunities", [])),
+        signalDepthCandidates=len(signal_candidates),
         conversionDepthCandidates=len(depth_candidates),
     )
     detail_summary = None

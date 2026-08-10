@@ -4,11 +4,25 @@ import json
 import unittest
 from pathlib import Path
 
+from gil_intelligence.publishing.signal_candidates import EVERCOLD_CURRENT_ITEM_IDS
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProjectionMappingTests(unittest.TestCase):
+    def test_backend_depth_reservation_matches_curated_mapping(self) -> None:
+        payload = json.loads(
+            Path("apps/web/data/launch-signals.json").read_text(encoding="utf-8")
+        )
+        mapped = {
+            item_id
+            for pattern in payload["patterns"]
+            for item_id in pattern["currentItemIds"]
+        }
+
+        self.assertEqual(mapped, set(EVERCOLD_CURRENT_ITEM_IDS))
+
     def test_historical_examples_are_not_reused_as_candidates(self) -> None:
         mapping = json.loads(
             (ROOT / "apps/web/data/launch-signals.json").read_text(encoding="utf-8")
