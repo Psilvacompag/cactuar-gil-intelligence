@@ -178,6 +178,33 @@
       <div id="dialog-content"></div>
     </dialog>
 
+    <dialog id="currency-dialog" class="currency-dialog">
+      <button id="currency-dialog-close" class="dialog-close" aria-label="Cerrar">×</button>
+      <div class="currency-dialog-body">
+        <p class="eyebrow">FILTRO</p>
+        <h3>Todas las monedas</h3>
+        <p class="currency-dialog-lede">Selecciona una moneda para ver únicamente sus conversiones.</p>
+        <div class="currency-directory-toolbar">
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="sr-only">Buscar en todas las monedas</span>
+            <input id="currency-directory-search" type="search" placeholder="Nombre o ID de moneda…" autocomplete="off" />
+          </label>
+          <label class="select-control">
+            <span>Ordenar</span>
+            <select id="currency-directory-sort">
+              <option value="name">Nombre</option>
+              <option value="liquidity">Liquidez</option>
+              <option value="conversions">Conversiones</option>
+              <option value="return">Mejor retorno</option>
+            </select>
+          </label>
+        </div>
+        <p id="currency-directory-count" class="currency-directory-count"></p>
+        <div id="currency-directory-list" class="currency-directory-list"></div>
+      </div>
+    </dialog>
+
     <footer>
       <span>Gil Intelligence</span>
       <span id="footer-source">Universalis + datos estáticos locales</span>

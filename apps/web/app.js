@@ -27,6 +27,11 @@ const elements = {
   pageSize: document.querySelector("#page-size-select"),
   dialog: document.querySelector("#detail-dialog"),
   dialogContent: document.querySelector("#dialog-content"),
+  currencyDialog: document.querySelector("#currency-dialog"),
+  currencyDirectorySearch: document.querySelector("#currency-directory-search"),
+  currencyDirectorySort: document.querySelector("#currency-directory-sort"),
+  currencyDirectoryCount: document.querySelector("#currency-directory-count"),
+  currencyDirectoryList: document.querySelector("#currency-directory-list"),
 };
 
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -79,6 +84,7 @@ function hydrateMeta() {
 }
 
 function renderChips() {
+  elements.chips.replaceChildren();
   const liquidity = currencyLiquidity();
   const byId = new Map(state.data.currencies.map((currency) => [currency.itemId, currency]));
   const highlighted = highlightedCurrencyIds.map((itemId) => byId.get(itemId)).filter(Boolean);
@@ -92,6 +98,7 @@ function renderChips() {
     .slice(0, 8);
   const all = document.createElement("button");
   all.className = "chip active";
+  all.id = "all-currencies-chip";
   all.type = "button";
   all.textContent = "Todas";
   all.addEventListener("click", () => selectCurrency(null));
@@ -106,6 +113,13 @@ function renderChips() {
     chip.addEventListener("click", () => selectCurrency(currency.itemId));
     elements.chips.append(chip);
   }
+  const directory = document.createElement("button");
+  directory.className = "chip directory-chip";
+  directory.id = "currency-directory-button";
+  directory.type = "button";
+  directory.textContent = `Ver las ${integerFormat.format(state.data.currencies.length)} monedas`;
+  directory.addEventListener("click", openCurrencyDirectory);
+  elements.chips.append(directory);
 }
 
 function currencyLiquidity() {
@@ -126,13 +140,97 @@ function currencyLiquidity() {
 function selectCurrency(currencyId) {
   state.currencyId = currencyId;
   state.page = 1;
-  document.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle(
-      "active",
-      currencyId === null ? !chip.dataset.currencyId : Number(chip.dataset.currencyId) === currencyId,
-    );
-  });
+  updateCurrencyControls();
   applyFilters();
+}
+
+function updateCurrencyControls() {
+  const all = document.querySelector("#all-currencies-chip");
+  const directory = document.querySelector("#currency-directory-button");
+  const selectedChip = currencyIdChip(state.currencyId);
+  all?.classList.toggle("active", state.currencyId === null);
+  document.querySelectorAll(".chip[data-currency-id]").forEach((chip) => {
+    chip.classList.toggle("active", Number(chip.dataset.currencyId) === state.currencyId);
+  });
+  if (!directory) return;
+  directory.classList.toggle("active", state.currencyId !== null && !selectedChip);
+  const selected = state.data.currencies.find((currency) => currency.itemId === state.currencyId);
+  directory.textContent = selected && !selectedChip
+    ? `${selected.name} · cambiar`
+    : `Ver las ${integerFormat.format(state.data.currencies.length)} monedas`;
+}
+
+function currencyIdChip(currencyId) {
+  if (currencyId === null) return null;
+  return document.querySelector(`.chip[data-currency-id="${currencyId}"]`);
+}
+
+function openCurrencyDirectory() {
+  elements.currencyDirectorySearch.value = "";
+  elements.currencyDirectorySort.value = "name";
+  renderCurrencyDirectory();
+  elements.currencyDialog.showModal();
+  requestAnimationFrame(() => elements.currencyDirectorySearch.focus());
+}
+
+function renderCurrencyDirectory() {
+  const query = normalize(elements.currencyDirectorySearch.value);
+  const liquidity = currencyLiquidity();
+  const currencies = state.data.currencies
+    .filter((currency) => !query || normalize(`${currency.name} ${currency.itemId}`).includes(query))
+    .sort(currencyDirectorySorter(elements.currencyDirectorySort.value, liquidity));
+  elements.currencyDirectoryCount.textContent = `${integerFormat.format(currencies.length)} monedas`;
+  const fragment = document.createDocumentFragment();
+  if (!query) fragment.append(createCurrencyOption(null, liquidity));
+  currencies.forEach((currency) => fragment.append(createCurrencyOption(currency, liquidity)));
+  elements.currencyDirectoryList.replaceChildren(fragment);
+}
+
+function currencyDirectorySorter(mode, liquidity) {
+  if (mode === "liquidity") return (a, b) =>
+    (liquidity.get(b.itemId) || 0) - (liquidity.get(a.itemId) || 0)
+      || a.name.localeCompare(b.name, "es");
+  if (mode === "conversions") return (a, b) =>
+    b.freshCount - a.freshCount || b.conversionCount - a.conversionCount
+      || a.name.localeCompare(b.name, "es");
+  if (mode === "return") return (a, b) =>
+    (b.bestNetGil || 0) - (a.bestNetGil || 0) || a.name.localeCompare(b.name, "es");
+  return (a, b) => a.name.localeCompare(b.name, "es");
+}
+
+function createCurrencyOption(currency, liquidity) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "currency-option";
+  if (currency === null) {
+    button.classList.add("all-option");
+    button.classList.toggle("selected", state.currencyId === null);
+    button.innerHTML = "<span><strong>Todas las monedas</strong><small>Quitar el filtro actual</small></span>";
+    button.addEventListener("click", () => chooseDirectoryCurrency(null));
+    return button;
+  }
+  button.classList.toggle("selected", state.currencyId === currency.itemId);
+  const identity = document.createElement("span");
+  const name = document.createElement("strong");
+  const detail = document.createElement("small");
+  name.textContent = currency.name;
+  detail.textContent = `Item ${currency.itemId} · ${currency.freshCount}/${currency.conversionCount} frescas`;
+  identity.append(name, detail);
+  const stats = document.createElement("span");
+  stats.className = "currency-option-stats";
+  const best = document.createElement("strong");
+  const sales = document.createElement("small");
+  best.textContent = gil(currency.bestNetGil);
+  sales.textContent = `${velocity(liquidity.get(currency.itemId))} combinadas`;
+  stats.append(best, sales);
+  button.append(identity, stats);
+  button.addEventListener("click", () => chooseDirectoryCurrency(currency.itemId));
+  return button;
+}
+
+function chooseDirectoryCurrency(currencyId) {
+  selectCurrency(currencyId);
+  elements.currencyDialog.close();
 }
 
 function applyFilters() {
@@ -457,6 +555,12 @@ elements.pageSize.addEventListener("change", (event) => {
 });
 document.querySelector("#dialog-close").addEventListener("click", () => elements.dialog.close());
 elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });
+document.querySelector("#currency-dialog-close").addEventListener("click", () => elements.currencyDialog.close());
+elements.currencyDialog.addEventListener("click", (event) => {
+  if (event.target === elements.currencyDialog) elements.currencyDialog.close();
+});
+elements.currencyDirectorySearch.addEventListener("input", renderCurrencyDirectory);
+elements.currencyDirectorySort.addEventListener("change", renderCurrencyDirectory);
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
