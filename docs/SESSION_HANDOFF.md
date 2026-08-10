@@ -21,13 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `ce30695` (`Map launch patterns to current expansion candidates`).
-- HEAD funcional desplegado: `ce30695`.
+- Código productivo verificado: `f294f2e` (`Add actionable expansion signals and verified snipes`).
+- HEAD funcional desplegado: `f294f2e`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v12`, digest
-  `sha256:ec7129567528f4a6bbe3381f8c27af727512bafefb22f5d54125dd30e516cbd6`.
+- Imagen desplegada al cierre: `backend:v13`, digest
+  `sha256:db7facb8ddb315338d710f5b3e0ae6e03b345bb412fd0f333eac97b11b7e031f`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -76,6 +76,28 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Producción expone 13 Materia XI adicionales, centralidad de recetas hasta Patch 7.5
   y 25 equivalentes actuales en el radar; no aparecen los precrafts antiguos.
 - Validación final: 38 pruebas correctas y smoke visual del sitio público.
+
+### Estrategia de entrada, Snipeos verificados y alertas
+
+- GitHub Pages publicó `f294f2e`; Cloud Run sirve `backend:v13` desde
+  `cactuar-api-00013-jj5`, con 100% del tráfico.
+- `cactuar-refresh` y `cactuar-archive` usan la misma imagen `v13`.
+- La ejecución manual `cactuar-refresh-sx4ds` terminó correctamente en 9m34s.
+- El snapshot de las 14:37 UTC expone 4.032 filas, 7 snapshots históricos y estado
+  de salud `ok`, con 0,15 horas de antigüedad al verificar.
+- Los 26 equivalentes actuales de Evercold tienen profundidad real; el export total
+  contiene profundidad para 84 filas y ninguna compra ponderada excede el stock
+  observado.
+- Proyecciones calcula decisión, entrada máxima, cantidad, capital expuesto, fase,
+  salida e invalidación. El capital predeterminado es 5.000.000 gil y se guarda sólo
+  en el navegador.
+- Snipeos exige al menos dos unidades cerca del piso, atraviesa tiers reales,
+  descuenta fee y mide persistencia. El primer snapshot productivo mostró 25
+  candidatos verificados, 9 urgentes.
+- Watchlist, alertas del navegador y ledger inicial de señales usan `localStorage`;
+  no son notificaciones push en segundo plano ni un registro global del servidor.
+- Validación final: 40 pruebas correctas, sintaxis JavaScript/JSON válida y smoke
+  visual desktop/móvil y productivo.
 
 ## Funcionalidad disponible
 
@@ -146,7 +168,7 @@ Caso de regresión verificado:
 - Dawntrail aún está disponible para backfill cuantitativo mediante el endpoint
   `/history` de Universalis. Endwalker no apareció en la ventana pública probada y
   debe permanecer como evidencia manual salvo que se obtenga otra fuente.
-- Validación local inicial: JavaScript sin errores de sintaxis, JSON válido, 36 pruebas
+- Validación local inicial: JavaScript sin errores de sintaxis, JSON válido, 40 pruebas
   Python correctas y smoke visual en Chrome para escritorio y móvil.
 
 ## Datos y frecuencia
@@ -198,7 +220,7 @@ $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 ```
 
-Estado al cierre: 36 pruebas exitosas.
+Estado al cierre: 40 pruebas exitosas.
 
 Health productivo:
 
@@ -218,6 +240,6 @@ republicación sin requests de mercado debe usarse `cactuar-archive`.
 
 ## Punto recomendado para continuar
 
-Publicar y observar en el próximo refresh la profundidad de listings, Proyecciones y
-Snipeos. Después conviene calibrar sus umbrales contra datos reales sin convertir las
-señales explicables en promesas de rentabilidad.
+Observar durante varios refresh los falsos positivos de Snipeos y la estabilidad de
+las entradas de Proyecciones. Después conviene calibrar sus umbrales y trasladar el
+ledger local a un registro de señales del servidor para backtesting global 7/30/90d.
