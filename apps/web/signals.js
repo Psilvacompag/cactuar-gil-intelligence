@@ -212,7 +212,7 @@ function createCard(item) {
     ? `<div><small>GANANCIA TOTAL</small><strong>+${gil(item.potentialProfit)}</strong></div>`
     : `<div><small>DECISIÓN</small><strong class="action-text">${escapeHtml(item.action)}</strong></div>`;
   card.innerHTML = `<div class="signal-card-top"><span class="signal-band">${escapeHtml(item.band)}</span><span class="signal-risk">RIESGO ${escapeHtml(item.risk)}</span></div>
-    <div class="signal-identity"><span class="item-icon ${view === "snipes" ? "gold" : ""}" aria-hidden="true">${signalIcon()}</span><div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(view === "snipes" ? `${item.sourceWorldName} · ${item.sourceDataCenterName || "Aether"} → Cactuar` : categoryName(item) || `Item ${item.itemId}`)}</p></div></div>
+    <div class="signal-identity">${GilItemIcons.markup(item.iconId, { fallback: "signal", tone: view === "snipes" ? "gold" : "" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(view === "snipes" ? `${item.sourceWorldName} · ${item.sourceDataCenterName || "Aether"} → Cactuar` : categoryName(item) || `Item ${item.itemId}`)}</p></div></div>
     <div class="signal-score"><div><small>PUNTAJE</small><strong>${item.score}<span>/100</span></strong></div><progress max="100" value="${item.score}">${item.score}</progress></div>
     <div class="signal-metrics"><div>${metric}</div><div><small>${view === "snipes" ? "COMPRA PONDERADA" : "PRECIO ACTUAL"}</small><strong>${gil(view === "snipes" ? item.weightedEntryPrice : item.currentPrice)}</strong></div>${third}</div>
     <p class="signal-reason">${escapeHtml(item.reasons[0])}</p><span class="signal-action">Ver estrategia →</span>`;
@@ -235,7 +235,7 @@ function showDetail(item) {
       <div><span>Ganancia post-fee</span><strong>+${gil(item.potentialProfit)}</strong></div><div><span>Viaje</span><strong>${escapeHtml(item.sourceDataCenterName || "Aether")} · ${escapeHtml(item.sourceWorldName)}</strong></div></div></section>`;
   const backtest = item.backtest || {};
   elements.dialogContent.innerHTML = `<div class="detail-body signal-detail"><p class="eyebrow">${view === "snipes" ? "SNIPE VERIFICADO" : "PROYECCIÓN EVERCOLD 8.0"} · ITEM ${item.itemId}</p>
-    <h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")} · Riesgo ${escapeHtml(item.risk.toLowerCase())}</p>
+    <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: "signal", tone: view === "snipes" ? "gold" : "" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")} · Riesgo ${escapeHtml(item.risk.toLowerCase())}</p></div></div>
     <div class="score-panel"><div class="score-heading"><div><small>SEÑAL</small><strong>${escapeHtml(item.band)}</strong></div><b>${item.score}<span>/100</span></b></div><progress class="signal-detail-progress" max="100" value="${item.score}">${item.score}</progress></div>
     ${strategyMarkup}<section class="reason-panel"><small>POR QUÉ APARECE</small><ul>${item.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
     <section class="backtest-panel"><small>SEGUIMIENTO DE LA TESIS</small><div><span>Desde primer snapshot</span><strong>${signedPercent(backtest.change)}</strong></div><div><span>Máximo observado</span><strong>${signedPercent(backtest.maxGain)}</strong></div><div><span>Drawdown máximo</span><strong>${signedPercent(backtest.maxDrawdown)}</strong></div><div><span>7 / 30 / 90 días</span><strong>${horizonText(backtest)}</strong></div></section>
@@ -315,7 +315,6 @@ function horizonText(stats) { const values = [stats.return7, stats.return30, sta
 function phaseLabel(value) { return ({ ACUMULAR_AHORA: "Acumular ahora", ULTIMO_MES: "Último mes", LANZAMIENTO_72H: "Lanzamiento 0–72h", LEVELING_SEMANA_1: "Leveling semana 1", PRE_SAVAGE: "Pre-Savage", SAVAGE_SEMANA_1: "Savage semana 1" })[value] || value; }
 function actionRank(value) { return ({ "COMPRAR AHORA": 0, "VERIFICAR STOCK": 1, "ESPERAR PRECIO": 2, "VIGILAR": 3, "SÓLO VIGILAR": 4 })[value] ?? 5; }
 function signalKey(item) { return `${view === "snipes" ? "snipe" : "projection"}:${item.itemId}:${item.quality}${view === "snipes" ? `:${item.sourceWorldId}` : ""}`; }
-function signalIcon() { return view === "snipes" ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>' : '<svg viewBox="0 0 24 24"><path d="m4 17 5-5 4 3 7-8"/><path d="M15 7h5v5"/></svg>'; }
 function categoryName(item) { return item.categoryName || item.searchCategoryName || item.uiCategoryName || ""; }
 function finite(value, fallback) { return Number.isFinite(value) ? value : fallback; }
 function finitePositive(value) { return Number.isFinite(value) && value > 0; }

@@ -173,7 +173,7 @@ function createRow(item) {
   const value = state.mode === "crafting" ? craftProfit(item) : item.estimatedDailyRevenue;
   const trend = item.trend?.signal || "NEW";
   row.innerHTML = `
-    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(state.mode === "gathering" ? "leaf" : "craft")}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>Item ${item.itemId}</small></span></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(item.iconId, state.mode === "gathering" ? "leaf" : "craft")}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>Item ${item.itemId}</small></span></div></td>
     <td data-label="Origen / oficio"><div class="entity"><strong>${escapeHtml(originLabel(item))}</strong><small>${state.mode === "gathering" ? "Gathering" : "Crafting"}</small></div></td>
     <td data-label="Categoría">${escapeHtml(categoryName(item) || "Sin categoría")}</td>
     <td data-label="Precio medio" class="numeric">${gil(item.averageSalePrice)}</td>
@@ -227,8 +227,7 @@ function detailMarkup(item, history, loading) {
     <div class="detail-body">
       <p class="eyebrow">ITEM ${item.itemId} · ${escapeHtml(item.quality)}</p>
       <button class="watch-button detail-watch ${isWatched(item) ? "active" : ""}" type="button">★ ${isWatched(item) ? "Guardado" : "Guardar"}</button>
-      <h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3>
-      <p>${escapeHtml(categoryName(item) || "Sin categoría")}</p>
+      <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: state.mode === "gathering" ? "leaf" : "craft" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")}</p></div></div>
       <div class="detail-route"><span>SE OBTIENE POR</span><strong>${escapeHtml(productionSources.join(" · "))}</strong></div>
       <div class="detail-stats">
         <div><small>Listing mínimo</small><strong>${gil(item.minListingPrice)}</strong></div>
@@ -328,12 +327,7 @@ function setMode(mode) {
   applyFilters();
 }
 
-function itemIcon(kind) {
-  const svg = kind === "leaf"
-    ? '<svg viewBox="0 0 24 24"><path d="M20 4C11 4 5.5 8.4 5.5 14.3c0 2.7 1.8 4.7 4.5 4.7 5.9 0 9.3-6.4 10-15Z"/><path d="M4 21c2.7-5.4 6.5-8.7 12-11"/></svg>'
-    : '<svg viewBox="0 0 24 24"><path d="m14.5 5.5 4 4M13 7l4 4-8.5 8.5-4-4L13 7Z"/><path d="m15.5 4.5 2-2 4 4-2 2M3 21l4.5-1.5"/></svg>';
-  return `<span class="item-icon" aria-hidden="true">${svg}</span>`;
-}
+function itemIcon(iconId, kind) { return GilItemIcons.markup(iconId, { fallback: kind }); }
 
 function defaultSortDirection(mode) { return ["name", "category", "origin"].includes(mode) ? "asc" : "desc"; }
 function setSort(mode, toggle = false) {

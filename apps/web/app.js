@@ -224,7 +224,10 @@ function createCurrencyOption(currency, liquidity) {
   best.textContent = gil(currency.bestNetGil);
   sales.textContent = `${velocity(liquidity.get(currency.itemId))} combinadas`;
   stats.append(best, sales);
-  button.append(identity, stats);
+  const visual = document.createElement("span");
+  visual.className = "entity-with-icon";
+  visual.append(GilItemIcons.element(currency.iconId, { fallback: "coin", tone: "gold" }), identity);
+  button.append(visual, stats);
   button.addEventListener("click", () => chooseDirectoryCurrency(currency.itemId));
   return button;
 }
@@ -316,12 +319,14 @@ function goToPage(page) {
 
 function createRow(item) {
   const row = elements.rowTemplate.content.firstElementChild.cloneNode(true);
-  fillEntity(row.querySelector(".currency-entity"), item.currencyName, `Item ${item.currencyItemId}`, "coin", "gold");
+  fillEntity(row.querySelector(".currency-entity"), item.currencyName, `Item ${item.currencyItemId}`, "coin", "gold", item.currencyIconId);
   fillEntity(
     row.querySelector(".reward-entity"),
     `${item.rewardName}${item.rewardIsHq ? " · HQ" : ""}`,
     item.shopName,
     "item",
+    "",
+    item.rewardIconId,
   );
   const watchButton = document.createElement("button");
   const watchKey = conversionWatchKey(item);
@@ -359,7 +364,7 @@ function createRow(item) {
   return row;
 }
 
-function fillEntity(container, name, detail, icon = "item", tone = "") {
+function fillEntity(container, name, detail, icon = "item", tone = "", iconId = null) {
   const strong = document.createElement("strong");
   const small = document.createElement("small");
   const copy = document.createElement("span");
@@ -368,25 +373,18 @@ function fillEntity(container, name, detail, icon = "item", tone = "") {
   small.textContent = detail;
   copy.append(strong, small);
   container.classList.add("entity-with-icon");
-  container.append(createItemIcon(icon, tone), copy);
+  container.append(createItemIcon(icon, tone, iconId), copy);
 }
 
-function createItemIcon(kind, tone = "") {
-  const icon = document.createElement("span");
-  icon.className = `item-icon ${tone}`.trim();
-  icon.setAttribute("aria-hidden", "true");
-  icon.innerHTML = kind === "coin"
-    ? '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7" ry="3.5"/><path d="M5 7v5c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5V7M5 12v5c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5v-5"/></svg>'
-    : '<svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg>';
-  return icon;
+function createItemIcon(kind, tone = "", iconId = null) {
+  return GilItemIcons.element(iconId, { fallback: kind, tone });
 }
 
 function showDetail(item) {
   elements.dialogContent.innerHTML = `
     <div class="detail-body">
       <p class="eyebrow">CONVERSIÓN DIRECTA · ${escapeHtml(state.data.meta.scope)}</p>
-      <h3>${escapeHtml(item.rewardName)}${item.rewardIsHq ? " · HQ" : ""}</h3>
-      <p>${escapeHtml(item.shopName)} · Shop ${item.shopId}</p>
+      <div class="detail-item-title">${GilItemIcons.markup(item.rewardIconId, { fallback: "item" })}<div><h3>${escapeHtml(item.rewardName)}${item.rewardIsHq ? " · HQ" : ""}</h3><p>${escapeHtml(item.shopName)} · Shop ${item.shopId}</p></div></div>
       <div class="detail-route">
         <strong>${integerFormat.format(item.currencyQuantity)} × ${escapeHtml(item.currencyName)}</strong>
         <span>SE CONVIERTE EN</span>

@@ -14,7 +14,7 @@
 Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pages
 ```
 
-El catálogo estático se extrae desde `sqpack` sólo cuando cambia el parche. Cloud Run no accede a los archivos del juego.
+El catálogo estático se extrae desde `sqpack` sólo cuando cambia el parche. Cloud Run no accede a los archivos del juego. El esquema 6 incluye `iconId`; GitHub Pages solicita la conversión PNG directamente al endpoint de assets de XIVAPI, con caché del navegador y fallback SVG local.
 
 ## Política de requests
 

@@ -181,6 +181,7 @@ TABLES: dict[str, dict[str, Any]] = {
             ("extracted_at", "TIMESTAMP", "REQUIRED"),
             ("item_id", "INTEGER", "REQUIRED"),
             ("name", "STRING", "NULLABLE"),
+            ("icon_id", "INTEGER", "NULLABLE"),
             ("marketable_candidate", "BOOLEAN", "REQUIRED"),
             ("search_category_id", "INTEGER", "NULLABLE"),
             ("search_category_name", "STRING", "NULLABLE"),
@@ -762,6 +763,7 @@ def _catalog_rows(
     optional = {
         name: name if name in columns else f"NULL AS {name}"
         for name in (
+            "icon_id",
             "search_category_id",
             "search_category_name",
             "ui_category_id",
@@ -776,6 +778,7 @@ def _catalog_rows(
         f"""
         SELECT asset.snapshot_id AS static_snapshot_id, source.game_version,
                source.extracted_at, asset.item_id, asset.name,
+               {optional['icon_id']},
                asset.marketable_candidate,
                {optional['search_category_id']}, {optional['search_category_name']},
                {optional['ui_category_id']}, {optional['ui_category_name']},

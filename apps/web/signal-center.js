@@ -80,7 +80,7 @@ function createCard(signal) {
   const card = document.createElement("article");
   card.className = `center-card module-${signal.module}`;
   const outcome = signal.outcome || {};
-  card.innerHTML = `<div class="center-card-heading"><span class="module-icon">${MODULES[signal.module]?.icon || "◇"}</span><div><small>${escapeHtml(moduleLabel(signal.module))} · ${escapeHtml(signal.state)}</small><h3>${escapeHtml(signal.title)}</h3><p>${escapeHtml(signal.subtitle || "")}</p></div><button class="watch-button ${GilWatchlist.has(signal.key) ? "active" : ""}" type="button" aria-label="Vigilar">★</button></div>
+  card.innerHTML = `<div class="center-card-heading">${GilItemIcons.markup(signal.iconId, { fallback: "signal", tone: signal.module === "snipe" ? "gold" : "" })}<div><small>${escapeHtml(moduleLabel(signal.module))} · ${escapeHtml(signal.state)}</small><h3>${escapeHtml(signal.title)}</h3><p>${escapeHtml(signal.subtitle || "")}</p></div><button class="watch-button ${GilWatchlist.has(signal.key) ? "active" : ""}" type="button" aria-label="Vigilar">★</button></div>
     <div class="center-score"><strong>${signal.score}<span>/100</span></strong><progress max="100" value="${signal.score}">${signal.score}</progress></div>
     <div class="center-metrics"><div><small>${escapeHtml(metricLabel(signal.metricName))}</small><strong>${metricValue(signal)}</strong></div><div><small>Desde señal</small><strong>${ratio(outcome.change)}</strong></div><div><small>Drawdown</small><strong>${ratio(outcome.maximumDrawdown)}</strong></div></div>
     <p class="center-reason">${escapeHtml(signal.reason)}</p>

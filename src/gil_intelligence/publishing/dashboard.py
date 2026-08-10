@@ -56,8 +56,10 @@ def export_currency_dashboard(
         raw_rows = connection.execute(
             """
             SELECT value.currency_item_id, value.currency_name,
+                   currency_asset.icon_id AS currency_icon_id,
                    value.currency_quantity, value.reward_item_id,
-                   value.reward_name, value.reward_quantity, value.reward_is_hq,
+                   value.reward_name, reward_asset.icon_id AS reward_icon_id,
+                   value.reward_quantity, value.reward_is_hq,
                    value.market_unit_price, value.gross_gil_per_currency,
                    value.net_gil_per_currency, value.daily_sale_velocity,
                    value.latest_upload_at, value.valuation_status,
@@ -66,6 +68,12 @@ def export_currency_dashboard(
             LEFT JOIN dim_shop AS shop
                 ON shop.snapshot_id = value.static_snapshot_id
                 AND shop.shop_id = value.shop_id
+            LEFT JOIN dim_asset AS currency_asset
+                ON currency_asset.snapshot_id = value.static_snapshot_id
+               AND currency_asset.item_id = value.currency_item_id
+            LEFT JOIN dim_asset AS reward_asset
+                ON reward_asset.snapshot_id = value.static_snapshot_id
+               AND reward_asset.item_id = value.reward_item_id
             WHERE value.valuation_run_id = ?
               AND value.valuation_status IN ('FRESH', 'STALE')
             ORDER BY value.net_gil_per_currency DESC,
@@ -188,9 +196,11 @@ def _deduplicate_conversions(rows: Any) -> list[dict[str, Any]]:
             {
                 "currencyItemId": row["currency_item_id"],
                 "currencyName": row["currency_name"] or f"Item {row['currency_item_id']}",
+                "currencyIconId": row["currency_icon_id"],
                 "currencyQuantity": row["currency_quantity"],
                 "rewardItemId": row["reward_item_id"],
                 "rewardName": row["reward_name"] or f"Item {row['reward_item_id']}",
+                "rewardIconId": row["reward_icon_id"],
                 "rewardQuantity": row["reward_quantity"],
                 "rewardIsHq": bool(row["reward_is_hq"]),
                 "marketUnitPrice": row["market_unit_price"],
@@ -216,6 +226,7 @@ def _currency_stats(conversions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "itemId": currency_id,
                 "name": conversion["currencyName"],
+                "iconId": conversion.get("currencyIconId"),
                 "conversionCount": 0,
                 "freshCount": 0,
                 "bestNetGil": 0.0,

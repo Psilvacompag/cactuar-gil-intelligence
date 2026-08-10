@@ -30,9 +30,10 @@ La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
 mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico
 analítico antes de cada poda. Cada refresh vuelve a calcular automáticamente las
 reglas de los cinco módulos y persiste sus observaciones en el ledger; la watchlist
-del usuario permanece privada en su navegador. El catálogo de ítems y sus categorías se extrae de
-los archivos locales del juego, incluidas recetas e ingredientes, sin requests
-adicionales a servicios públicos. El ML permanece pospuesto hasta acumular historial
+del usuario permanece privada en su navegador. El catálogo de ítems, iconos,
+categorías, recetas e ingredientes se extrae de los archivos locales del juego sin
+requests de catálogo adicionales. El navegador convierte las rutas de textura en PNG
+mediante XIVAPI v2 y conserva un SVG minimalista como fallback. El ML permanece pospuesto hasta acumular historial
 suficiente para medirlo contra estas reglas deterministas.
 
 ## Ejecutar pruebas locales

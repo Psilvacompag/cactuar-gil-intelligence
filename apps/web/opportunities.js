@@ -152,7 +152,7 @@ function createRow(item) {
   const row = document.createElement("tr");
   row.tabIndex = 0;
   row.innerHTML = `
-    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon()}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(item.iconId)}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
     <td data-label="Comprar en"><div class="entity source-world"><strong>${escapeHtml(item.sourceWorldName)}</strong><small>${escapeHtml(item.sourceDataCenterName || "North America")} · World ${item.sourceWorldId}</small></div></td>
     <td data-label="Compra" class="numeric">${gil(item.averagePurchasePrice ?? item.sourcePrice)}</td>
     <td data-label="Venta conservadora" class="numeric">${gil(item.conservativeSellPrice)}</td>
@@ -182,8 +182,7 @@ function showDetail(item) {
     <div class="detail-body">
       <p class="eyebrow">${escapeHtml(item.sourceWorldName)} → CACTUAR · ${escapeHtml(item.quality)}</p>
       <button class="watch-button detail-watch ${isWatched(item) ? "active" : ""}" type="button">★ ${isWatched(item) ? "Guardado" : "Guardar"}</button>
-      <h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3>
-      <p>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</p>
+      <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: "route", tone: "gold" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</p></div></div>
       <div class="trip-route">
         <div><small>COMPRAR PROMEDIO</small><strong>${gil(item.averagePurchasePrice ?? item.sourcePrice)}</strong><span>${escapeHtml(item.sourceWorldName)}</span></div>
         <b aria-hidden="true">→</b>
@@ -263,9 +262,7 @@ function calculateCapitalPlan() {
     <p class="optimizer-note">Estimación greedy por ROI, con venta estresada, fee, stock observado y un máximo de ${percentFormat.format(maxShare)} por item. No considera impuestos de compra ni cambios posteriores.</p>`;
 }
 
-function itemIcon() {
-  return '<span class="item-icon gold" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h10M10 3l4 4-4 4M20 17H10M14 13l-4 4 4 4"/></svg></span>';
-}
+function itemIcon(iconId) { return GilItemIcons.markup(iconId, { fallback: "route", tone: "gold" }); }
 
 function defaultSortDirection(mode) { return ["name", "world", "buy"].includes(mode) ? "asc" : "desc"; }
 function setSort(mode, toggle = false) {

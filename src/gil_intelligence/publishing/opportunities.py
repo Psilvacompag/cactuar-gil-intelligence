@@ -178,6 +178,7 @@ def export_opportunities(
             {
                 "itemId": row["item_id"],
                 "name": row["name"] or f"Item {row['item_id']}",
+                "iconId": row["icon_id"],
                 "quality": row["quality"],
                 "categoryName": row["search_category_name"] or row["ui_category_name"],
                 "sourceWorldId": source_world_id,
@@ -354,7 +355,7 @@ def _pivoted_market_rows(
     return connection.execute(
         """
         WITH pivoted AS (
-        SELECT asset.item_id, asset.name, asset.search_category_name,
+        SELECT asset.item_id, asset.name, asset.icon_id, asset.search_category_name,
                asset.ui_category_name, aggregate.quality,
                MAX(CASE WHEN aggregate.scope_level = 'WORLD'
                         THEN aggregate.min_listing_price END) AS target_min_price,
@@ -375,7 +376,7 @@ def _pivoted_market_rows(
          AND aggregate.scope_level IN ('WORLD', 'REGION')
         WHERE asset.snapshot_id = ?
           AND asset.marketable_candidate = 1
-        GROUP BY asset.item_id, asset.name, asset.search_category_name,
+        GROUP BY asset.item_id, asset.name, asset.icon_id, asset.search_category_name,
                  asset.ui_category_name, aggregate.quality
         )
         SELECT pivoted.*,
@@ -387,7 +388,7 @@ def _pivoted_market_rows(
         LEFT JOIN fact_data_freshness AS freshness
           ON freshness.market_snapshot_id = ?
          AND freshness.item_id = pivoted.item_id
-        GROUP BY pivoted.item_id, pivoted.name, pivoted.search_category_name,
+        GROUP BY pivoted.item_id, pivoted.name, pivoted.icon_id, pivoted.search_category_name,
                  pivoted.ui_category_name, pivoted.quality,
                  pivoted.target_min_price, pivoted.target_median_price,
                  pivoted.target_average_sale_price, pivoted.daily_sale_velocity,

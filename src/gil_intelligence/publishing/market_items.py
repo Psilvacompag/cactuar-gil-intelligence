@@ -64,7 +64,7 @@ def export_market_items(
                   AND world_id = ?
                 GROUP BY item_id
             )
-            SELECT asset.item_id, asset.name, asset.search_category_id,
+            SELECT asset.item_id, asset.name, asset.icon_id, asset.search_category_id,
                    asset.search_category_name, asset.ui_category_id,
                    asset.ui_category_name, asset.craftable,
                    asset.craft_type_name, asset.gatherable,
@@ -199,6 +199,7 @@ def export_market_items(
             {
                 "itemId": row["item_id"],
                 "name": row["name"] or f"Item {row['item_id']}",
+                "iconId": row["icon_id"],
                 "quality": row["quality"],
                 "searchCategoryId": row["search_category_id"],
                 "searchCategoryName": row["search_category_name"],

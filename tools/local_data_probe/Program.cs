@@ -605,6 +605,9 @@ static object ExportSpecialShopSnapshot(
             .Select(itemId => new NormalizedAsset(
                 itemId,
                 itemCatalog.Names.GetValueOrDefault(itemId),
+                itemCatalog.IconIds.GetValueOrDefault(itemId) is var iconId && iconId > 0
+                    ? iconId
+                    : null,
                 itemCatalog.MarketableCandidates.Contains(itemId),
                 itemCatalog.SearchCategoryByItem.GetValueOrDefault(itemId) is var searchCategoryId && searchCategoryId > 0
                     ? searchCategoryId
@@ -629,7 +632,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            5,
+            6,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -1292,6 +1295,7 @@ static ItemCatalog BuildItemCatalog(
         {
             return new ItemCatalog(
                 new Dictionary<uint, string>(),
+                new Dictionary<uint, uint>(),
                 new HashSet<uint>(),
                 new Dictionary<uint, uint>(),
                 new Dictionary<uint, string>(),
@@ -1312,6 +1316,7 @@ static ItemCatalog BuildItemCatalog(
         var searchableItems = 0;
         var marketableCandidates = 0;
         var names = new Dictionary<uint, string>();
+        var iconIds = new Dictionary<uint, uint>();
         var marketableIds = new HashSet<uint>();
         var searchCategoryByItem = new Dictionary<uint, uint>();
         var uiCategoryByItem = new Dictionary<uint, uint>();
@@ -1364,6 +1369,11 @@ static ItemCatalog BuildItemCatalog(
             nonZeroItems++;
             var name = ReadProperty(row, "Name")?.ToString() ?? string.Empty;
             names[rowId] = name;
+            var iconId = ReadUnsigned(ReadProperty(row, "Icon"));
+            if (iconId > 0)
+            {
+                iconIds[rowId] = iconId;
+            }
             var isUntradable = Convert.ToBoolean(ReadProperty(row, "IsUntradable") ?? true);
             var searchCategory = ReadRowRefId(ReadProperty(row, "ItemSearchCategory"));
             var uiCategory = ReadRowRefId(ReadProperty(row, "ItemUICategory"));
@@ -1411,6 +1421,7 @@ static ItemCatalog BuildItemCatalog(
         };
         return new ItemCatalog(
             names,
+            iconIds,
             marketableIds,
             searchCategoryByItem,
             searchCategoryNames,
@@ -1428,6 +1439,7 @@ static ItemCatalog BuildItemCatalog(
     {
         return new ItemCatalog(
             new Dictionary<uint, string>(),
+            new Dictionary<uint, uint>(),
             new HashSet<uint>(),
             new Dictionary<uint, uint>(),
             new Dictionary<uint, string>(),
@@ -1842,6 +1854,7 @@ static string FriendlyTypeName(Type type)
 
 sealed record ItemCatalog(
     Dictionary<uint, string> Names,
+    Dictionary<uint, uint> IconIds,
     HashSet<uint> MarketableCandidates,
     Dictionary<uint, uint> SearchCategoryByItem,
     Dictionary<uint, string> SearchCategoryNames,
@@ -1863,6 +1876,7 @@ sealed record TomestoneCatalog(
 sealed record NormalizedAsset(
     uint ItemId,
     string? Name,
+    uint? IconId,
     bool MarketableCandidate,
     uint? SearchCategoryId,
     string? SearchCategoryName,

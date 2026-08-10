@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5}
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6}
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,17 +66,18 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
             connection.executemany(
                 """
                 INSERT INTO dim_asset (
-                    snapshot_id, item_id, name, marketable_candidate,
+                    snapshot_id, item_id, name, icon_id, marketable_candidate,
                     search_category_id, search_category_name,
                     ui_category_id, ui_category_name, craftable,
                     craft_type_name, gatherable, gathering_type
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     (
                         snapshot_id,
                         row["itemId"],
                         row.get("name"),
+                        row.get("iconId"),
                         int(row["marketableCandidate"]),
                         row.get("searchCategoryId"),
                         row.get("searchCategoryName"),
@@ -261,6 +262,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             snapshot_id TEXT NOT NULL,
             item_id INTEGER NOT NULL CHECK (item_id > 0),
             name TEXT,
+            icon_id INTEGER,
             marketable_candidate INTEGER NOT NULL CHECK (marketable_candidate IN (0, 1)),
             search_category_id INTEGER,
             search_category_name TEXT,
@@ -393,6 +395,12 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     _ensure_column(
         connection,
         "dim_asset",
+        "icon_id",
+        "INTEGER",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
         "search_category_id",
         "INTEGER",
     )
@@ -480,7 +488,7 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         "requirements",
         "coverage",
     }
-    if payload.get("schemaVersion") in {4, 5}:
+    if payload.get("schemaVersion") in {4, 5, 6}:
         required.update(("recipes", "recipeIngredients"))
     missing = sorted(required - payload.keys())
     if missing:
@@ -515,6 +523,11 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
             if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
                 raise ValueError(f"{name}[{index}].quantity must be a positive integer")
     for index, row in enumerate(payload["assets"]):
+        icon_id = row.get("iconId")
+        if icon_id is not None and (
+            isinstance(icon_id, bool) or not isinstance(icon_id, int) or icon_id <= 0
+        ):
+            raise ValueError(f"assets[{index}].iconId must be a positive integer")
         for field in ("searchCategoryId", "uiCategoryId"):
             value = row.get(field)
             if value is not None and (

@@ -196,6 +196,7 @@ def _signal(*, key: str, module: str, item: dict[str, Any], title: str, subtitle
             reference_value: float | None, url: str, reason: str,
             context: dict[str, Any]) -> dict[str, Any]:
     return {"key": key, "module": module, "itemId": item.get("itemId") or item.get("rewardItemId"),
+            "iconId": item.get("iconId") or item.get("rewardIconId"),
             "quality": item.get("quality") or ("HQ" if item.get("rewardIsHq") else "NQ"),
             "title": title, "subtitle": subtitle, "state": state, "score": round(float(score)),
             "metricName": metric_name, "metricValue": float(metric_value),

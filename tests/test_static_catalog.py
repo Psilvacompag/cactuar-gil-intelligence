@@ -271,6 +271,29 @@ class StaticCatalogImportTests(unittest.TestCase):
                 "sqpack:2026.08.05.0000.0000:schema-5",
             )
 
+    def test_schema_six_persists_item_icon_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 6
+            payload["recipes"] = []
+            payload["recipeIngredients"] = []
+            payload["assets"][0]["iconId"] = 26191
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+            connection = sqlite3.connect(database_path)
+            icon_id = connection.execute(
+                "SELECT icon_id FROM dim_asset WHERE item_id = ?",
+                (payload["assets"][0]["itemId"],),
+            ).fetchone()[0]
+            connection.close()
+
+            self.assertEqual(summary.snapshot_id, "sqpack:2026.08.05.0000.0000:schema-6")
+            self.assertEqual(icon_id, 26191)
+
 
 if __name__ == "__main__":
     unittest.main()
