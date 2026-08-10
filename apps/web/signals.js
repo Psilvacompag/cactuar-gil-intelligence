@@ -195,6 +195,7 @@ function render() {
   const fragment = document.createDocumentFragment();
   state.visible.slice(0, 60).forEach((item) => fragment.append(createCard(item)));
   elements.grid.append(fragment);
+  GilIntelligence.hydrateSparklines(elements.grid);
   elements.count.textContent = view === "snipes"
     ? `${integerFormat.format(state.visible.length)} con stock real · mostrando hasta 60`
     : `${integerFormat.format(state.visible.length)} equivalentes actuales`;
@@ -212,7 +213,7 @@ function createCard(item) {
     ? `<div><small>GANANCIA TOTAL</small><strong>+${gil(item.potentialProfit)}</strong></div>`
     : `<div><small>DECISIÓN</small><strong class="action-text">${escapeHtml(item.action)}</strong></div>`;
   card.innerHTML = `<div class="signal-card-top"><span class="signal-band">${escapeHtml(item.band)}</span><span class="signal-risk">RIESGO ${escapeHtml(item.risk)}</span></div>
-    <div class="signal-identity">${GilItemIcons.markup(item.iconId, { fallback: "signal", tone: view === "snipes" ? "gold" : "" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(view === "snipes" ? `${item.sourceWorldName} · ${item.sourceDataCenterName || "Aether"} → Cactuar` : categoryName(item) || `Item ${item.itemId}`)}</p></div></div>
+    <div class="signal-identity">${GilItemIcons.markup(item.iconId, { fallback: "signal", tone: view === "snipes" ? "gold" : "" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(view === "snipes" ? `${item.sourceWorldName} · ${item.sourceDataCenterName || "Aether"} → Cactuar` : categoryName(item) || `Item ${item.itemId}`)}</p>${GilIntelligence.qualityMarkup(item)}</div><div class="tiny-sparkline" data-spark-key="${item.itemId}:${item.quality}"><span class="spark-empty">Cargando…</span></div></div>
     <div class="signal-score"><div><small>PUNTAJE</small><strong>${item.score}<span>/100</span></strong></div><progress max="100" value="${item.score}">${item.score}</progress></div>
     <div class="signal-metrics"><div>${metric}</div><div><small>${view === "snipes" ? "COMPRA PONDERADA" : "PRECIO ACTUAL"}</small><strong>${gil(view === "snipes" ? item.weightedEntryPrice : item.currentPrice)}</strong></div>${third}</div>
     <p class="signal-reason">${escapeHtml(item.reasons[0])}</p><span class="signal-action">Ver estrategia →</span>`;
@@ -235,7 +236,7 @@ function showDetail(item) {
       <div><span>Ganancia post-fee</span><strong>+${gil(item.potentialProfit)}</strong></div><div><span>Viaje</span><strong>${escapeHtml(item.sourceDataCenterName || "Aether")} · ${escapeHtml(item.sourceWorldName)}</strong></div></div></section>`;
   const backtest = item.backtest || {};
   elements.dialogContent.innerHTML = `<div class="detail-body signal-detail"><p class="eyebrow">${view === "snipes" ? "SNIPE VERIFICADO" : "PROYECCIÓN EVERCOLD 8.0"} · ITEM ${item.itemId}</p>
-    <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: "signal", tone: view === "snipes" ? "gold" : "" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")} · Riesgo ${escapeHtml(item.risk.toLowerCase())}</p></div></div>
+    <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: "signal", tone: view === "snipes" ? "gold" : "" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")} · Riesgo ${escapeHtml(item.risk.toLowerCase())}</p>${GilIntelligence.qualityMarkup(item)}</div></div>
     <div class="score-panel"><div class="score-heading"><div><small>SEÑAL</small><strong>${escapeHtml(item.band)}</strong></div><b>${item.score}<span>/100</span></b></div><progress class="signal-detail-progress" max="100" value="${item.score}">${item.score}</progress></div>
     ${strategyMarkup}<section class="reason-panel"><small>POR QUÉ APARECE</small><ul>${item.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
     <section class="backtest-panel"><small>SEGUIMIENTO DE LA TESIS</small><div><span>Desde primer snapshot</span><strong>${signedPercent(backtest.change)}</strong></div><div><span>Máximo observado</span><strong>${signedPercent(backtest.maxGain)}</strong></div><div><span>Drawdown máximo</span><strong>${signedPercent(backtest.maxDrawdown)}</strong></div><div><span>7 / 30 / 90 días</span><strong>${horizonText(backtest)}</strong></div></section>
@@ -243,6 +244,9 @@ function showDetail(item) {
     <button id="watch-signal" class="watch-button" type="button">${watched ? "Dejar de vigilar" : "Vigilar esta señal"}</button>
     <p class="detail-warning"><strong>${view === "snipes" ? "Stock verificado por Universalis:" : "No es una predicción garantizada:"}</strong> ${view === "snipes" ? "la oferta puede cambiar antes de que llegues; confirma retainer, HQ y cantidad dentro del juego." : "el tamaño usa el capital configurado, liquidez y profundidad actual; no obliga a gastar el máximo."}</p></div>`;
   document.querySelector("#watch-signal").addEventListener("click", () => toggleWatch(item));
+  GilIntelligence.attachDetailButton(elements.dialogContent, { itemId: item.itemId,
+    quality: item.quality, name: item.name, iconId: item.iconId,
+    modules: [view === "snipes" ? "snipe" : "projection"] });
   elements.dialog.showModal();
 }
 

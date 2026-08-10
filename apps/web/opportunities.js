@@ -140,6 +140,7 @@ function renderRows() {
   const fragment = document.createDocumentFragment();
   visible.forEach((item) => fragment.append(createRow(item)));
   elements.rows.append(fragment);
+  GilIntelligence.hydrateSparklines(elements.rows);
   const lastIndex = Math.min(firstIndex + visible.length, state.filtered.length);
   elements.count.textContent = state.filtered.length
     ? `${integerFormat.format(state.filtered.length)} señales · ${integerFormat.format(firstIndex + 1)}–${integerFormat.format(lastIndex)}`
@@ -152,13 +153,13 @@ function createRow(item) {
   const row = document.createElement("tr");
   row.tabIndex = 0;
   row.innerHTML = `
-    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(item.iconId)}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(item.iconId)}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small>${GilIntelligence.qualityMarkup(item)}</span></div></td>
     <td data-label="Comprar en"><div class="entity source-world"><strong>${escapeHtml(item.sourceWorldName)}</strong><small>${escapeHtml(item.sourceDataCenterName || "North America")} · World ${item.sourceWorldId}</small></div></td>
     <td data-label="Compra" class="numeric">${gil(item.averagePurchasePrice ?? item.sourcePrice)}</td>
     <td data-label="Venta conservadora" class="numeric">${gil(item.conservativeSellPrice)}</td>
     <td data-label="Ganancia / u." class="numeric net-cell">${gil(item.unitProfit)}</td>
     <td data-label="ROI" class="numeric">${percentFormat.format(item.roi)}</td>
-    <td data-label="Ventas / día" class="numeric velocity-cell ${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "missing-data" : ""}" title="${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas." : ""}">${velocity(item.dailySaleVelocity)}</td>
+    <td data-label="Ventas / día" class="numeric velocity-cell ${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "missing-data" : ""}" title="${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas." : ""}">${velocity(item.dailySaleVelocity)}<div class="tiny-sparkline" data-spark-key="${item.itemId}:${item.quality}"><span class="spark-empty">Cargando…</span></div></td>
     <td data-label="Stock"><span class="stock-pill ${item.stockVerified ? "verified" : "unverified"}">${item.stockVerified ? `${integerFormat.format(item.availableUnits)} u.` : "SIN VERIFICAR"}</span></td>
     <td data-label="Confianza"><span class="confidence-pill ${item.confidenceBand.toLowerCase()}">${confidenceLabel(item.confidenceBand)} · ${item.confidenceScore}</span></td>
   `;
@@ -182,7 +183,7 @@ function showDetail(item) {
     <div class="detail-body">
       <p class="eyebrow">${escapeHtml(item.sourceWorldName)} → CACTUAR · ${escapeHtml(item.quality)}</p>
       <button class="watch-button detail-watch ${isWatched(item) ? "active" : ""}" type="button">★ ${isWatched(item) ? "Guardado" : "Guardar"}</button>
-      <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: "route", tone: "gold" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</p></div></div>
+      <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: "route", tone: "gold" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</p>${GilIntelligence.qualityMarkup(item)}</div></div>
       <div class="trip-route">
         <div><small>COMPRAR PROMEDIO</small><strong>${gil(item.averagePurchasePrice ?? item.sourcePrice)}</strong><span>${escapeHtml(item.sourceWorldName)}</span></div>
         <b aria-hidden="true">→</b>
@@ -208,6 +209,8 @@ function showDetail(item) {
       <p class="detail-warning">${stockText}</p>
     </div>`;
   elements.dialogContent.querySelector(".detail-watch").addEventListener("click", () => { toggleWatch(item); showDetail(item); });
+  GilIntelligence.attachDetailButton(elements.dialogContent, { itemId: item.itemId,
+    quality: item.quality, name: item.name, iconId: item.iconId, modules: ["opportunity", "snipe"] });
   if (!elements.dialog.open) elements.dialog.showModal();
 }
 

@@ -46,7 +46,7 @@
         <a href="./opportunities.html">Oportunidades</a>
         <a href="./projections.html">Proyecciones</a>
         <a href="./snipes.html">Snipeos</a>
-        <a href="./signals.html">Centro</a>
+        <a href="./signals.html">Hoy</a>
       </nav>
       <div class="topbar-meta">
         <span class="live-dot" aria-hidden="true"></span>
@@ -130,7 +130,7 @@
           <label class="toggle-control">
             <input id="fresh-toggle" type="checkbox" checked />
             <span class="toggle-ui" aria-hidden="true"></span>
-            Sólo frescos
+            <span id="fresh-toggle-label">Sólo frescos</span>
           </label>
         </div>
 
@@ -182,6 +182,7 @@
           <p><span>01</span> El gil por moneda usa el listing mínimo actual e incluye el fee configurado.</p>
           <p><span>02</span> La velocidad corresponde a ventas observadas. “Sin datos” significa que Universalis no publicó la métrica para Cactuar; no significa cero ventas.</p>
           <p><span>03</span> Los datos fuera de la ventana de frescura se marcan como antiguos.</p>
+          <p><span>04</span> Los canjes combinados muestran todas las monedas requeridas y el gil neto del canje completo; nunca atribuyen todo ese valor a una sola moneda.</p>
         </div>
       </section>
     </main>
@@ -239,6 +240,7 @@
     <script src="./config.js" defer></script>
     <script src="./watchlist.js" defer></script>
     <script src="./item-icons.js" defer></script>
+    <script src="./intelligence.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

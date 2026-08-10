@@ -9,7 +9,8 @@ señales de demanda para expansiones y parches.
 
 La web tiene seis exploradores:
 
-- **Conversiones:** recompensas comprables con monedas y su gil neto por moneda.
+- **Conversiones:** recompensas comprables con una o varias monedas, con gil neto
+  por moneda o por canje completo según corresponda.
 - **Mercado:** rankings buscables, historial de precio y rentabilidad de recetas para gathering y crafting.
 - **Oportunidades:** cruces conservadores entre los 32 Worlds de North America, stock verificado y optimizador de capital para vender en Cactuar.
 - **Proyecciones:** candidatos actuales para Evercold 8.0. Los ganadores históricos
@@ -17,14 +18,23 @@ La web tiene seis exploradores:
   ítems antiguos no entran sólo por compartir categoría.
 - **Snipeos:** caídas anómalas del listing mínimo frente a referencias históricas;
   exige descuento, margen, actividad y al menos tres snapshots.
-- **Centro:** ledger común para Conversiones, Mercado, Oportunidades, Proyecciones
-  y Snipeos, con una sola watchlist, alertas y resultados medidos a 7, 30 y 90 días.
+- **Hoy:** resumen accionable de Conversiones, Mercado, Oportunidades, Proyecciones
+  y Snipeos, con calidad de datos, planes concretos y resultados medidos a 7, 30 y
+  90 días.
+
+Las seis vistas comparten búsqueda global, ficha universal por ítem, etiquetas de
+calidad y minigráficos de historial real. La lista básica de favoritos permanece
+local al navegador; reglas avanzadas, notas, límites y sincronización quedan como
+TODO explícito.
 
 Las oportunidades son señales explicables, no garantías: aplican estrés de precio,
 fee, liquidez, frescura y persistencia. La shortlist comprueba hasta 20 listings por
 item y world; el precio debe confirmarse igualmente en el juego antes de comprar.
 Las conversiones mejor rankeadas muestrean además hasta 20 listings de Cactuar para
 medir competencia cerca del piso y días de oferta al ritmo de ventas observado.
+Los canjes que exigen varias monedas conservan el paquete completo: por ejemplo,
+`5 Bozjan Gold Coin + 30 Bozjan Platinum Coin` se valora como un solo canje y nunca
+se atribuye todo el retorno a una moneda aislada.
 
 La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
 mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico

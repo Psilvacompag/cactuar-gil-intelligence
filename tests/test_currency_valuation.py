@@ -24,6 +24,151 @@ from test_static_catalog import example_snapshot
 
 
 class CurrencyValuationTests(unittest.TestCase):
+    def test_dashboard_includes_marketable_multi_currency_exchange(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database_path = root / "catalog.sqlite3"
+            static_payload = example_snapshot()
+            static_payload["schemaVersion"] = 3
+            static_payload["assets"][0].update(
+                {"itemId": 32180, "name": "Bozjan Gold Coin", "iconId": 26325}
+            )
+            static_payload["assets"][1].update(
+                {
+                    "itemId": 32835,
+                    "name": "Modern Aesthetics - Early to Rise",
+                    "marketableCandidate": True,
+                }
+            )
+            static_payload["assets"].append(
+                {
+                    "itemId": 33796,
+                    "name": "Bozjan Platinum Coin",
+                    "iconId": 26329,
+                    "marketableCandidate": False,
+                }
+            )
+            static_payload["costs"][0].update({"itemId": 32180, "quantity": 5})
+            static_payload["costs"].append(
+                {
+                    "shopId": 10,
+                    "offerIndex": 2,
+                    "costIndex": 1,
+                    "rawItemId": 33796,
+                    "itemId": 33796,
+                    "quantity": 30,
+                    "costType": 0,
+                }
+            )
+            static_payload["rewards"][0].update(
+                {"itemId": 32835, "quantity": 1, "isHq": False}
+            )
+            snapshot_path = root / "static.json"
+            snapshot_path.write_text(json.dumps(static_payload), encoding="utf-8")
+            import_static_snapshot(snapshot_path, database_path)
+            now = datetime.now(timezone.utc)
+            upload_millis = int(now.timestamp() * 1000)
+            import_universalis_aggregates(
+                {
+                    "results": [{
+                        "itemId": 32835,
+                        "nq": {
+                            "minListing": {"world": {"price": 1_000_000, "worldId": 79}},
+                            "medianListing": {"world": {"price": 1_100_000}},
+                            "recentPurchase": {},
+                            "averageSalePrice": {"world": {"price": 950_000}},
+                            "dailySaleVelocity": {"world": {"quantity": 1.5}},
+                        },
+                        "hq": {},
+                        "worldUploadTimes": [{"worldId": 79, "timestamp": upload_millis}],
+                    }],
+                    "failedItems": [],
+                },
+                database_path,
+                scope="Cactuar",
+                collected_at=now.isoformat(),
+                requested_items=1,
+            )
+            valuation = build_currency_valuations(
+                database_path,
+                scope="Cactuar",
+                as_of=now,
+            )
+
+            dashboard_path = root / "dashboard.json"
+            export_currency_dashboard(
+                database_path,
+                dashboard_path,
+                scope="Cactuar",
+                valuation_run_id=valuation.valuation_run_id,
+            )
+            exported = json.loads(dashboard_path.read_text(encoding="utf-8"))
+            rows = exported["conversions"]
+
+            self.assertEqual(valuation.eligible_offers, 1)
+            self.assertEqual(exported["summary"]["directConversions"], 1)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(
+                {row["currencyName"] for row in rows},
+                {"Bozjan Gold Coin", "Bozjan Platinum Coin"},
+            )
+            self.assertTrue(all(row["isMultiCost"] for row in rows))
+            self.assertTrue(all(row["status"] == "FRESH" for row in rows))
+            self.assertTrue(all(row["netGilPerCurrency"] is None for row in rows))
+            self.assertTrue(all(row["netGilPerExchange"] == 950_000 for row in rows))
+            self.assertTrue(all(len(row["costComponents"]) == 2 for row in rows))
+
+    def test_dashboard_audits_but_does_not_publish_non_tradeable_exchanges(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database_path = root / "catalog.sqlite3"
+            static_payload = example_snapshot()
+            static_payload["assets"][0].update(
+                {"itemId": 32180, "name": "Bozjan Gold Coin", "iconId": 26325}
+            )
+            static_payload["assets"][1].update(
+                {
+                    "itemId": 32723,
+                    "name": "Law's Order Helm of Fending",
+                    "marketableCandidate": False,
+                }
+            )
+            static_payload["costs"][0].update({"itemId": 32180, "quantity": 2})
+            static_payload["rewards"][0].update(
+                {"itemId": 32723, "quantity": 1, "isHq": False}
+            )
+            snapshot_path = root / "static.json"
+            snapshot_path.write_text(json.dumps(static_payload), encoding="utf-8")
+            import_static_snapshot(snapshot_path, database_path)
+            import_universalis_aggregates(
+                {"results": [], "failedItems": []},
+                database_path,
+                scope="Cactuar",
+                collected_at=datetime.now(timezone.utc).isoformat(),
+                requested_items=0,
+            )
+            valuation = build_currency_valuations(
+                database_path,
+                scope="Cactuar",
+                as_of=datetime.now(timezone.utc),
+            )
+
+            dashboard_path = root / "dashboard.json"
+            dashboard = export_currency_dashboard(
+                database_path,
+                dashboard_path,
+                scope="Cactuar",
+                valuation_run_id=valuation.valuation_run_id,
+            )
+            exported = json.loads(dashboard_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(dashboard.conversions, 0)
+            self.assertEqual(exported["summary"]["directConversions"], 0)
+            self.assertEqual(exported["summary"]["catalogConversions"], 0)
+            self.assertEqual(exported["summary"]["notTradeable"], 1)
+            self.assertEqual(exported["conversions"], [])
+            self.assertEqual(exported["currencies"], [])
+
     def test_market_export_includes_current_materia_for_expansion_projection(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -101,6 +102,7 @@ def build_currency_valuations(
             selected_market,
             market_scope_level,
         )
+        cost_components = _offer_cost_components(connection, selected_static)
         _create_schema(connection)
 
         run_key = "\0".join(
@@ -125,6 +127,8 @@ def build_currency_valuations(
         price_column = PRICE_COLUMNS[price_basis]
 
         for row in rows:
+            components = cost_components[(row["shop_id"], row["offer_index"])]
+            is_bundle = len(components) > 1
             unit_price = row[price_column]
             if not row["marketable_candidate"]:
                 status = "NOT_TRADEABLE"
@@ -149,8 +153,12 @@ def build_currency_valuations(
             fee_gil = gross_total * fee_rate if gross_total is not None else None
             net_total = gross_total - fee_gil if gross_total is not None else None
             divisor = row["currency_quantity"]
-            gross_per_currency = gross_total / divisor if gross_total is not None else None
-            net_per_currency = net_total / divisor if net_total is not None else None
+            gross_per_currency = (
+                gross_total / divisor if gross_total is not None and not is_bundle else None
+            )
+            net_per_currency = (
+                net_total / divisor if net_total is not None and not is_bundle else None
+            )
             valuations.append(
                 (
                     run_id,
@@ -176,6 +184,7 @@ def build_currency_valuations(
                     row["daily_sale_velocity"],
                     row["latest_upload_at"],
                     status,
+                    json.dumps(components, ensure_ascii=False, separators=(",", ":")),
                 )
             )
 
@@ -210,8 +219,8 @@ def build_currency_valuations(
                     reward_is_hq, price_basis, market_unit_price, gross_total_gil,
                     fee_rate, market_fee_gil, net_total_gil, gross_gil_per_currency,
                     net_gil_per_currency, daily_sale_velocity, latest_upload_at,
-                    valuation_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    valuation_status, cost_components_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 valuations,
             )
@@ -379,7 +388,9 @@ def _eligible_rows(
         connection.execute(
             """
             WITH cost_counts AS (
-                SELECT shop_id, offer_index, COUNT(*) AS component_count
+                SELECT shop_id, offer_index, COUNT(*) AS component_count,
+                       MIN(cost_index) AS primary_cost_index,
+                       MAX(CASE WHEN item_id = 1 THEN 1 ELSE 0 END) AS has_gil
                 FROM bridge_offer_cost
                 WHERE snapshot_id = ?
                 GROUP BY shop_id, offer_index
@@ -417,6 +428,7 @@ def _eligible_rows(
                 ON cost.snapshot_id = offer.snapshot_id
                 AND cost.shop_id = offer.shop_id
                 AND cost.offer_index = offer.offer_index
+                AND cost.cost_index = cost_counts.primary_cost_index
             JOIN bridge_offer_reward AS reward
                 ON reward.snapshot_id = offer.snapshot_id
                 AND reward.shop_id = offer.shop_id
@@ -435,7 +447,8 @@ def _eligible_rows(
             LEFT JOIN freshness ON freshness.item_id = reward.item_id
             WHERE offer.snapshot_id = ?
               AND offer.parse_status = 'PARSED'
-              AND cost_counts.component_count = 1
+              AND cost_counts.component_count >= 1
+              AND cost_counts.has_gil = 0
               AND reward_counts.component_count = 1
               AND cost.item_id <> 1
             """,
@@ -449,6 +462,36 @@ def _eligible_rows(
             ),
         )
     )
+
+
+def _offer_cost_components(
+    connection: sqlite3.Connection,
+    static_snapshot_id: str,
+) -> dict[tuple[int, int], list[dict[str, Any]]]:
+    grouped: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    rows = connection.execute(
+        """
+        SELECT cost.shop_id, cost.offer_index, cost.cost_index,
+               cost.item_id, asset.name, asset.icon_id, cost.quantity
+        FROM bridge_offer_cost AS cost
+        JOIN dim_asset AS asset
+          ON asset.snapshot_id = cost.snapshot_id
+         AND asset.item_id = cost.item_id
+        WHERE cost.snapshot_id = ? AND cost.item_id <> 1
+        ORDER BY cost.shop_id, cost.offer_index, cost.cost_index
+        """,
+        (static_snapshot_id,),
+    )
+    for row in rows:
+        grouped.setdefault((row["shop_id"], row["offer_index"]), []).append(
+            {
+                "itemId": row["item_id"],
+                "name": row["name"] or f"Item {row['item_id']}",
+                "iconId": row["icon_id"],
+                "quantity": row["quantity"],
+            }
+        )
+    return grouped
 
 
 def _create_schema(connection: sqlite3.Connection) -> None:
@@ -495,6 +538,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             daily_sale_velocity REAL,
             latest_upload_at TEXT,
             valuation_status TEXT NOT NULL,
+            cost_components_json TEXT NOT NULL DEFAULT '[]',
             PRIMARY KEY (valuation_run_id, shop_id, offer_index),
             FOREIGN KEY (valuation_run_id)
                 REFERENCES currency_valuation_run(valuation_run_id) ON DELETE CASCADE
@@ -514,4 +558,12 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     if "market_scope_level" not in columns:
         connection.execute(
             "ALTER TABLE currency_valuation_run ADD COLUMN market_scope_level TEXT"
+        )
+    valuation_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(currency_market_valuation)")
+    }
+    if "cost_components_json" not in valuation_columns:
+        connection.execute(
+            "ALTER TABLE currency_market_valuation "
+            "ADD COLUMN cost_components_json TEXT NOT NULL DEFAULT '[]'"
         )

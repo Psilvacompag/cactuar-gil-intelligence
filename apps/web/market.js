@@ -155,6 +155,7 @@ function renderRows() {
   const fragment = document.createDocumentFragment();
   visible.forEach((item) => fragment.append(createRow(item)));
   elements.rows.append(fragment);
+  GilIntelligence.hydrateSparklines(elements.rows);
   const lastIndex = Math.min(firstIndex + visible.length, state.filtered.length);
   const noun = state.mode === "gathering" ? "items recolectables" : "items crafteables";
   elements.count.textContent = state.filtered.length
@@ -173,13 +174,13 @@ function createRow(item) {
   const value = state.mode === "crafting" ? craftProfit(item) : item.estimatedDailyRevenue;
   const trend = item.trend?.signal || "NEW";
   row.innerHTML = `
-    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(item.iconId, state.mode === "gathering" ? "leaf" : "craft")}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>Item ${item.itemId}</small></span></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button>${itemIcon(item.iconId, state.mode === "gathering" ? "leaf" : "craft")}<span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>Item ${item.itemId}</small>${GilIntelligence.qualityMarkup(item)}</span></div></td>
     <td data-label="Origen / oficio"><div class="entity"><strong>${escapeHtml(originLabel(item))}</strong><small>${state.mode === "gathering" ? "Gathering" : "Crafting"}</small></div></td>
     <td data-label="Categoría">${escapeHtml(categoryName(item) || "Sin categoría")}</td>
     <td data-label="Precio medio" class="numeric">${gil(item.averageSalePrice)}</td>
     <td data-label="Ventas / día" class="numeric velocity-cell ${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "missing-data" : ""}" title="${item.dailySaleVelocity === null || item.dailySaleVelocity === undefined ? "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas." : ""}">${velocity(item.dailySaleVelocity)}</td>
     <td data-label="${state.mode === "crafting" ? "Ganancia / día" : "Gil / día"}" class="numeric net-cell">${gil(value)}</td>
-    <td data-label="Tendencia"><span class="trend-pill ${trend.toLowerCase()}">${trendLabel(trend)}</span></td>
+    <td data-label="Tendencia"><span class="trend-pill ${trend.toLowerCase()}">${trendLabel(trend)}</span><div class="tiny-sparkline" data-spark-key="${itemKey(item)}"><span class="spark-empty">Cargando…</span></div></td>
   `;
   row.querySelector(".watch-button").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -216,6 +217,8 @@ function bindDetailWatch(item) {
     toggleWatch(item);
     showDetail(item);
   });
+  GilIntelligence.attachDetailButton(elements.dialogContent, { itemId: item.itemId,
+    quality: item.quality, name: item.name, iconId: item.iconId, modules: ["market"] });
 }
 
 function detailMarkup(item, history, loading) {
@@ -227,7 +230,7 @@ function detailMarkup(item, history, loading) {
     <div class="detail-body">
       <p class="eyebrow">ITEM ${item.itemId} · ${escapeHtml(item.quality)}</p>
       <button class="watch-button detail-watch ${isWatched(item) ? "active" : ""}" type="button">★ ${isWatched(item) ? "Guardado" : "Guardar"}</button>
-      <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: state.mode === "gathering" ? "leaf" : "craft" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")}</p></div></div>
+      <div class="detail-item-title">${GilItemIcons.markup(item.iconId, { fallback: state.mode === "gathering" ? "leaf" : "craft" })}<div><h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3><p>${escapeHtml(categoryName(item) || "Sin categoría")}</p>${GilIntelligence.qualityMarkup(item)}</div></div>
       <div class="detail-route"><span>SE OBTIENE POR</span><strong>${escapeHtml(productionSources.join(" · "))}</strong></div>
       <div class="detail-stats">
         <div><small>Listing mínimo</small><strong>${gil(item.minListingPrice)}</strong></div>

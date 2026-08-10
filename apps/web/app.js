@@ -33,6 +33,7 @@ const elements = {
   currencyDirectorySort: document.querySelector("#currency-directory-sort"),
   currencyDirectoryCount: document.querySelector("#currency-directory-count"),
   currencyDirectoryList: document.querySelector("#currency-directory-list"),
+  freshLabel: document.querySelector("#fresh-toggle-label"),
 };
 
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -156,6 +157,9 @@ function updateCurrencyControls() {
   if (!directory) return;
   directory.classList.toggle("active", state.currencyId !== null && !selectedChip);
   const selected = state.data.currencies.find((currency) => currency.itemId === state.currencyId);
+  const selectedHasNoFreshPrice = selected && !selected.freshCount && !selected.valuedCount;
+  elements.freshLabel.textContent = selectedHasNoFreshPrice ? "Canjes sin precio" : "Sólo frescos";
+  elements.fresh.disabled = Boolean(selectedHasNoFreshPrice);
   directory.textContent = selected && !selectedChip
     ? `${selected.name} · cambiar`
     : `Ver las ${integerFormat.format(state.data.currencies.length)} monedas`;
@@ -195,7 +199,8 @@ function currencyDirectorySorter(mode, liquidity) {
     b.freshCount - a.freshCount || b.conversionCount - a.conversionCount
       || a.name.localeCompare(b.name, "es");
   if (mode === "return") return (a, b) =>
-    (b.bestNetGil || 0) - (a.bestNetGil || 0) || a.name.localeCompare(b.name, "es");
+    (b.bestNetGil || b.bestExchangeGil || 0) - (a.bestNetGil || a.bestExchangeGil || 0)
+      || a.name.localeCompare(b.name, "es");
   return (a, b) => a.name.localeCompare(b.name, "es");
 }
 
@@ -215,14 +220,26 @@ function createCurrencyOption(currency, liquidity) {
   const name = document.createElement("strong");
   const detail = document.createElement("small");
   name.textContent = currency.name;
-  detail.textContent = `Item ${currency.itemId} · ${currency.freshCount}/${currency.conversionCount} frescas`;
+  const internal = currency.internalCount || 0;
+  const unpriced = currency.unpricedCount || 0;
+  detail.textContent = currency.valuedCount
+    ? `Item ${currency.itemId} · ${currency.freshCount}/${currency.valuedCount} frescas${currency.bundleCount ? ` · ${currency.bundleCount} combinadas` : ""}`
+    : internal
+      ? `Item ${currency.itemId} · ${internal} usos internos`
+      : `Item ${currency.itemId} · ${unpriced || currency.conversionCount} canjes sin precio`;
   identity.append(name, detail);
   const stats = document.createElement("span");
   stats.className = "currency-option-stats";
   const best = document.createElement("strong");
   const sales = document.createElement("small");
-  best.textContent = gil(currency.bestNetGil);
-  sales.textContent = `${velocity(liquidity.get(currency.itemId))} combinadas`;
+  best.textContent = currency.bestNetGil !== null && currency.bestNetGil !== undefined
+    ? gil(currency.bestNetGil)
+    : currency.bestExchangeGil !== null && currency.bestExchangeGil !== undefined
+      ? `${gil(currency.bestExchangeGil)} / canje`
+      : (internal ? "Uso interno" : "Sin precio");
+  sales.textContent = currency.valuedCount
+    ? `${velocity(liquidity.get(currency.itemId))} combinadas`
+    : "Sin salida en gil";
   stats.append(best, sales);
   const visual = document.createElement("span");
   visual.className = "entity-with-icon";
@@ -240,9 +257,11 @@ function chooseDirectoryCurrency(currencyId) {
 function applyFilters() {
   if (!state.data) return;
   const query = normalize(state.search);
+  const selected = state.data.currencies.find((currency) => currency.itemId === state.currencyId);
+  const selectedHasNoFreshPrice = selected && !selected.freshCount && !selected.valuedCount;
   state.filtered = state.data.conversions.filter((item) => {
     if (state.currencyId !== null && item.currencyItemId !== state.currencyId) return false;
-    if (state.freshOnly && item.status !== "FRESH") return false;
+    if (state.freshOnly && !selectedHasNoFreshPrice && item.status !== "FRESH") return false;
     if (!query) return true;
     return normalize([
       item.currencyName,
@@ -266,6 +285,7 @@ function renderRows() {
   const fragment = document.createDocumentFragment();
   visibleRows.forEach((item) => fragment.append(createRow(item)));
   elements.rows.append(fragment);
+  GilIntelligence.hydrateSparklines(elements.rows);
   const lastIndex = Math.min(firstIndex + visibleRows.length, state.filtered.length);
   elements.count.textContent = state.filtered.length
     ? `${integerFormat.format(state.filtered.length)} conversiones · ${integerFormat.format(firstIndex + 1)}–${integerFormat.format(lastIndex)}`
@@ -328,6 +348,7 @@ function createRow(item) {
     "",
     item.rewardIconId,
   );
+  row.querySelector(".reward-entity").lastElementChild.append(GilIntelligence.qualityElement(item));
   const watchButton = document.createElement("button");
   const watchKey = conversionWatchKey(item);
   watchButton.type = "button";
@@ -342,18 +363,37 @@ function createRow(item) {
     renderRows();
   });
   row.querySelector(".reward-entity").prepend(watchButton);
-  row.querySelector(".cost-cell").textContent = `${integerFormat.format(item.currencyQuantity)}×`;
+  const costCell = row.querySelector(".cost-cell");
+  costCell.textContent = item.isMultiCost
+    ? `${integerFormat.format(item.costComponents.length)} monedas`
+    : `${integerFormat.format(item.currencyQuantity)}×`;
+  if (item.isMultiCost) costCell.title = costRoute(item);
   row.querySelector(".price-cell").textContent = gil(item.marketUnitPrice);
-  row.querySelector(".net-cell").textContent = gil(item.netGilPerCurrency);
+  row.querySelector(".net-cell").textContent = item.isMultiCost
+    ? `${gil(item.netGilPerExchange)} / canje`
+    : gil(item.netGilPerCurrency);
   const velocityCell = row.querySelector(".velocity-cell");
   velocityCell.textContent = velocity(item.dailySaleVelocity);
-  if (item.dailySaleVelocity === null || item.dailySaleVelocity === undefined) {
+  if (item.status === "NOT_TRADEABLE") {
+    velocityCell.textContent = "No aplica";
+    velocityCell.classList.add("missing-data");
+    velocityCell.title = "La recompensa no se puede vender en el Market Board.";
+  } else {
+    const spark = document.createElement("div");
+    spark.className = "tiny-sparkline";
+    spark.dataset.sparkKey = `${item.rewardItemId}:${item.rewardIsHq ? "HQ" : "NQ"}`;
+    spark.innerHTML = '<span class="spark-empty">Cargando…</span>';
+    velocityCell.append(spark);
+  }
+  if (item.status !== "NOT_TRADEABLE" && (item.dailySaleVelocity === null || item.dailySaleVelocity === undefined)) {
     velocityCell.classList.add("missing-data");
     velocityCell.title = "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas.";
   }
   const pill = row.querySelector(".status-pill");
-  pill.textContent = item.status === "FRESH" ? "FRESCO" : "ANTIGUO";
-  pill.classList.add(item.status.toLowerCase());
+  const status = statusMeta(item.status, item.isMultiCost);
+  pill.textContent = status.label;
+  pill.title = status.detail;
+  pill.classList.add(status.className);
   row.addEventListener("click", () => showDetail(item));
   row.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -381,23 +421,25 @@ function createItemIcon(kind, tone = "", iconId = null) {
 }
 
 function showDetail(item) {
+  const internal = item.status === "NOT_TRADEABLE";
+  const status = statusMeta(item.status, item.isMultiCost);
   elements.dialogContent.innerHTML = `
     <div class="detail-body">
       <p class="eyebrow">CONVERSIÓN DIRECTA · ${escapeHtml(state.data.meta.scope)}</p>
-      <div class="detail-item-title">${GilItemIcons.markup(item.rewardIconId, { fallback: "item" })}<div><h3>${escapeHtml(item.rewardName)}${item.rewardIsHq ? " · HQ" : ""}</h3><p>${escapeHtml(item.shopName)} · Shop ${item.shopId}</p></div></div>
+      <div class="detail-item-title">${GilItemIcons.markup(item.rewardIconId, { fallback: "item" })}<div><h3>${escapeHtml(item.rewardName)}${item.rewardIsHq ? " · HQ" : ""}</h3><p>${escapeHtml(item.shopName)} · Shop ${item.shopId}</p>${GilIntelligence.qualityMarkup(item)}</div></div>
       <div class="detail-route">
-        <strong>${integerFormat.format(item.currencyQuantity)} × ${escapeHtml(item.currencyName)}</strong>
+        <strong>${escapeHtml(costRoute(item))}</strong>
         <span>SE CONVIERTE EN</span>
         <strong>${integerFormat.format(item.rewardQuantity)} × ${escapeHtml(item.rewardName)}</strong>
       </div>
       <div class="detail-stats">
-        <div><small>Listing mínimo actual</small><strong>${gil(item.marketUnitPrice)}</strong></div>
-        <div><small>Gil neto / moneda</small><strong>${gil(item.netGilPerCurrency)}</strong></div>
-        <div><small>Ventas / día</small><strong>${velocity(item.dailySaleVelocity)}</strong></div>
+        <div><small>Listing mínimo actual</small><strong>${internal ? "No comerciable" : gil(item.marketUnitPrice)}</strong></div>
+        <div><small>${item.isMultiCost ? "Gil neto / canje completo" : "Gil neto / moneda"}</small><strong>${internal ? "No aplica" : gil(item.isMultiCost ? item.netGilPerExchange : item.netGilPerCurrency)}</strong></div>
+        <div><small>Ventas / día</small><strong>${internal ? "No aplica" : velocity(item.dailySaleVelocity)}</strong></div>
         <div><small>Último upload</small><strong>${formatDate(item.latestUploadAt)}</strong></div>
       </div>
-      ${depthMarkup(item.listingDepth)}
-      <section class="history-panel">
+      ${internal ? internalUseMarkup(status) : depthMarkup(item.listingDepth)}
+      ${internal || item.isMultiCost ? "" : `<section class="history-panel">
         <div class="history-heading">
           <div>
             <small>HISTORIAL</small>
@@ -408,10 +450,36 @@ function showDetail(item) {
         <div id="history-chart" class="history-chart" data-history-key="${conversionKey(item)}">
           <p>Cargando historial…</p>
         </div>
-      </section>
+      </section>`}
     </div>`;
   elements.dialog.showModal();
-  renderHistory(item);
+  GilIntelligence.attachDetailButton(elements.dialogContent, { itemId: item.rewardItemId,
+    quality: item.rewardIsHq ? "HQ" : "NQ", name: item.rewardName, iconId: item.rewardIconId,
+    modules: ["conversion"], aliases: [item.currencyName] });
+  if (!internal && !item.isMultiCost) renderHistory(item);
+}
+
+function statusMeta(value, isMultiCost = false) {
+  const status = ({
+    FRESH: { label: "FRESCO", className: "fresh", detail: "Precio dentro de la ventana de frescura." },
+    STALE: { label: "ANTIGUO", className: "stale", detail: "El último precio está fuera de la ventana de frescura." },
+    NO_MARKET_DATA: { label: "SIN PRECIO", className: "no-market-data", detail: "La recompensa es comerciable, pero no hay precio observable en Cactuar." },
+    NOT_TRADEABLE: { label: "USO INTERNO", className: "not-tradeable", detail: "La recompensa no se puede vender en el Market Board." },
+  })[value] || { label: String(value || "DESCONOCIDO"), className: "stale", detail: "Estado no reconocido." };
+  return isMultiCost
+    ? { ...status, label: `COMBINADO · ${status.label}`, detail: `Requiere varias monedas a la vez. ${status.detail}` }
+    : status;
+}
+
+function costRoute(item) {
+  const components = item.costComponents?.length
+    ? item.costComponents
+    : [{ quantity: item.currencyQuantity, name: item.currencyName }];
+  return components.map((component) => `${integerFormat.format(component.quantity)} × ${component.name}`).join(" + ");
+}
+
+function internalUseMarkup(status) {
+  return `<section class="depth-panel unverified"><div class="depth-heading"><span class="item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8h14M5 16h14"/></svg></span><div><small>CATÁLOGO DE CANJE</small><strong>${escapeHtml(status.label)}</strong></div></div><p>${escapeHtml(status.detail)} Se muestra para que conozcas en qué gastar la moneda, pero no se calcula rentabilidad, profundidad ni velocidad de venta.</p></section>`;
 }
 
 function depthMarkup(depth) {

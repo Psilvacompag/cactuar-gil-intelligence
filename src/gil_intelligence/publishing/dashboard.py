@@ -60,10 +60,12 @@ def export_currency_dashboard(
                    value.currency_quantity, value.reward_item_id,
                    value.reward_name, reward_asset.icon_id AS reward_icon_id,
                    value.reward_quantity, value.reward_is_hq,
-                   value.market_unit_price, value.gross_gil_per_currency,
+                   value.market_unit_price, value.net_total_gil,
+                   value.gross_gil_per_currency,
                    value.net_gil_per_currency, value.daily_sale_velocity,
                    value.latest_upload_at, value.valuation_status,
-                   value.shop_id, shop.name AS shop_name, value.offer_index
+                   value.shop_id, shop.name AS shop_name, value.offer_index,
+                   value.cost_components_json
             FROM currency_market_valuation AS value
             LEFT JOIN dim_shop AS shop
                 ON shop.snapshot_id = value.static_snapshot_id
@@ -75,8 +77,15 @@ def export_currency_dashboard(
                 ON reward_asset.snapshot_id = value.static_snapshot_id
                AND reward_asset.item_id = value.reward_item_id
             WHERE value.valuation_run_id = ?
-              AND value.valuation_status IN ('FRESH', 'STALE')
-            ORDER BY value.net_gil_per_currency DESC,
+              AND value.valuation_status <> 'NOT_TRADEABLE'
+            ORDER BY CASE value.valuation_status
+                         WHEN 'FRESH' THEN 0
+                         WHEN 'STALE' THEN 1
+                         WHEN 'NO_MARKET_DATA' THEN 2
+                         WHEN 'NOT_TRADEABLE' THEN 3
+                         ELSE 4
+                     END,
+                     value.net_gil_per_currency DESC,
                      value.daily_sale_velocity DESC
             """,
             (selected_run,),
@@ -99,6 +108,15 @@ def export_currency_dashboard(
                 conversion["dailySaleVelocity"],
             )
         currency_stats = _currency_stats(conversions)
+        market_conversions = [
+            item for item in conversions if item["status"] in {"FRESH", "STALE"}
+        ]
+        market_routes = {
+            (item["shopId"], item["offerIndex"]) for item in market_conversions
+        }
+        catalog_routes = {
+            (item["shopId"], item["offerIndex"]) for item in conversions
+        }
         status_counts = {
             row["valuation_status"]: row["count"]
             for row in connection.execute(
@@ -136,10 +154,11 @@ def export_currency_dashboard(
             "source": "Universalis + FFXIV sqpack local",
         },
         "summary": {
-            "directConversions": len(conversions),
+            "directConversions": len(market_routes),
+            "catalogConversions": len(catalog_routes),
             "currencies": len(currency_stats),
-            "fresh": sum(item["status"] == "FRESH" for item in conversions),
-            "stale": sum(item["status"] == "STALE" for item in conversions),
+            "fresh": status_counts.get("FRESH", 0),
+            "stale": status_counts.get("STALE", 0),
             "noMarketData": status_counts.get("NO_MARKET_DATA", 0),
             "notTradeable": status_counts.get("NOT_TRADEABLE", 0),
             "depthVerified": sum(item["listingDepth"] is not None for item in conversions),
@@ -182,38 +201,55 @@ def _deduplicate_conversions(rows: Any) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
     for row in rows:
-        signature = (
-            row["currency_item_id"],
-            row["currency_quantity"],
-            row["reward_item_id"],
-            row["reward_quantity"],
-            row["reward_is_hq"],
-        )
-        if signature in seen:
-            continue
-        seen.add(signature)
-        result.append(
-            {
-                "currencyItemId": row["currency_item_id"],
-                "currencyName": row["currency_name"] or f"Item {row['currency_item_id']}",
-                "currencyIconId": row["currency_icon_id"],
-                "currencyQuantity": row["currency_quantity"],
-                "rewardItemId": row["reward_item_id"],
-                "rewardName": row["reward_name"] or f"Item {row['reward_item_id']}",
-                "rewardIconId": row["reward_icon_id"],
-                "rewardQuantity": row["reward_quantity"],
-                "rewardIsHq": bool(row["reward_is_hq"]),
-                "marketUnitPrice": row["market_unit_price"],
-                "grossGilPerCurrency": row["gross_gil_per_currency"],
-                "netGilPerCurrency": row["net_gil_per_currency"],
-                "dailySaleVelocity": row["daily_sale_velocity"],
-                "latestUploadAt": row["latest_upload_at"],
-                "status": row["valuation_status"],
-                "shopId": row["shop_id"],
-                "shopName": row["shop_name"] or "SpecialShop",
-                "offerIndex": row["offer_index"],
-            }
-        )
+        try:
+            components = json.loads(row["cost_components_json"] or "[]")
+        except (json.JSONDecodeError, TypeError):
+            components = []
+        if not components:
+            components = [{
+                "itemId": row["currency_item_id"],
+                "name": row["currency_name"] or f"Item {row['currency_item_id']}",
+                "iconId": row["currency_icon_id"],
+                "quantity": row["currency_quantity"],
+            }]
+        is_bundle = len(components) > 1
+        for component in components:
+            signature = (
+                component["itemId"],
+                component["quantity"],
+                row["reward_item_id"],
+                row["reward_quantity"],
+                row["reward_is_hq"],
+                tuple((cost["itemId"], cost["quantity"]) for cost in components),
+            )
+            if signature in seen:
+                continue
+            seen.add(signature)
+            result.append(
+                {
+                    "currencyItemId": component["itemId"],
+                    "currencyName": component.get("name") or f"Item {component['itemId']}",
+                    "currencyIconId": component.get("iconId"),
+                    "currencyQuantity": component["quantity"],
+                    "costComponents": components,
+                    "isMultiCost": is_bundle,
+                    "rewardItemId": row["reward_item_id"],
+                    "rewardName": row["reward_name"] or f"Item {row['reward_item_id']}",
+                    "rewardIconId": row["reward_icon_id"],
+                    "rewardQuantity": row["reward_quantity"],
+                    "rewardIsHq": bool(row["reward_is_hq"]),
+                    "marketUnitPrice": row["market_unit_price"],
+                    "netGilPerExchange": row["net_total_gil"],
+                    "grossGilPerCurrency": row["gross_gil_per_currency"],
+                    "netGilPerCurrency": row["net_gil_per_currency"],
+                    "dailySaleVelocity": row["daily_sale_velocity"],
+                    "latestUploadAt": row["latest_upload_at"],
+                    "status": row["valuation_status"],
+                    "shopId": row["shop_id"],
+                    "shopName": row["shop_name"] or "SpecialShop",
+                    "offerIndex": row["offer_index"],
+                }
+            )
     return result
 
 
@@ -229,19 +265,46 @@ def _currency_stats(conversions: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "iconId": conversion.get("currencyIconId"),
                 "conversionCount": 0,
                 "freshCount": 0,
-                "bestNetGil": 0.0,
+                "valuedCount": 0,
+                "internalCount": 0,
+                "unpricedCount": 0,
+                "bundleCount": 0,
+                "bestNetGil": None,
+                "bestExchangeGil": None,
                 "bestReward": None,
             },
         )
         current["conversionCount"] += 1
         if conversion["status"] == "FRESH":
             current["freshCount"] += 1
-        net_gil = conversion["netGilPerCurrency"] or 0.0
-        if net_gil > current["bestNetGil"]:
+        if conversion["status"] in {"FRESH", "STALE"}:
+            current["valuedCount"] += 1
+        elif conversion["status"] == "NOT_TRADEABLE":
+            current["internalCount"] += 1
+        elif conversion["status"] == "NO_MARKET_DATA":
+            current["unpricedCount"] += 1
+        net_gil = conversion["netGilPerCurrency"]
+        if conversion.get("isMultiCost"):
+            current["bundleCount"] += 1
+            exchange_gil = conversion.get("netGilPerExchange")
+            if exchange_gil is not None and (
+                current["bestExchangeGil"] is None
+                or exchange_gil > current["bestExchangeGil"]
+            ):
+                current["bestExchangeGil"] = exchange_gil
+        if net_gil is not None and (
+            current["bestNetGil"] is None or net_gil > current["bestNetGil"]
+        ):
             current["bestNetGil"] = net_gil
+            current["bestReward"] = conversion["rewardName"]
+        elif current["bestReward"] is None:
             current["bestReward"] = conversion["rewardName"]
     return sorted(
         grouped.values(),
-        key=lambda item: (item["bestNetGil"], item["freshCount"]),
-        reverse=True,
+        key=lambda item: (
+            item["bestNetGil"] is None and item["bestExchangeGil"] is None,
+            -(item["bestNetGil"] or item["bestExchangeGil"] or 0),
+            -item["freshCount"],
+            item["name"].casefold(),
+        ),
     )
