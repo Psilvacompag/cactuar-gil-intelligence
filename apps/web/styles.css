@@ -740,9 +740,10 @@ th[aria-sort="descending"] .sort-indicator { opacity: 1; color: var(--mint); }
 .item-icon.has-original .item-icon-image { opacity: 1; transform: scale(1); }
 .item-icon.has-original svg { opacity: 0; }
 .missing-data { color: var(--quiet); font-size: .75rem; font-style: italic; }
-.help-tip { position: relative; width: 17px; height: 17px; flex: 0 0 auto; display: inline-grid; place-items: center; color: var(--mint); border: 1px solid rgba(115, 169, 255, .35); border-radius: 50%; font-size: .62rem; font-style: normal; text-transform: none; letter-spacing: 0; }
-.help-tip::after { content: attr(data-tip); position: absolute; right: 0; bottom: calc(100% + 9px); z-index: 30; width: 250px; padding: 10px 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 9px; background: #07162b; box-shadow: 0 12px 32px rgba(0,0,0,.42); font-size: .68rem; font-weight: 500; line-height: 1.45; text-align: left; text-transform: none; letter-spacing: 0; opacity: 0; visibility: hidden; transform: translateY(4px); transition: 140ms ease; }
-.help-tip:hover::after, .help-tip:focus::after { opacity: 1; visibility: visible; transform: translateY(0); }
+.velocity-explainer { width: fit-content; max-width: 100%; margin: 12px 0 14px; padding: 9px 12px; display: flex; align-items: center; gap: 7px; color: var(--quiet); border: 1px solid rgba(115, 169, 255, .17); border-radius: 10px; background: rgba(115, 169, 255, .045); font-size: .66rem; line-height: 1.45; }
+.velocity-explainer .velocity-mark { width: 18px; height: 18px; flex: 0 0 18px; display: inline-grid; place-items: center; color: var(--mint-bright); border: 1px solid rgba(115, 169, 255, .38); border-radius: 50%; font-size: .62rem; font-weight: 800; }
+.velocity-copy { min-width: 0; }
+.velocity-explainer strong { color: var(--muted); white-space: nowrap; }
 .net-cell { color: var(--mint-bright); font-weight: 650; }
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; }
 .status-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
