@@ -12,8 +12,9 @@ La web tiene cinco exploradores:
 - **Conversiones:** recompensas comprables con monedas y su gil neto por moneda.
 - **Mercado:** rankings buscables, historial de precio y rentabilidad de recetas para gathering y crafting.
 - **Oportunidades:** cruces conservadores entre mundos de Aether, stock verificado y optimizador de capital para vender en Cactuar.
-- **Proyecciones:** radar determinista de posible subida basado en demanda, liquidez,
-  estabilidad y patrones históricos curados.
+- **Proyecciones:** candidatos actuales para Evercold 8.0. Los ganadores históricos
+  definen roles repetibles y una regla explícita busca el equivalente vigente; los
+  ítems antiguos no entran sólo por compartir categoría.
 - **Snipeos:** caídas anómalas del listing mínimo frente a referencias históricas;
   exige descuento, margen, actividad y al menos tres snapshots.
 

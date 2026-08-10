@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#071426" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'" />
-    <meta name="description" content="Proyecciones explicables de precio y demanda para el Market Board de Cactuar." />
-    <title>Proyecciones · Gil Intelligence</title>
+    <meta name="description" content="Equivalentes actuales con potencial para Evercold 8.0, derivados de patrones históricos y mercado de Cactuar." />
+    <title>Proyecciones Evercold · Gil Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
@@ -22,15 +22,16 @@
       <div class="topbar-meta"><span class="live-dot" aria-hidden="true"></span><span id="scope-label">Cactuar</span><span class="separator">/</span><span id="updated-label">Cargando…</span></div>
     </header>
     <main>
-      <section class="page-hero signal-hero"><div><p class="eyebrow">SEÑALES · REGLAS EXPLICABLES</p><h1>Qué podría subir después.</h1><p class="hero-lede">Combina aceleración de demanda, liquidez, estabilidad e ítems que históricamente fueron cuellos de botella. Es una priorización para investigar, no una promesa de precio.</p></div><div class="hero-index" aria-hidden="true"><span>04</span><small>Proyecciones</small></div></section>
+      <section class="page-hero signal-hero"><div><p class="eyebrow">EVERCOLD 8.0 · ENERO 2027</p><h1>Qué podría subir en la expansión.</h1><p class="hero-lede">Toma los roles que ganaron en lanzamientos anteriores y busca su equivalente comprable hoy. Los ítems históricos sirven como evidencia: no aparecen como recomendación por haber sido buenos antes.</p></div><div class="hero-index" aria-hidden="true"><span>8.0</span><small>Evercold</small></div></section>
       <section class="metrics" aria-label="Resumen de proyecciones">
-        <article class="metric-card featured"><span class="metric-label">Radar priorizado</span><strong id="metric-signals">—</strong><small>top 150 por puntaje explicable</small></article>
+        <article class="metric-card featured"><span class="metric-label">Equivalentes actuales</span><strong id="metric-signals">—</strong><small>comprables antes de 8.0</small></article>
         <article class="metric-card"><span class="metric-label">Alcistas</span><strong id="metric-strong">—</strong><small>puntaje de 72 o más</small></article>
         <article class="metric-card"><span class="metric-label">Snapshots</span><strong id="metric-history">—</strong><small>ventana histórica local</small></article>
-        <article class="metric-card"><span class="metric-label">Con patrón histórico</span><strong id="metric-coverage">—</strong><small>evidencia de lanzamientos previos</small></article>
+        <article class="metric-card"><span class="metric-label">Matches validados</span><strong id="metric-coverage">—</strong><small>pasado → equivalente actual</small></article>
       </section>
+      <section class="projection-guardrail" aria-label="Alcance de las proyecciones"><div><span class="guardrail-icon" aria-hidden="true">↗</span><p><strong>Sólo candidatos actuales.</strong> Cristales persistentes, Materia XI y puentes de spiritbond pueden comprarse hoy y repetir un rol histórico.</p></div><div><span class="guardrail-icon muted" aria-hidden="true">◇</span><p><strong>Aún fuera del ranking.</strong> Los nuevos mats de monstruos, leves y precrafts aparecerán cuando 8.0 revele sus item IDs. El equipo para Bastion y physical ranged espera confirmación del Armoury Update.</p></div></section>
       <section class="explorer signal-explorer" aria-labelledby="explorer-title">
-        <div class="section-heading"><div><p class="eyebrow">RADAR</p><h2 id="explorer-title">Proyecciones actuales</h2></div><p id="result-count" class="result-count" aria-live="polite">Preparando señales…</p></div>
+        <div class="section-heading"><div><p class="eyebrow">MATCH HISTÓRICO → ACTUAL</p><h2 id="explorer-title">Candidatos para Evercold</h2></div><p id="result-count" class="result-count" aria-live="polite">Preparando señales…</p></div>
         <div class="toolbar signal-toolbar">
           <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Buscar ítem o categoría</span><input id="search-input" type="search" placeholder="Busca ítem o categoría…" autocomplete="off" /><kbd>Ctrl K</kbd></label>
           <label class="select-control"><span>Señal</span><select id="band-select"><option value="">Todas</option><option value="ALCISTA">Alcista</option><option value="VIGILAR">Vigilar</option><option value="TEMPRANA">Temprana</option></select></label>
@@ -39,7 +40,7 @@
         <div id="signal-grid" class="signal-grid"></div>
         <div id="empty-state" class="empty-state signal-empty" hidden><span aria-hidden="true">◇</span><h3>No hay proyecciones con esos filtros</h3><p>Amplía el nivel de señal o prueba otro nombre.</p></div>
       </section>
-      <section class="method-note"><div><p class="eyebrow">CÓMO SE CALCULA</p><h2>Señal, no adivinación.</h2></div><div class="method-grid"><p><span>01</span> Demanda al alza, liquidez e historial suficiente elevan el puntaje.</p><p><span>02</span> Los patrones repetidos en lanzamientos aportan contexto, nunca reemplazan el mercado actual.</p><p><span>03</span> Volatilidad alta y demanda enfriándose restan puntaje. La señal se recalcula con cada snapshot.</p></div></section>
+      <section class="method-note"><div><p class="eyebrow">CÓMO SE CALCULA</p><h2>El pasado enseña el rol, no el nombre.</h2></div><div class="method-grid"><p><span>01</span> La evidencia de Shadowbringers, Endwalker y Dawntrail identifica roles repetibles: cristales, overmeld y spiritbond.</p><p><span>02</span> Una regla explícita busca el equivalente vigente. Coincidir solamente por “Leather”, “Cloth” o “Metal” ya no alcanza.</p><p><span>03</span> Uso en recetas recientes, liquidez, tendencia y estabilidad ordenan los matches. Volatilidad y enfriamiento restan puntaje.</p></div></section>
     </main>
     <dialog id="detail-dialog" class="detail-dialog"><button id="dialog-close" class="dialog-close" aria-label="Cerrar">×</button><div id="dialog-content"></div></dialog>
     <footer><span>Gil Intelligence</span><span>Universalis + evidencia histórica curada</span><span>No automatiza acciones dentro del juego.</span></footer>

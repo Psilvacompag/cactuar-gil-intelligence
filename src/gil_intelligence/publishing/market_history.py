@@ -52,7 +52,11 @@ def market_history_series(
          AND asset.item_id = aggregate.item_id
         WHERE aggregate.market_snapshot_id IN ({placeholders})
           AND aggregate.scope_level = 'WORLD'
-          AND (asset.craftable = 1 OR asset.gatherable = 1)
+          AND (
+              asset.craftable = 1
+              OR asset.gatherable = 1
+              OR asset.item_id BETWEEN 41757 AND 41769
+          )
           AND EXISTS (
               SELECT 1
               FROM fact_market_aggregate_snapshot AS latest

@@ -38,10 +38,25 @@ Para profundizar, se reemplaza la selección final por una agrupación a nivel d
 
 ## Radar web actual
 
-La página `projections.html` usa reglas deterministas y recalculables. Suma señales
-de aceleración de demanda, precio, liquidez, estabilidad, cantidad de snapshots y
-coincidencias con la evidencia curada de lanzamientos. Resta puntos por enfriamiento
-y volatilidad. No extrapola un precio futuro ni presenta probabilidad estadística.
+La página `projections.html` apunta a Evercold 8.0 y separa dos conceptos que no deben
+confundirse:
+
+- los ítems históricos enseñan un rol de demanda repetible;
+- sólo un equivalente actual explícitamente validado puede aparecer como candidato.
+
+Ya no existe matching abierto por categorías como `Leather`, `Cloth` o `Metal`. Esa
+regla hacía aparecer el material antiguo que había funcionado, en vez del activo que
+podría cumplir su rol en 8.0. El mapping v2 limita el radar previo al lanzamiento a
+insumos comprables hoy con una tesis repetible: cristales/clusters persistentes,
+Materia XI como posible grado económico de overmeld y el puente de spiritbond. Los
+materiales nuevos de monstruos/FATE, leves y precrafts permanecen diferidos hasta que
+8.0 revele sus item IDs.
+
+El puntaje suma repetibilidad histórica, ajuste del equivalente actual, uso en recetas
+7.4–7.5, aceleración de demanda, precio, liquidez, estabilidad y muestras. Resta
+puntos por enfriamiento y volatilidad. No extrapola un precio futuro ni presenta una
+probabilidad estadística. El equipo inicial de Bastion y physical ranged permanece
+fuera mientras no se aclare cómo el Armoury Update afectará esa demanda histórica.
 
 La página `snipes.html` busca el caso inverso: un listing mínimo anormalmente bajo.
 La referencia es el menor valor entre la mediana histórica de listings y la mediana

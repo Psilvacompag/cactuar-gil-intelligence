@@ -1,61 +1,92 @@
 {
-  "schemaVersion": 1,
-  "kind": "launch-signal-evidence",
+  "schemaVersion": 2,
+  "kind": "expansion-projection-mapping",
   "curatedAt": "2026-08-10",
+  "target": {
+    "expansion": "Evercold",
+    "patch": "8.0",
+    "releaseWindow": "enero de 2027",
+    "officialSourceUrl": "https://na.finalfantasyxiv.com/evercold/"
+  },
+  "method": "Historical winners define repeatable demand roles. Only present-day items that can fill those roles are eligible; historical examples are never candidates unless the exact item is a persistent input still used by current recipes.",
   "patterns": [
     {
-      "key": "crystals",
-      "label": "Cristales de crafting",
-      "itemIds": [8, 10, 12],
-      "categoryNames": ["Crystals"],
-      "historicalWeight": 18,
-      "evidence": "Dawntrail y Shadowbringers mostraron absorción rápida y picos de precio en cristales.",
-      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1dzu6kj/weekly_thread_craftinggathering_market_thread_wed/"
+      "key": "perennial_crystals",
+      "label": "Cristales y clusters persistentes",
+      "currentItemIds": [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+      "historicalExamples": ["Fire Crystal", "Wind Crystal", "Lightning Crystal"],
+      "historicalWeight": 26,
+      "currentFitWeight": 22,
+      "confidence": "HIGH",
+      "currentRationale": "Es el mismo insumo permanente entre expansiones y continúa apareciendo en recetas recientes de Dawntrail.",
+      "evidence": "Los cristales tuvieron absorción rápida y picos de precio en lanzamientos anteriores; Fire y Wind siguieron caros durante Dawntrail.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1e5gltk"
     },
     {
-      "key": "overmeld_materia",
-      "label": "Materia de overmeld",
-      "itemIds": [33926, 41764, 41775, 41776, 41778, 41779, 41780],
-      "categoryNames": ["Materia"],
-      "historicalWeight": 22,
-      "evidence": "La preparación DoH/DoL y Savage produjo demanda extraordinaria de materia IX-XII.",
-      "sourceUrl": "https://thestudium.gg/articles/dawntrail-crafting-and-gathering-market-overview-pre-savage-edition"
+      "key": "crafting_materia_xi",
+      "label": "Materia XI de crafting",
+      "currentItemIds": [41765, 41766, 41767],
+      "historicalExamples": ["Craftsman's Cunning Materia IX", "Craftsman's Command Materia IX"],
+      "historicalWeight": 28,
+      "currentFitWeight": 24,
+      "confidence": "HIGH",
+      "currentRationale": "Si 8.0 repite la progresión de grados, Materia XI ocupa hoy el rol que tuvo Materia IX como grado barato para overmeld profundo.",
+      "evidence": "En Dawntrail se reportaron al menos 120.000 Cunning IX vendidas y la materia de crafting fue uno de los mercados más fuertes.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1egljxw"
     },
     {
-      "key": "leveling_collectables",
-      "label": "Ingredientes de leves y collectables",
-      "itemIds": [44073, 43985, 43986, 43978, 44034, 27756],
-      "categoryNames": [],
+      "key": "gathering_materia_xi",
+      "label": "Materia XI de gathering",
+      "currentItemIds": [41762, 41763, 41764],
+      "historicalExamples": ["Gatherer's Materia IX"],
       "historicalWeight": 20,
-      "evidence": "Los cuellos de botella de nivelación movieron stacks rápidamente durante varios lanzamientos.",
-      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/ca1m5e"
+      "currentFitWeight": 21,
+      "confidence": "MEDIUM",
+      "currentRationale": "Es el grado actual potencialmente reutilizable en los slots profundos del primer set de gathering de 8.0.",
+      "evidence": "Los lanzamientos anteriores elevaron la demanda de materia DoH/DoL al equipar y pentameldear los nuevos sets.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/1e5gltk"
     },
     {
-      "key": "monster_fate_materials",
-      "label": "Materiales de monstruos y FATE",
-      "itemIds": [36242, 36247, 27736, 27742],
-      "categoryNames": ["Leather"],
+      "key": "combat_materia_xi",
+      "label": "Materia XI de combate",
+      "currentItemIds": [41757, 41758, 41759, 41760, 41761, 41768, 41769],
+      "historicalExamples": ["Battle Materia IX"],
       "historicalWeight": 18,
-      "evidence": "La fricción de adquisición creó cuellos de botella en Endwalker y Shadowbringers.",
-      "sourceUrl": "https://www.reddit.com/r/ffxivdiscussion/comments/rd33lu"
-    },
-    {
-      "key": "precrafts",
-      "label": "Intermedios y precrafts",
-      "itemIds": [44007, 36172, 36212, 36200, 36251, 36187, 27757, 27759],
-      "categoryNames": ["Metal", "Lumber", "Cloth", "Leather"],
-      "historicalWeight": 17,
-      "evidence": "Los intermedios mantuvieron mejor demanda que parte del equipo final, cuyo precio cayó rápido.",
+      "currentFitWeight": 18,
+      "confidence": "MEDIUM",
+      "currentRationale": "Puede funcionar como grado económico de overmeld en el primer equipo fabricado de nivel 110, pero competirá con la materia nueva de 8.0.",
+      "evidence": "La materia de combate mostró demanda fuerte alrededor de los primeros sets fabricados y Savage de expansiones anteriores.",
       "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/s25wz1"
     },
     {
-      "key": "crafting_consumables",
-      "label": "Consumibles de crafting",
-      "itemIds": [44091, 44169],
-      "categoryNames": ["Meals", "Medicine"],
+      "key": "spiritbond_bridge",
+      "label": "Producción de materia por spiritbond",
+      "currentItemIds": [27960],
+      "historicalExamples": ["Spiritbond consumables at expansion launch"],
       "historicalWeight": 14,
-      "evidence": "Comida y tisanas HQ fueron insumos funcionales para las recetas de Savage.",
-      "sourceUrl": "https://na.finalfantasyxiv.com/lodestone/topics/detail/da01b0d2d5434cd2ccfcc87f733df7a590f97c00"
+      "currentFitWeight": 20,
+      "confidence": "MEDIUM",
+      "currentRationale": "Es un consumible comerciable que acelera la extracción de la nueva materia cuando comienza el ciclo de overmeld.",
+      "evidence": "La fabricación repetida y el spiritbond de precrafts acompañaron la demanda de materia durante los lanzamientos y primeras semanas de Savage.",
+      "sourceUrl": "https://www.reddit.com/r/ffxiv/comments/rwmkot"
+    }
+  ],
+  "deferredRoles": [
+    {
+      "key": "new_monster_fate_materials",
+      "reason": "El equivalente correcto será un material nuevo de Evercold; todavía no existe un item ID comprable."
+    },
+    {
+      "key": "new_leveling_turnins",
+      "reason": "Los leves y collectables 100–110 dependerán de recetas nuevas de 8.0."
+    },
+    {
+      "key": "new_precrafts",
+      "reason": "Los ingots, cloth, leather y lumber de Dawntrail no sustituyen automáticamente a los precrafts de Evercold."
+    },
+    {
+      "key": "new_job_accessories",
+      "reason": "Bastion y un physical ranged están confirmados, pero el Armoury Update de 8.0 puede cambiar la necesidad de comprar accesorios iniciales; se mantiene fuera hasta conocer esa mecánica."
     }
   ]
 }

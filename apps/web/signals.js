@@ -34,7 +34,7 @@ async function loadSignals() {
     const historyByKey = new Map(history.series.map((series) => [series.key, series]));
     state.items = view === "snipes"
       ? buildSnipes(market.items, historyByKey)
-      : buildProjections(market.items, evidence.patterns || []);
+      : buildProjections(market.items, evidence);
     hydrateMeta(market, history);
     applyFilters();
   } catch (error) {
@@ -62,52 +62,62 @@ async function requireJson(response) {
   return response.json();
 }
 
-function buildProjections(items, patterns) {
+function buildProjections(items, evidence) {
+  const patterns = evidence.patterns || [];
   return items
     .filter((item) => item.status === "FRESH" && finitePositive(item.averageSalePrice) && finitePositive(item.dailySaleVelocity))
-    .map((item) => {
+    .flatMap((item) => {
       const match = bestPattern(item, patterns);
+      // Historical winners define roles; they are never candidates unless a
+      // curated rule identifies the item as a valid present-day equivalent.
+      if (!match) return [];
       const trend = item.trend || {};
       const velocityChange = finite(trend.velocityChangeRatio, 0);
       const priceChange = finite(trend.priceChangeRatio, 0);
-      const volatility = finite(trend.priceVolatility, 1);
+      const volatility = Number.isFinite(trend.priceVolatility) ? trend.priceVolatility : null;
       const historyPoints = finite(trend.historyPoints, 0);
-      const historyScore = match ? match.weight : 0;
-      const momentumScore = clamp(velocityChange / 0.60, 0, 1) * 24;
-      const priceScore = clamp(priceChange / 0.30, 0, 1) * 12;
-      const liquidityScore = clamp(Math.log10(item.dailySaleVelocity + 1) / 4, 0, 1) * 18;
-      const stabilityScore = trend.stability === "HIGH" ? 12 : trend.stability === "MEDIUM" ? 8 : 3;
-      const sampleScore = clamp(historyPoints / 8, 0, 1) * 7;
-      const craftScore = item.recipe?.confidence !== "LOW" && finite(item.recipe?.estimatedDailyProfit, 0) > 0 ? 5 : 0;
-      const freshnessScore = 5;
-      const coolingPenalty = velocityChange < -0.10 ? 18 : 0;
-      const volatilityPenalty = volatility > 0.45 ? 12 : volatility > 0.25 ? 5 : 0;
+      const recentRecipeUses = finite(item.recipeDemand?.recentRecipeUses, 0);
+      const historyScore = finite(match.historicalWeight, 0);
+      const currentFitScore = finite(match.currentFitWeight, 0);
+      const recipeCentralityScore = clamp(Math.log2(recentRecipeUses + 1) / 6, 0, 1) * 8;
+      const momentumScore = clamp(velocityChange / 0.60, 0, 1) * 10;
+      const priceScore = clamp(priceChange / 0.30, 0, 1) * 5;
+      const liquidityScore = clamp(Math.log10(item.dailySaleVelocity + 1) / 4, 0, 1) * 15;
+      const stabilityScore = trend.stability === "HIGH" ? 8 : trend.stability === "MEDIUM" ? 5 : 2;
+      const sampleScore = clamp(historyPoints / 8, 0, 1) * 5;
+      const freshnessScore = 3;
+      const coolingPenalty = velocityChange < -0.10 ? 10 : 0;
+      const volatilityPenalty = volatility === null ? 4 : volatility > 0.45 ? 10 : volatility > 0.25 ? 4 : 0;
       const score = Math.round(clamp(
-        historyScore + momentumScore + priceScore + liquidityScore + stabilityScore + sampleScore + craftScore + freshnessScore - coolingPenalty - volatilityPenalty,
+        historyScore + currentFitScore + recipeCentralityScore + momentumScore + priceScore
+          + liquidityScore + stabilityScore + sampleScore + freshnessScore
+          - coolingPenalty - volatilityPenalty,
         0,
         100,
       ));
-      const reasons = [];
-      if (match) reasons.push(`${match.label}: ${match.evidence}`);
+      const reasons = [match.currentRationale, `Patrón histórico: ${match.evidence}`];
+      if (recentRecipeUses > 0) reasons.push(`Aparece como ingrediente en ${integerFormat.format(recentRecipeUses)} recetas de los dos parches más recientes.`);
       if (velocityChange >= 0.20) reasons.push(`La velocidad subió ${percentFormat.format(velocityChange)} en la ventana disponible.`);
       if (priceChange >= 0.10) reasons.push(`El precio medio avanzó ${percentFormat.format(priceChange)}.`);
       if (item.dailySaleVelocity >= 10) reasons.push(`${decimalFormat.format(item.dailySaleVelocity)} ventas/día aportan liquidez.`);
-      if (!reasons.length) reasons.push("Señal temprana basada en liquidez y estabilidad; todavía necesita más historial.");
-      return {
+      const risk = match.confidence === "LOW" || (volatility !== null && volatility > 0.35)
+        ? "ALTO"
+        : volatility === null || volatility > 0.15 || match.confidence === "MEDIUM" ? "MEDIO" : "BAJO";
+      return [{
         ...item,
         signalKind: "projection",
         score,
-        band: score >= 72 ? "ALCISTA" : score >= 58 ? "VIGILAR" : "TEMPRANA",
-        risk: volatility <= 0.10 ? "BAJO" : volatility <= 0.25 ? "MEDIO" : "ALTO",
+        band: score >= 72 ? "ALCISTA" : score >= 60 ? "VIGILAR" : "TEMPRANA",
+        risk,
         reasons,
         pattern: match,
         velocityChange,
         priceChange,
-      };
+      }];
     })
-    .filter((item) => item.score >= 44)
+    .filter((item) => item.score >= 45)
     .sort((a, b) => b.score - a.score || b.dailySaleVelocity - a.dailySaleVelocity)
-    .slice(0, 150);
+    .slice(0, 60);
 }
 
 function buildSnipes(items, historyByKey) {
@@ -159,10 +169,8 @@ function buildSnipes(items, historyByKey) {
 function bestPattern(item, patterns) {
   let best = null;
   patterns.forEach((pattern) => {
-    const exact = pattern.itemIds?.includes(item.itemId);
-    const category = (pattern.categoryNames || []).some((name) => normalize(categoryName(item)).includes(normalize(name)));
-    if (!exact && !category) return;
-    const weight = pattern.historicalWeight * (exact ? 1 : 0.55);
+    if (!pattern.currentItemIds?.includes(item.itemId)) return;
+    const weight = finite(pattern.historicalWeight, 0) + finite(pattern.currentFitWeight, 0);
     if (!best || weight > best.weight) best = { ...pattern, weight };
   });
   return best;
@@ -183,7 +191,7 @@ function applyFilters() {
   const query = normalize(state.search);
   state.visible = state.items.filter((item) => {
     if (state.band && item.band !== state.band) return false;
-    return !query || normalize([item.name, item.itemId, categoryName(item), item.band, item.pattern?.label].join(" ")).includes(query);
+    return !query || normalize([item.name, item.itemId, categoryName(item), item.band, item.pattern?.label, item.pattern?.confidence].join(" ")).includes(query);
   });
   state.visible.sort(sorter(state.sort));
   render();
@@ -202,7 +210,9 @@ function render() {
   const fragment = document.createDocumentFragment();
   state.visible.slice(0, 60).forEach((item) => fragment.append(createCard(item)));
   elements.grid.append(fragment);
-  elements.count.textContent = `${integerFormat.format(state.visible.length)} señales · mostrando hasta 60`;
+  elements.count.textContent = view === "snipes"
+    ? `${integerFormat.format(state.visible.length)} señales · mostrando hasta 60`
+    : `${integerFormat.format(state.visible.length)} equivalentes actuales`;
   elements.empty.hidden = state.visible.length !== 0;
 }
 
@@ -228,7 +238,7 @@ function createCard(item) {
 }
 
 function showDetail(item) {
-  const title = view === "snipes" ? "CANDIDATO A SNIPE" : "PROYECCIÓN EXPLICABLE";
+  const title = view === "snipes" ? "CANDIDATO A SNIPE" : "PROYECCIÓN EVERCOLD 8.0";
   elements.dialogContent.innerHTML = `<div class="detail-body signal-detail">
     <p class="eyebrow">${title} · ITEM ${item.itemId}</p>
     <h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3>
@@ -240,7 +250,7 @@ function showDetail(item) {
       ${view === "snipes" ? `<div><small>Referencia conservadora</small><strong>${gil(item.referencePrice)}</strong></div><div><small>ROI teórico</small><strong>${percentFormat.format(item.potentialRoi)}</strong></div>` : `<div><small>Cambio demanda</small><strong>${signedPercent(item.velocityChange)}</strong></div><div><small>Cambio precio</small><strong>${signedPercent(item.priceChange)}</strong></div>`}
     </div>
     <section class="reason-panel"><small>POR QUÉ APARECE</small><ul>${item.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></section>
-    ${item.pattern ? `<a class="source-link" href="${escapeHtml(item.pattern.sourceUrl)}" target="_blank" rel="noopener">Ver evidencia histórica ↗</a>` : ""}
+    ${item.pattern ? `<section class="reason-panel"><small>MATCH HISTÓRICO → ACTUAL</small><p><strong>${escapeHtml(item.pattern.label)}</strong> · confianza ${escapeHtml(item.pattern.confidence.toLowerCase())}</p><p>Ejemplos pasados: ${escapeHtml((item.pattern.historicalExamples || []).join(", "))}.</p></section><a class="source-link" href="${escapeHtml(item.pattern.sourceUrl)}" target="_blank" rel="noopener">Ver evidencia histórica ↗</a>` : ""}
     <p class="detail-warning"><strong>${view === "snipes" ? "Stock sin verificar:" : "No es una predicción garantizada:"}</strong> ${view === "snipes" ? "confirma en el juego el precio, cantidad, HQ y retainer antes de comprar." : "el puntaje ordena señales observables y puede cambiar en el siguiente snapshot."}</p>
   </div>`;
   elements.dialog.showModal();

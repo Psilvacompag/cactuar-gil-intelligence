@@ -120,11 +120,11 @@ Caso de regresión verificado:
 - Se incorporaron Manrope y Space Grotesk, superficies más definidas e iconos SVG
   minimalistas. Los iconos originales quedan pospuestos hasta extraer `iconId` desde
   `sqpack`; el ID de ítem no identifica de forma segura su icono.
-- Se añadieron `Proyecciones` y `Snipeos`. La primera prioriza hasta 150 ítems mediante
-  reglas explicables de tendencia, liquidez, estabilidad y patrones históricos; la
-  segunda detecta descuentos anómalos contra medianas históricas conservadoras y exige
-  margen, actividad y muestras suficientes. Los snipeos siempre piden confirmar stock
-  y precio dentro del juego.
+- Se añadieron `Proyecciones` y `Snipeos`. Proyecciones usa el mapping v2 para Evercold:
+  los ganadores históricos definen roles y sólo equivalentes actuales explícitos
+  pueden entrar. No admite matches genéricos por categoría. Snipeos detecta descuentos
+  anómalos contra medianas históricas conservadoras y exige margen, actividad y
+  muestras suficientes.
 - Las conversiones principales solicitan profundidad real de listings de Cactuar en
   lotes de hasta 100 ítems: unidades dentro de 10% del piso, días de oferta, presión
   competitiva y precio ponderado de hasta las primeras 20 unidades. El dashboard se
@@ -135,7 +135,7 @@ Caso de regresión verificado:
 - Dawntrail aún está disponible para backfill cuantitativo mediante el endpoint
   `/history` de Universalis. Endwalker no apareció en la ventana pública probada y
   debe permanecer como evidencia manual salvo que se obtenga otra fuente.
-- Validación local: JavaScript sin errores de sintaxis, JSON válido, 36 pruebas
+- Validación local inicial: JavaScript sin errores de sintaxis, JSON válido, 36 pruebas
   Python correctas y smoke visual en Chrome para escritorio y móvil.
 
 ## Datos y frecuencia

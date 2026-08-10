@@ -79,7 +79,11 @@ def export_market_items(
             LEFT JOIN freshness ON freshness.item_id = asset.item_id
             WHERE asset.snapshot_id = ?
               AND asset.marketable_candidate = 1
-              AND (asset.craftable = 1 OR asset.gatherable = 1)
+              AND (
+                  asset.craftable = 1
+                  OR asset.gatherable = 1
+                  OR asset.item_id BETWEEN 41757 AND 41769
+              )
               AND market.daily_sale_velocity IS NOT NULL
               AND market.daily_sale_velocity > 0
             ORDER BY market.daily_sale_velocity DESC, asset.item_id, market.quality
@@ -100,6 +104,10 @@ def export_market_items(
             connection,
             static_snapshot_id=static["snapshot_id"],
             market_snapshot_id=market["market_snapshot_id"],
+        )
+        recipe_demand, recipe_demand_meta = _ingredient_demand(
+            connection,
+            static_snapshot_id=static["snapshot_id"],
         )
     finally:
         connection.close()
@@ -134,6 +142,7 @@ def export_market_items(
             gathering_ids.add(row["item_id"])
         trend = history.get((row["item_id"], row["quality"]), {}).get("trend", {})
         recipe = recipes.get(row["item_id"])
+        demand = recipe_demand.get(row["item_id"])
         recipe_financials: dict[str, Any] | None = None
         sale_prices = [
             float(value)
@@ -200,6 +209,7 @@ def export_market_items(
                 "estimatedDailyRevenue": daily_revenue,
                 "trend": trend,
                 "recipe": recipe_financials,
+                "recipeDemand": demand,
                 "latestUploadAt": row["latest_upload_at"],
                 "status": status,
             }
@@ -216,6 +226,7 @@ def export_market_items(
             "freshnessHours": freshness_hours,
             "homeWorldId": home_world_id,
             "feeRate": fee_rate,
+            **recipe_demand_meta,
             "historySnapshots": len(history_snapshots),
             "source": "Universalis + FFXIV sqpack local",
         },
@@ -336,6 +347,65 @@ def _recipe_options(
     return {
         item_id: min(options, key=lambda option: option["estimatedMaterialCost"])
         for item_id, options in complete_by_result.items()
+    }
+
+
+def _ingredient_demand(
+    connection: sqlite3.Connection,
+    *,
+    static_snapshot_id: str,
+) -> tuple[dict[int, dict[str, Any]], dict[str, int | None]]:
+    """Describe how central each ingredient is to the current recipe generation."""
+    maximum = connection.execute(
+        "SELECT MAX(patch_number) FROM dim_recipe WHERE snapshot_id = ?",
+        (static_snapshot_id,),
+    ).fetchone()[0]
+    if maximum is None:
+        return {}, {
+            "latestRecipePatch": None,
+            "currentExpansionPatchFloor": None,
+            "recentRecipePatchFloor": None,
+        }
+    latest_patch = int(maximum)
+    expansion_floor = latest_patch // 100 * 100
+    recent_floor = max(expansion_floor, latest_patch - 10)
+    rows = connection.execute(
+        """
+        SELECT ingredient.item_id,
+               COUNT(DISTINCT recipe.recipe_id) AS total_recipe_uses,
+               COUNT(DISTINCT CASE
+                   WHEN recipe.patch_number >= ? THEN recipe.recipe_id
+               END) AS current_expansion_recipe_uses,
+               COUNT(DISTINCT CASE
+                   WHEN recipe.patch_number >= ? THEN recipe.recipe_id
+               END) AS recent_recipe_uses,
+               MAX(recipe.patch_number) AS latest_recipe_patch
+        FROM bridge_recipe_ingredient AS ingredient
+        JOIN dim_recipe AS recipe
+          ON recipe.snapshot_id = ingredient.snapshot_id
+         AND recipe.recipe_id = ingredient.recipe_id
+        WHERE ingredient.snapshot_id = ?
+        GROUP BY ingredient.item_id
+        """,
+        (expansion_floor, recent_floor, static_snapshot_id),
+    ).fetchall()
+    demand = {
+        int(row["item_id"]): {
+            "totalRecipeUses": int(row["total_recipe_uses"]),
+            "currentExpansionRecipeUses": int(row["current_expansion_recipe_uses"]),
+            "recentRecipeUses": int(row["recent_recipe_uses"]),
+            "latestRecipePatch": (
+                int(row["latest_recipe_patch"])
+                if row["latest_recipe_patch"] is not None
+                else None
+            ),
+        }
+        for row in rows
+    }
+    return demand, {
+        "latestRecipePatch": latest_patch,
+        "currentExpansionPatchFloor": expansion_floor,
+        "recentRecipePatchFloor": recent_floor,
     }
 
 

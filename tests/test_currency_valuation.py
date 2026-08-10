@@ -24,6 +24,71 @@ from test_static_catalog import example_snapshot
 
 
 class CurrencyValuationTests(unittest.TestCase):
+    def test_market_export_includes_current_materia_for_expansion_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database_path = root / "catalog.sqlite3"
+            static_payload = example_snapshot()
+            static_payload["schemaVersion"] = 3
+            static_payload["assets"].append(
+                {
+                    "itemId": 41766,
+                    "name": "Craftsman's Cunning Materia XI",
+                    "marketableCandidate": True,
+                    "searchCategoryId": 63,
+                    "searchCategoryName": "Materia",
+                    "uiCategoryId": 60,
+                    "uiCategoryName": "Materia",
+                    "craftable": False,
+                    "gatherable": False,
+                }
+            )
+            snapshot_path = root / "static.json"
+            snapshot_path.write_text(json.dumps(static_payload), encoding="utf-8")
+            import_static_snapshot(snapshot_path, database_path)
+            upload_millis = int(datetime.now(timezone.utc).timestamp() * 1000)
+            import_universalis_aggregates(
+                {
+                    "results": [
+                        {
+                            "itemId": 41766,
+                            "nq": {
+                                "minListing": {"world": {"price": 5000, "worldId": 79}},
+                                "medianListing": {"world": {"price": 5200}},
+                                "recentPurchase": {},
+                                "averageSalePrice": {"world": {"price": 5100}},
+                                "dailySaleVelocity": {"world": {"quantity": 200}},
+                            },
+                            "hq": {},
+                            "worldUploadTimes": [
+                                {"worldId": 79, "timestamp": upload_millis}
+                            ],
+                        }
+                    ],
+                    "failedItems": [],
+                },
+                database_path,
+                scope="Cactuar",
+                collected_at=datetime.now(timezone.utc).isoformat(),
+                requested_items=1,
+                request_count=1,
+                collection_elapsed_seconds=0.1,
+            )
+            market_path = root / "market-items.json"
+            summary = export_market_items(
+                database_path,
+                market_path,
+                scope="Cactuar",
+            )
+            exported = json.loads(market_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(summary.rows, 1)
+            self.assertEqual(exported["items"][0]["itemId"], 41766)
+            self.assertEqual(exported["items"][0]["searchCategoryName"], "Materia")
+            self.assertFalse(exported["items"][0]["craftable"])
+            self.assertFalse(exported["items"][0]["gatherable"])
+            self.assertEqual(exported["items"][0]["trend"]["historyPoints"], 1)
+
     def test_values_simple_currency_offer_with_fee_and_freshness(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
