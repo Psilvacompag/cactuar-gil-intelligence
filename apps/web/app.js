@@ -323,6 +323,20 @@ function createRow(item) {
     item.shopName,
     "item",
   );
+  const watchButton = document.createElement("button");
+  const watchKey = conversionWatchKey(item);
+  watchButton.type = "button";
+  watchButton.className = `watch-button ${GilWatchlist.has(watchKey) ? "active" : ""}`;
+  watchButton.textContent = "★";
+  watchButton.setAttribute("aria-label", `${GilWatchlist.has(watchKey) ? "Quitar" : "Vigilar"} ${item.rewardName}`);
+  watchButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    GilWatchlist.toggle(watchKey, { module: "conversion", itemId: item.rewardItemId,
+      quality: item.rewardIsHq ? "HQ" : "NQ", name: item.rewardName,
+      currencyItemId: item.currencyItemId, currencyName: item.currencyName });
+    renderRows();
+  });
+  row.querySelector(".reward-entity").prepend(watchButton);
   row.querySelector(".cost-cell").textContent = `${integerFormat.format(item.currencyQuantity)}×`;
   row.querySelector(".price-cell").textContent = gil(item.marketUnitPrice);
   row.querySelector(".net-cell").textContent = gil(item.netGilPerCurrency);
@@ -526,6 +540,8 @@ function drawHistoryChart(container, points) {
 function conversionKey(item) {
   return [item.currencyItemId, item.currencyQuantity, item.rewardItemId, item.rewardQuantity, item.rewardIsHq ? 1 : 0].join(":");
 }
+
+function conversionWatchKey(item) { return `conversion:${conversionKey(item)}`; }
 
 function shortDate(value) {
   return new Intl.DateTimeFormat("es-CL", { day: "2-digit", month: "short" }).format(new Date(value));

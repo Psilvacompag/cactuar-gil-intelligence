@@ -1,14 +1,12 @@
 const view = document.body.dataset.signalView;
 const STORAGE = {
   budget: "gil-intelligence.projection-budget",
-  watched: "gil-intelligence.watched-signals",
-  ledger: "gil-intelligence.signal-ledger",
   notices: "gil-intelligence.notified-signals",
 };
 const state = {
   items: [], visible: [], search: "", band: "", phase: "", sort: "score",
   budget: positiveNumber(localStorage.getItem(STORAGE.budget)) || 5000000,
-  watched: readStoredObject(STORAGE.watched),
+  watched: GilWatchlist.keys(),
 };
 const elements = {
   grid: document.querySelector("#signal-grid"), count: document.querySelector("#result-count"),
@@ -35,7 +33,6 @@ async function loadSignals() {
     state.items = view === "snipes"
       ? buildSnipes(opportunities.opportunities, historyByKey)
       : buildProjections(market.items, evidence, historyByKey);
-    updateSignalLedger(state.items, market.meta.marketCollectedAt);
     hydrateMeta(market, history);
     applyFilters();
     renderAlerts();
@@ -225,7 +222,7 @@ function createCard(item) {
 }
 
 function showDetail(item) {
-  const watched = Boolean(state.watched[signalKey(item)]);
+  const watched = state.watched.has(signalKey(item));
   const phaseMarkup = item.phases?.length ? `<div class="phase-tags">${item.phases.map((phase) => `<span>${escapeHtml(phaseLabel(phase))}</span>`).join("")}</div>` : "";
   const strategyMarkup = view === "projections" ? `<section class="strategy-panel"><small>PLAN DE ENTRADA</small><div class="strategy-grid">
       <div><span>Decisión</span><strong>${escapeHtml(item.action)}</strong></div><div><span>Entrada máxima</span><strong>${gil(item.maximumEntryPrice)}</strong></div>
@@ -251,10 +248,10 @@ function showDetail(item) {
 
 function toggleWatch(item) {
   const key = signalKey(item);
-  if (state.watched[key]) delete state.watched[key];
-  else state.watched[key] = { itemId: item.itemId, quality: item.quality, name: item.name,
-    targetPrice: view === "projections" ? item.maximumEntryPrice : item.weightedEntryPrice, addedAt: new Date().toISOString() };
-  localStorage.setItem(STORAGE.watched, JSON.stringify(state.watched));
+  GilWatchlist.toggle(key, { module: view === "snipes" ? "snipe" : "projection", itemId: item.itemId,
+    quality: item.quality, name: item.name, sourceWorldId: item.sourceWorldId,
+    targetPrice: view === "projections" ? item.maximumEntryPrice : item.weightedEntryPrice });
+  state.watched = GilWatchlist.keys();
   renderAlerts();
   elements.dialog.close();
 }
@@ -262,7 +259,7 @@ function toggleWatch(item) {
 function renderAlerts() {
   if (!elements.alerts) return;
   const alerts = state.items.filter((item) => {
-    const watch = state.watched[signalKey(item)];
+    const watch = GilWatchlist.get(signalKey(item));
     if (!watch) return false;
     const price = view === "snipes" ? item.weightedEntryPrice : item.currentPrice;
     return price <= watch.targetPrice || item.action === "COMPRAR AHORA" || item.band === "URGENTE";
@@ -276,24 +273,13 @@ function renderAlerts() {
 function emitBrowserAlerts() {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   const notified = readStoredObject(STORAGE.notices);
-  state.items.filter((item) => state.watched[signalKey(item)] && (item.action === "COMPRAR AHORA" || item.band === "URGENTE")).forEach((item) => {
+  state.items.filter((item) => GilWatchlist.has(signalKey(item)) && (item.action === "COMPRAR AHORA" || item.band === "URGENTE")).forEach((item) => {
     const id = `${signalKey(item)}:${item.band}:${Math.round(item.currentPrice || item.weightedEntryPrice)}`;
     if (notified[id]) return;
     new Notification(`${item.name}: ${item.action || item.band}`, { body: view === "snipes" ? `${percentFormat.format(item.discount)} bajo referencia; stock verificado.` : `Precio ${gil(item.currentPrice)}; entrada máxima ${gil(item.maximumEntryPrice)}.` });
     notified[id] = new Date().toISOString();
   });
   localStorage.setItem(STORAGE.notices, JSON.stringify(notified));
-}
-
-function updateSignalLedger(items, collectedAt) {
-  const ledger = readStoredObject(STORAGE.ledger);
-  items.forEach((item) => {
-    const key = signalKey(item); const price = positiveNumber(item.currentPrice) || positiveNumber(item.weightedEntryPrice) || positiveNumber(item.minListingPrice);
-    if (!price) return;
-    const entry = ledger[key] || { firstSeenAt: collectedAt, initialPrice: price, maxPrice: price, minPrice: price };
-    ledger[key] = { ...entry, name: item.name, lastSeenAt: collectedAt, lastPrice: price, maxPrice: Math.max(entry.maxPrice, price), minPrice: Math.min(entry.minPrice, price), lastScore: item.score, lastBand: item.band };
-  });
-  localStorage.setItem(STORAGE.ledger, JSON.stringify(ledger));
 }
 
 function conservativeReference(points, item) {
@@ -328,7 +314,7 @@ function backtestStats(points) {
 function horizonText(stats) { const values = [stats.return7, stats.return30, stats.return90]; return values.every((v) => !Number.isFinite(v)) ? "Acumulando datos" : values.map((v) => Number.isFinite(v) ? signedPercent(v) : "—").join(" / "); }
 function phaseLabel(value) { return ({ ACUMULAR_AHORA: "Acumular ahora", ULTIMO_MES: "Último mes", LANZAMIENTO_72H: "Lanzamiento 0–72h", LEVELING_SEMANA_1: "Leveling semana 1", PRE_SAVAGE: "Pre-Savage", SAVAGE_SEMANA_1: "Savage semana 1" })[value] || value; }
 function actionRank(value) { return ({ "COMPRAR AHORA": 0, "VERIFICAR STOCK": 1, "ESPERAR PRECIO": 2, "VIGILAR": 3, "SÓLO VIGILAR": 4 })[value] ?? 5; }
-function signalKey(item) { return `${view}:${item.itemId}:${item.quality}`; }
+function signalKey(item) { return `${view === "snipes" ? "snipe" : "projection"}:${item.itemId}:${item.quality}${view === "snipes" ? `:${item.sourceWorldId}` : ""}`; }
 function signalIcon() { return view === "snipes" ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>' : '<svg viewBox="0 0 24 24"><path d="m4 17 5-5 4 3 7-8"/><path d="M15 7h5v5"/></svg>'; }
 function categoryName(item) { return item.categoryName || item.searchCategoryName || item.uiCategoryName || ""; }
 function finite(value, fallback) { return Number.isFinite(value) ? value : fallback; }

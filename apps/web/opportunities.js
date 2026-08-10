@@ -1,5 +1,3 @@
-const OPPORTUNITY_WATCHLIST_KEY = "gil-intelligence.opportunity-watchlist";
-
 const state = {
   data: null,
   dataSource: "",
@@ -328,22 +326,21 @@ function paginationEntries(current, total) {
 }
 
 function goToPage(page) { state.page = page; renderRows(); document.querySelector("#explorer-title").scrollIntoView({ behavior: "smooth", block: "start" }); }
-function opportunityKey(item) { return `${item.itemId}:${item.quality}:${item.sourceWorldId}`; }
+function opportunityKey(item) { return `opportunity:${item.itemId}:${item.quality}:${item.sourceWorldId}`; }
 function isWatched(item) { return state.watchlist.has(opportunityKey(item)); }
 function toggleWatch(item) {
   const key = opportunityKey(item);
-  if (state.watchlist.has(key)) state.watchlist.delete(key); else state.watchlist.add(key);
-  localStorage.setItem(OPPORTUNITY_WATCHLIST_KEY, JSON.stringify([...state.watchlist]));
+  GilWatchlist.toggle(key, { module: "opportunity", itemId: item.itemId, quality: item.quality, name: item.name, sourceWorldId: item.sourceWorldId });
+  state.watchlist = GilWatchlist.keys();
   applyFilters();
 }
 function loadWatchlist() {
-  try { return new Set(JSON.parse(localStorage.getItem(OPPORTUNITY_WATCHLIST_KEY) || "[]")); }
-  catch (_error) { return new Set(); }
+  return GilWatchlist.keys();
 }
 function renderWatchSummary() {
   const watched = state.data.opportunities.filter(isWatched);
   const active = watched.filter((item) => item.stockVerified && item.confidenceBand !== "WATCH");
-  elements.watchSummary.innerHTML = `<span>★ ${integerFormat.format(watched.length)} guardados</span><strong>${integerFormat.format(active.length)} listos para revisar</strong><small>La lista queda sólo en este navegador.</small>`;
+  elements.watchSummary.innerHTML = `<span>★ ${integerFormat.format(watched.length)} guardados</span><strong>${integerFormat.format(active.length)} listos para revisar</strong><small>Compartidos con el Centro de señales.</small>`;
 }
 
 function confidenceLabel(value) { return ({ HIGH: "ALTA", MEDIUM: "MEDIA", WATCH: "OBSERVAR" })[value] || value; }

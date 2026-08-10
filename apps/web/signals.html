@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071426" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cactuar-api-mpkrb3h6wa-uc.a.run.app; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="description" content="Centro unificado de señales, vigilancia y backtesting de Gil Intelligence." />
+    <title>Centro de señales · Gil Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Gil Intelligence, inicio"><span class="brand-mark">G</span><span><strong>Gil Intelligence</strong><small>Datos de mercado para FFXIV</small></span></a>
+      <nav class="site-nav" aria-label="Secciones principales"><a href="./">Conversiones</a><a href="./market.html">Mercado</a><a href="./opportunities.html">Oportunidades</a><a href="./projections.html">Proyecciones</a><a href="./snipes.html">Snipeos</a><a class="active" href="./signals.html" aria-current="page">Centro</a></nav>
+      <div class="topbar-meta"><span class="live-dot"></span><span id="scope-label">Cactuar</span><span class="separator">/</span><span id="updated-label">Cargando…</span></div>
+    </header>
+    <main>
+      <section class="page-hero signal-hero"><div><p class="eyebrow">TODAS LAS ESTRATEGIAS · UN SOLO LEDGER</p><h1>Una señal sólo vale si se puede medir.</h1><p class="hero-lede">Conversiones, Mercado, Oportunidades, Proyecciones y Snipeos comparten ahora seguimiento, watchlist y resultados comparables a 7, 30 y 90 días.</p></div><div class="hero-index" aria-hidden="true"><span>∞</span><small>Ledger</small></div></section>
+      <section class="metrics" aria-label="Resumen del ledger">
+        <article class="metric-card featured"><span class="metric-label">Señales activas</span><strong id="metric-total">—</strong><small>en los cinco módulos</small></article>
+        <article class="metric-card"><span class="metric-label">En vigilancia</span><strong id="metric-watched">—</strong><small>lista unificada local</small></article>
+        <article class="metric-card"><span class="metric-label">Observaciones</span><strong id="metric-observations">—</strong><small>persistidas en servidor</small></article>
+        <article class="metric-card"><span class="metric-label">Maduras 7 días</span><strong id="metric-mature">—</strong><small>con resultado evaluable</small></article>
+      </section>
+      <section class="signal-control-panel compact"><div><p class="eyebrow">ALERTAS TRANSVERSALES</p><h2>Tu watchlist viaja entre todas las vistas.</h2><p>La selección permanece privada en este navegador; el historial y los resultados de las reglas son globales y se actualizan con cada refresh.</p></div><button id="enable-alerts" class="secondary-button" type="button">Activar alertas del navegador</button></section>
+      <section class="explorer signal-center" aria-labelledby="center-title">
+        <div class="section-heading"><div><p class="eyebrow">RADAR UNIFICADO</p><h2 id="center-title">Centro de señales</h2></div><p id="result-count" class="result-count">Preparando ledger…</p></div>
+        <div class="module-summary" id="module-summary"></div>
+        <div class="toolbar signal-center-toolbar">
+          <label class="search-box"><span class="search-icon">⌕</span><span class="sr-only">Buscar señal</span><input id="search-input" type="search" placeholder="Busca señal, ítem, moneda o World…" /><kbd>Ctrl K</kbd></label>
+          <label class="select-control"><span>Módulo</span><select id="module-select"><option value="">Todos</option><option value="conversion">Conversiones</option><option value="market">Mercado</option><option value="opportunity">Oportunidades</option><option value="projection">Proyecciones</option><option value="snipe">Snipeos</option></select></label>
+          <label class="toggle-control"><input id="watched-toggle" type="checkbox" /><span class="toggle-ui"></span><span>Sólo vigilados</span></label>
+          <label class="select-control"><span>Ordenar</span><select id="sort-select"><option value="score">Mayor puntaje</option><option value="change">Mejor resultado</option><option value="drawdown">Menor drawdown</option><option value="name">Nombre</option></select></label>
+        </div>
+        <div id="center-grid" class="center-grid"></div>
+        <div id="empty-state" class="empty-state" hidden><span>◇</span><h3>No hay señales con esos filtros</h3><p>Prueba otro módulo o muestra toda la watchlist.</p></div>
+      </section>
+      <section class="method-note"><div><p class="eyebrow">BACKTESTING</p><h2>El tiempo completa el resultado.</h2></div><div class="method-grid"><p><span>01</span> Cada refresh registra el valor de la métrica cuando la regla está activa.</p><p><span>02</span> Cambio, máximo y drawdown aparecen desde la primera observación; 7/30/90 se habilita al cumplir cada horizonte.</p><p><span>03</span> BigQuery conserva las observaciones aunque SQLite pode los snapshots de mercado.</p></div></section>
+    </main>
+    <footer><span>Gil Intelligence</span><span>Ledger unificado · Cactuar</span><span>Las señales no garantizan rentabilidad.</span></footer>
+    <script src="./config.js" defer></script><script src="./watchlist.js" defer></script><script src="./signal-center.js" defer></script>
+  </body>
+</html>

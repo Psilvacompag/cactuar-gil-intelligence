@@ -18,6 +18,7 @@ from gil_intelligence.publishing import (
     export_market_history,
     export_market_items,
     export_opportunities,
+    export_signal_ledger,
 )
 from gil_intelligence.publishing.signal_candidates import signal_depth_candidates
 from gil_intelligence.storage import (
@@ -56,6 +57,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     market_items_path = work_dir / "market-items.json"
     market_history_path = work_dir / "market-history.json"
     opportunities_path = work_dir / "opportunities.json"
+    signals_path = work_dir / "signals.json"
     static_path = work_dir / "static_snapshot.json"
     for generated_path in (
         database_path,
@@ -64,6 +66,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         market_items_path,
         market_history_path,
         opportunities_path,
+        signals_path,
         static_path,
     ):
         generated_path.unlink(missing_ok=True)
@@ -216,6 +219,26 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         scope=settings.scope,
         valuation_run_id=valuation_summary.valuation_run_id,
     )
+    market_items_summary = export_market_items(
+        database_path,
+        market_items_path,
+        scope=settings.scope,
+        freshness_hours=settings.freshness_hours,
+        fee_rate=settings.fee_rate,
+    )
+    opportunities_summary = export_opportunities(
+        database_path,
+        opportunities_path,
+        scope=settings.scope,
+        fee_rate=settings.fee_rate,
+    )
+    signal_summary = export_signal_ledger(
+        database_path,
+        signals_path,
+        dashboard=json.loads(dashboard_path.read_text(encoding="utf-8")),
+        market_items=json.loads(market_items_path.read_text(encoding="utf-8")),
+        opportunities=json.loads(opportunities_path.read_text(encoding="utf-8")),
+    )
     archive = BigQueryArchive(
         project_id=settings.project_id,
         dataset_id=settings.bigquery_dataset,
@@ -236,24 +259,11 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         history_path,
         scope=settings.scope,
     )
-    market_items_summary = export_market_items(
-        database_path,
-        market_items_path,
-        scope=settings.scope,
-        freshness_hours=settings.freshness_hours,
-        fee_rate=settings.fee_rate,
-    )
     market_history_summary = export_market_history(
         database_path,
         market_history_path,
         scope=settings.scope,
         max_snapshots=settings.retention_runs,
-    )
-    opportunities_summary = export_opportunities(
-        database_path,
-        opportunities_path,
-        scope=settings.scope,
-        fee_rate=settings.fee_rate,
     )
     completed_at = datetime.now(timezone.utc).isoformat()
     result = {
@@ -285,6 +295,8 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "opportunities": opportunities_summary.opportunities,
         "highConfidenceOpportunities": opportunities_summary.high_confidence,
         "stockVerifiedOpportunities": opportunities_summary.stock_verified,
+        "currentSignals": signal_summary.current_signals,
+        "signalObservations": signal_summary.observations,
         "quality": asdict(quality_summary),
         "bigQuery": asdict(archive_summary),
         "retainedMarketSnapshots": retention_summary.kept_snapshots,
@@ -295,6 +307,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "marketItemsBytes": market_items_path.stat().st_size,
         "marketHistoryBytes": market_history_path.stat().st_size,
         "opportunitiesBytes": opportunities_path.stat().st_size,
+        "signalsBytes": signals_path.stat().st_size,
     }
 
     store.upload_file(
@@ -330,6 +343,12 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     store.upload_file(
         opportunities_path,
         settings.opportunities_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=300",
+    )
+    store.upload_file(
+        signals_path,
+        settings.signals_object,
         content_type="application/json; charset=utf-8",
         cache_control="public, max-age=300",
     )

@@ -137,6 +137,30 @@ TABLES: dict[str, dict[str, Any]] = {
         "partition": "collected_at",
         "cluster": ("scope", "item_id", "world_id", "quality"),
     },
+    "signal_observations": {
+        "schema": (
+            ("signal_key", "STRING", "REQUIRED"),
+            ("market_snapshot_id", "STRING", "REQUIRED"),
+            ("module", "STRING", "REQUIRED"),
+            ("scope", "STRING", "REQUIRED"),
+            ("observed_at", "TIMESTAMP", "REQUIRED"),
+            ("item_id", "INTEGER", "NULLABLE"),
+            ("quality", "STRING", "NULLABLE"),
+            ("title", "STRING", "REQUIRED"),
+            ("subtitle", "STRING", "NULLABLE"),
+            ("state", "STRING", "REQUIRED"),
+            ("score", "FLOAT", "REQUIRED"),
+            ("metric_name", "STRING", "REQUIRED"),
+            ("metric_value", "FLOAT", "REQUIRED"),
+            ("reference_value", "FLOAT", "NULLABLE"),
+            ("direction", "STRING", "REQUIRED"),
+            ("url", "STRING", "REQUIRED"),
+            ("reason", "STRING", "REQUIRED"),
+            ("payload_json", "STRING", "REQUIRED"),
+        ),
+        "partition": "observed_at",
+        "cluster": ("module", "signal_key", "scope"),
+    },
     "static_snapshots": {
         "schema": (
             ("static_snapshot_id", "STRING", "REQUIRED"),
@@ -216,6 +240,7 @@ class BigQueryArchiveSummary:
     recipe_ingredient_rows: int
     detailed_runs: int
     listing_rows: int
+    signal_rows: int
 
 
 class BigQueryArchive:
@@ -296,6 +321,7 @@ class BigQueryArchive:
                 "recipe_ingredient_rows": 0,
                 "detailed_runs": 0,
                 "listing_rows": 0,
+                "signal_rows": 0,
             }
             archived_at = datetime.now(timezone.utc).isoformat()
             static_snapshot_ids = [
@@ -341,6 +367,7 @@ class BigQueryArchive:
             "recipe_ingredient_rows": 0,
             "detailed_runs": 0,
             "listing_rows": 0,
+            "signal_rows": 0,
         }
         if self._marker_exists("market_runs", "market_snapshot_id", market_snapshot_id):
             empty["skipped_market_snapshots"] = 1
@@ -404,6 +431,12 @@ class BigQueryArchive:
             job_key=market_snapshot_id,
             work_dir=work_dir,
         )
+        signal_rows = self._load_rows(
+            "signal_observations",
+            _signal_observation_rows(connection, market_snapshot_id),
+            job_key=market_snapshot_id,
+            work_dir=work_dir,
+        )
         detail = _detail_snapshot(connection, market_snapshot_id)
         run_row = {
             "market_snapshot_id": market_snapshot_id,
@@ -442,6 +475,7 @@ class BigQueryArchive:
             failure_rows=failure_rows,
             detailed_runs=detail_run_rows,
             listing_rows=listing_rows,
+            signal_rows=signal_rows,
         )
         return empty
 
@@ -692,6 +726,27 @@ def _listing_rows(
         WHERE detail.market_snapshot_id = ?
         ORDER BY listing.item_id, listing.world_id,
                  listing.quality, listing.listing_rank
+        """,
+        (market_snapshot_id,),
+    )
+    for row in rows:
+        yield dict(row)
+
+
+def _signal_observation_rows(
+    connection: sqlite3.Connection,
+    market_snapshot_id: str,
+) -> Iterator[dict[str, Any]]:
+    if not _sqlite_table_exists(connection, "fact_signal_observation"):
+        return
+    rows = connection.execute(
+        """
+        SELECT signal_key, market_snapshot_id, module, scope, observed_at,
+               item_id, quality, title, subtitle, state, score, metric_name,
+               metric_value, reference_value, direction, url, reason, payload_json
+        FROM fact_signal_observation
+        WHERE market_snapshot_id = ?
+        ORDER BY module, signal_key
         """,
         (market_snapshot_id,),
     )

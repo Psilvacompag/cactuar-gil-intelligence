@@ -1,5 +1,3 @@
-const MARKET_WATCHLIST_KEY = "gil-intelligence.market-watchlist";
-
 const state = {
   data: null,
   dataSource: "",
@@ -400,23 +398,22 @@ function goToPage(page) {
   document.querySelector("#explorer-title").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function itemKey(item) { return `${item.itemId}:${item.quality}`; }
+function itemKey(item) { return `market:${item.itemId}:${item.quality}`; }
 function craftProfit(item) { return item.recipe?.confidence === "LOW" ? null : item.recipe?.estimatedDailyProfit; }
 function isWatched(item) { return state.watchlist.has(itemKey(item)); }
 function toggleWatch(item) {
   const key = itemKey(item);
-  if (state.watchlist.has(key)) state.watchlist.delete(key); else state.watchlist.add(key);
-  localStorage.setItem(MARKET_WATCHLIST_KEY, JSON.stringify([...state.watchlist]));
+  GilWatchlist.toggle(key, { module: "market", itemId: item.itemId, quality: item.quality, name: item.name });
+  state.watchlist = GilWatchlist.keys();
   applyFilters();
 }
 function loadWatchlist() {
-  try { return new Set(JSON.parse(localStorage.getItem(MARKET_WATCHLIST_KEY) || "[]")); }
-  catch (_error) { return new Set(); }
+  return GilWatchlist.keys();
 }
 function renderWatchSummary() {
   const watched = state.data.items.filter(isWatched);
   const alerts = watched.filter((item) => item.trend?.signal === "DEMAND_UP" || (item.recipe?.profitPerCraft > 0 && item.recipe?.confidence !== "LOW"));
-  elements.watchSummary.innerHTML = `<span>★ ${integerFormat.format(watched.length)} guardados</span><strong>${integerFormat.format(alerts.length)} con señal activa</strong><small>La lista queda sólo en este navegador.</small>`;
+  elements.watchSummary.innerHTML = `<span>★ ${integerFormat.format(watched.length)} guardados</span><strong>${integerFormat.format(alerts.length)} con señal activa</strong><small>Compartidos con el Centro de señales.</small>`;
 }
 
 function categoryName(item) { return item.searchCategoryName || item.uiCategoryName || ""; }

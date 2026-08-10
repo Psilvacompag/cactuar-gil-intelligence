@@ -7,7 +7,7 @@ Backend público de sólo lectura: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
 Sistema para analizar el Market Board, valorar conversiones de monedas y construir
 señales de demanda para expansiones y parches.
 
-La web tiene cinco exploradores:
+La web tiene seis exploradores:
 
 - **Conversiones:** recompensas comprables con monedas y su gil neto por moneda.
 - **Mercado:** rankings buscables, historial de precio y rentabilidad de recetas para gathering y crafting.
@@ -17,6 +17,8 @@ La web tiene cinco exploradores:
   ítems antiguos no entran sólo por compartir categoría.
 - **Snipeos:** caídas anómalas del listing mínimo frente a referencias históricas;
   exige descuento, margen, actividad y al menos tres snapshots.
+- **Centro:** ledger común para Conversiones, Mercado, Oportunidades, Proyecciones
+  y Snipeos, con una sola watchlist, alertas y resultados medidos a 7, 30 y 90 días.
 
 Las oportunidades son señales explicables, no garantías: aplican estrés de precio,
 fee, liquidez, frescura y persistencia. La shortlist comprueba hasta 20 listings por
@@ -26,7 +28,9 @@ medir competencia cerca del piso y días de oferta al ritmo de ventas observado.
 
 La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
 mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico
-analítico antes de cada poda. El catálogo de ítems y sus categorías se extrae de
+analítico antes de cada poda. Cada refresh vuelve a calcular automáticamente las
+reglas de los cinco módulos y persiste sus observaciones en el ledger; la watchlist
+del usuario permanece privada en su navegador. El catálogo de ítems y sus categorías se extrae de
 los archivos locales del juego, incluidas recetas e ingredientes, sin requests
 adicionales a servicios públicos. El ML permanece pospuesto hasta acumular historial
 suficiente para medirlo contra estas reglas deterministas.

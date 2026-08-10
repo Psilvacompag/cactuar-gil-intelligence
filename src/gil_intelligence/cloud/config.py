@@ -24,6 +24,7 @@ class CloudSettings:
     market_items_object: str = "public/market-items.json"
     market_history_object: str = "public/market-history.json"
     opportunities_object: str = "public/opportunities.json"
+    signals_object: str = "public/signals.json"
     status_object: str = "status/latest.json"
     bigquery_dataset: str = "cactuar_gil"
     bigquery_location: str = "US"
@@ -79,6 +80,9 @@ class CloudSettings:
             opportunities_object=source.get(
                 "CACTUAR_OPPORTUNITIES_OBJECT", "public/opportunities.json"
             ).strip(),
+            signals_object=source.get(
+                "CACTUAR_SIGNALS_OBJECT", "public/signals.json"
+            ).strip(),
             status_object=source.get("CACTUAR_STATUS_OBJECT", "status/latest.json").strip(),
             bigquery_dataset=source.get("CACTUAR_BIGQUERY_DATASET", "cactuar_gil").strip(),
             bigquery_location=source.get("CACTUAR_BIGQUERY_LOCATION", "US").strip(),
@@ -108,6 +112,7 @@ class CloudSettings:
             "market_items_object",
             "market_history_object",
             "opportunities_object",
+            "signals_object",
             "status_object",
             "bigquery_dataset",
             "bigquery_location",

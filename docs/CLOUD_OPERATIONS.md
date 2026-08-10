@@ -35,13 +35,14 @@ public/history.json
 public/market-items.json
 public/market-history.json
 public/opportunities.json
+public/signals.json
 status/latest.json
 runs/YYYY-MM-DD/{market_snapshot_id}.json
 ```
 
 Todos los objetos permanecen privados. La API pública expone `GET /v1/dashboard`,
 `GET /v1/history`, `GET /v1/market-items`, `GET /v1/market-history`,
-`GET /v1/opportunities` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages
+`GET /v1/opportunities`, `GET /v1/signals` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages
 y a los orígenes locales de desarrollo. Health responde 503 cuando los datos de
 mercado superan la edad máxima configurada.
 
@@ -58,7 +59,7 @@ Antes de cambiar el Scheduler se debe ejecutar el job manualmente y comprobar:
 1. ejecución exitosa;
 2. `requestCount` y `elapsedSeconds` plausibles;
 3. actualización de `public/dashboard.json`;
-4. respuesta 200 de `/v1/health`, `/v1/dashboard`, `/v1/market-history` y `/v1/opportunities`;
+4. respuesta 200 de `/v1/health`, `/v1/dashboard`, `/v1/market-history`, `/v1/opportunities` y `/v1/signals`;
 5. carga primaria desde el backend en GitHub Pages.
 
 ## Costos y límites

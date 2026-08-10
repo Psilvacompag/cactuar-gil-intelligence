@@ -23,6 +23,7 @@ def build_handler(
     market_items_cache: DashboardCache,
     market_history_cache: DashboardCache,
     opportunities_cache: DashboardCache,
+    signals_cache: DashboardCache,
     settings: CloudSettings,
 ) -> type[BaseHTTPRequestHandler]:
     allowed_origins = frozenset(settings.allowed_origins)
@@ -54,6 +55,7 @@ def build_handler(
                         "marketItems": "/v1/market-items",
                         "marketHistory": "/v1/market-history",
                         "opportunities": "/v1/opportunities",
+                        "signals": "/v1/signals",
                         "health": "/v1/health",
                     },
                 )
@@ -75,6 +77,9 @@ def build_handler(
                 return
             if path == "/v1/opportunities":
                 self._serve_document(opportunities_cache)
+                return
+            if path == "/v1/signals":
+                self._serve_document(signals_cache)
                 return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
@@ -236,6 +241,12 @@ def main() -> int:
         ttl_seconds=settings.cache_seconds,
         expected_kind="market-opportunities",
     )
+    signals_cache = DashboardCache(
+        store,
+        settings.signals_object,
+        ttl_seconds=settings.cache_seconds,
+        expected_kind="signal-ledger",
+    )
     market_history_cache = DashboardCache(
         store,
         settings.market_history_object,
@@ -251,6 +262,7 @@ def main() -> int:
             market_items_cache,
             market_history_cache,
             opportunities_cache,
+            signals_cache,
             settings,
         ),
     )

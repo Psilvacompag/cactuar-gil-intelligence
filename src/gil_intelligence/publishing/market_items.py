@@ -230,6 +230,7 @@ def export_market_items(
         "kind": "market-items",
         "meta": {
             "scope": scope,
+            "marketSnapshotId": market["market_snapshot_id"],
             "marketCollectedAt": market["collected_at"],
             "gameVersion": static["game_version"],
             "generatedAt": generated_at.isoformat(),

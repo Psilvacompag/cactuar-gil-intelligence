@@ -12,6 +12,7 @@ from gil_intelligence.publishing import (
     export_market_history,
     export_market_items,
     export_opportunities,
+    export_signal_ledger,
 )
 from gil_intelligence.storage import import_static_snapshot
 from gil_intelligence.valuation import (
@@ -35,6 +36,7 @@ def main() -> int:
     market_items_path = work_dir / "market-items.json"
     market_history_path = work_dir / "market-history.json"
     opportunities_path = work_dir / "opportunities.json"
+    signals_path = work_dir / "signals.json"
     for path in (
         database_path,
         static_path,
@@ -43,6 +45,7 @@ def main() -> int:
         market_items_path,
         market_history_path,
         opportunities_path,
+        signals_path,
     ):
         path.unlink(missing_ok=True)
     store = GcsObjectStore(settings.bucket)
@@ -86,6 +89,14 @@ def main() -> int:
         scope=settings.scope,
         fee_rate=settings.fee_rate,
     )
+    signal_summary = export_signal_ledger(
+        database_path,
+        signals_path,
+        dashboard=json.loads(dashboard_path.read_text(encoding="utf-8")),
+        market_items=json.loads(market_items_path.read_text(encoding="utf-8")),
+        opportunities=json.loads(opportunities_path.read_text(encoding="utf-8")),
+        record=False,
+    )
     store.upload_file(
         database_path,
         settings.database_object,
@@ -122,6 +133,12 @@ def main() -> int:
         content_type="application/json; charset=utf-8",
         cache_control="public, max-age=300",
     )
+    store.upload_file(
+        signals_path,
+        settings.signals_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=300",
+    )
     print(
         json.dumps(
             {
@@ -141,6 +158,8 @@ def main() -> int:
                 "opportunities": opportunities_summary.opportunities,
                 "highConfidenceOpportunities": opportunities_summary.high_confidence,
                 "stockVerifiedOpportunities": opportunities_summary.stock_verified,
+                "currentSignals": signal_summary.current_signals,
+                "signalObservations": signal_summary.observations,
             },
             ensure_ascii=False,
             indent=2,
