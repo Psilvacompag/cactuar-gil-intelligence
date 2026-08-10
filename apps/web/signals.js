@@ -248,6 +248,7 @@ function toggleWatch(item) {
   const key = signalKey(item);
   GilWatchlist.toggle(key, { module: view === "snipes" ? "snipe" : "projection", itemId: item.itemId,
     quality: item.quality, name: item.name, sourceWorldId: item.sourceWorldId,
+    iconId: item.iconId,
     targetPrice: view === "projections" ? item.maximumEntryPrice : item.weightedEntryPrice });
   state.watched = GilWatchlist.keys();
   renderAlerts();

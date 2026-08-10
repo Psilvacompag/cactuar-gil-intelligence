@@ -56,11 +56,12 @@
       <form id="radar-form" class="radar-form">
         <button id="radar-editor-close" class="dialog-close" type="button" aria-label="Cerrar">×</button>
         <div id="radar-editor-heading" class="radar-editor-heading"></div>
+        <div id="radar-rule-preview" class="radar-rule-preview" aria-live="polite"></div>
         <div class="radar-form-grid">
-          <label><span>Comprar hasta</span><div class="money-input"><input id="radar-buy-target" type="number" min="0" step="1" placeholder="Sin límite" /><small>gil/u.</small></div></label>
-          <label><span>Vender desde</span><div class="money-input"><input id="radar-sell-target" type="number" min="0" step="1" placeholder="Sin objetivo" /><small>gil/u.</small></div></label>
-          <label><span>Capital máximo</span><div class="money-input"><input id="radar-max-capital" type="number" min="0" step="1000" placeholder="Sin asignar" /><small>gil</small></div></label>
-          <label><span>World preferido</span><input id="radar-preferred-world" type="text" maxlength="80" list="radar-worlds" placeholder="Ruta automática" /></label>
+          <label class="radar-field"><span>Comprar hasta</span><small>Te avisa cuando la entrada sea igual o menor.</small><div class="money-input"><b aria-hidden="true">G</b><input id="radar-buy-target" type="number" min="0" step="1" inputmode="numeric" placeholder="Sin límite" /><em>gil/u.</em></div></label>
+          <label class="radar-field"><span>Vender desde</span><small>Te avisa cuando la salida estimada alcance este valor.</small><div class="money-input"><b aria-hidden="true">G</b><input id="radar-sell-target" type="number" min="0" step="1" inputmode="numeric" placeholder="Sin objetivo" /><em>gil/u.</em></div></label>
+          <label class="radar-field"><span>Capital máximo</span><small>Calcula un tamaño orientativo; nunca compra automáticamente.</small><div class="money-input"><b aria-hidden="true">G</b><input id="radar-max-capital" type="number" min="0" step="1000" inputmode="numeric" placeholder="Sin asignar" /><em>gil</em></div></label>
+          <label class="radar-field"><span>World preferido</span><small>Prioriza esa ruta cuando exista stock observado.</small><input id="radar-preferred-world" type="text" maxlength="80" list="radar-worlds" placeholder="Ruta automática" /></label>
         </div>
         <datalist id="radar-worlds"></datalist>
         <label class="radar-notes"><span>Notas personales</span><textarea id="radar-notes" maxlength="800" rows="4" placeholder="Ej.: comprar en lotes de 20, revisar antes del martes…"></textarea><small><span id="radar-note-count">0</span>/800</small></label>

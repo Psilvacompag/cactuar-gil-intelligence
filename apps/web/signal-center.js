@@ -91,7 +91,7 @@ function createCard(signal) {
     <div class="horizon-strip"><span>7d <b>${ratio(outcome.return7d)}</b></span><span>30d <b>${ratio(outcome.return30d)}</b></span><span>90d <b>${ratio(outcome.return90d)}</b></span><small>${integerFormat.format(outcome.observations || 0)} obs.</small></div>
     <div class="center-card-actions"><button class="center-intel-button" type="button">Ficha completa</button><a href="${escapeHtml(signal.url)}">Abrir módulo →</a></div><div class="tiny-sparkline" data-spark-key="${signal.itemId}:${signal.quality}"><span class="spark-empty">Cargando…</span></div>`;
   card.querySelector(".watch-button").addEventListener("click", () => {
-    GilWatchlist.toggle(signal.key, { module: signal.module, itemId: signal.itemId, quality: signal.quality, name: signal.title, targetValue: signal.metricValue });
+    GilWatchlist.toggle(signal.key, { module: signal.module, itemId: signal.itemId, quality: signal.quality, name: signal.title, iconId: signal.iconId, targetValue: signal.metricValue });
     applyFilters();
   });
   card.querySelector(".center-intel-button").addEventListener("click", () => openSignal(signal));

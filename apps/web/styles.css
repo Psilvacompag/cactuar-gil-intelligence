@@ -296,8 +296,10 @@ html.auth-required:not(.auth-granted) body > :not(.auth-gate):not(.account-dialo
 .radar-card.status-buy { border-color: rgba(115,169,255,.38); }
 .radar-card.status-sell { border-color: rgba(214,189,138,.4); }
 .radar-card.status-cooling { border-color: rgba(255,170,163,.25); }
-.radar-card-head { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
-.radar-card-head .item-icon { width: 48px; height: 48px; border-radius: 12px; }
+.radar-card-head { display: grid; grid-template-columns: 50px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.radar-card-head .item-icon { width: 50px; height: 50px; border-radius: 14px; }
+.radar-card-head .item-icon-image, .radar-editor-heading .item-icon-image { inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); object-fit: contain; border-radius: 8px; }
+.radar-card-head .item-icon.has-original::after, .radar-editor-heading .item-icon.has-original::after { inset: 4px; border-radius: 9px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
 .radar-card-head small, .radar-card-head h3, .radar-card-head p { display: block; overflow-wrap: anywhere; }
 .radar-card-head small { color: var(--mint); font-size: .56rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
 .radar-card-head h3 { margin: 4px 0 3px; font: 600 1.02rem/1.22 var(--font-display); }
@@ -341,13 +343,28 @@ html.auth-required:not(.auth-granted) body > :not(.auth-gate):not(.account-dialo
 .radar-editor-heading .eyebrow { margin-bottom: 5px; font-size: .55rem; }
 .radar-editor-heading h2 { margin: 0 0 4px; font: 600 1.4rem var(--font-display); overflow-wrap: anywhere; }
 .radar-editor-heading span { color: var(--quiet); font-size: .6rem; }
+.radar-rule-preview { margin-top: 22px; padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 18px; border: 1px solid rgba(115,169,255,.22); border-radius: 13px; background: linear-gradient(135deg, rgba(115,169,255,.1), rgba(5,15,30,.48)); }
+.radar-rule-preview > div { padding-right: 18px; border-right: 1px solid var(--line); }
+.radar-rule-preview small, .radar-rule-preview strong, .radar-rule-preview span { display: block; }
+.radar-rule-preview small { color: var(--quiet); font-size: .5rem; letter-spacing: .07em; }
+.radar-rule-preview strong { margin: 4px 0 2px; font: 600 .9rem var(--font-display); }
+.radar-rule-preview span { color: var(--quiet); font-size: .53rem; }
+.radar-rule-preview p { margin: 0; color: var(--muted); font-size: .66rem; line-height: 1.5; }
 .radar-form-grid { margin-top: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .radar-form label > span { display: block; margin-bottom: 7px; color: var(--quiet); font-size: .58rem; font-weight: 750; text-transform: uppercase; }
+.radar-field { min-width: 0; padding: 13px; display: flex; flex-direction: column; border: 1px solid rgba(150,179,220,.13); border-radius: 13px; background: rgba(5,15,30,.32); transition: border-color 160ms ease, background 160ms ease; }
+.radar-field:focus-within { border-color: rgba(115,169,255,.38); background: rgba(10,27,50,.58); }
+.radar-field > span { margin-bottom: 4px !important; color: var(--ink) !important; font-size: .61rem !important; }
+.radar-field > small { min-height: 31px; margin-bottom: 9px; color: var(--quiet); font-size: .55rem; line-height: 1.4; }
 .radar-form input[type="number"], .radar-form input[type="text"], .radar-form textarea { width: 100%; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; outline: 0; background: rgba(4,14,29,.58); }
 .radar-form input[type="number"], .radar-form input[type="text"] { min-height: 42px; padding: 0 12px; }
 .radar-form textarea { padding: 12px; resize: vertical; line-height: 1.5; }
 .radar-form input:focus, .radar-form textarea:focus { border-color: rgba(115,169,255,.55); }
-.radar-form .money-input { grid-template-columns: minmax(0, 1fr) auto; }
+.radar-form .money-input { min-height: 48px; padding: 0; display: grid; grid-template-columns: 35px minmax(0, 1fr) auto; overflow: hidden; border-color: rgba(150,179,220,.2); background: rgba(3,12,25,.7); }
+.radar-form .money-input b { height: 100%; display: grid; place-items: center; color: var(--mint); border-right: 1px solid var(--line); background: rgba(115,169,255,.06); font: 600 .67rem var(--font-display); }
+.radar-form .money-input input[type="number"] { min-height: 46px; padding: 0 11px; color: var(--ink); border: 0; border-radius: 0; outline: 0; background: transparent; font: 600 .82rem var(--font-display); appearance: textfield; }
+.radar-form .money-input input[type="number"]::-webkit-inner-spin-button, .radar-form .money-input input[type="number"]::-webkit-outer-spin-button { margin: 0; appearance: none; }
+.radar-form .money-input em { height: 100%; padding: 0 11px; display: flex; align-items: center; color: var(--quiet); border-left: 1px solid var(--line); background: rgba(255,255,255,.018); font-size: .53rem; font-style: normal; white-space: nowrap; }
 .radar-notes { margin-top: 14px; position: relative; display: block; }
 .radar-notes > small { position: absolute; right: 10px; bottom: 8px; color: var(--quiet); font-size: .52rem; }
 .radar-alert-toggle { margin-top: 15px; width: fit-content; }
@@ -1359,6 +1376,8 @@ footer { min-height: 100px; display: flex; align-items: center; justify-content:
   .radar-history > p { text-align: left; }
   .radar-form { padding: 30px 20px; }
   .radar-form-grid { grid-template-columns: 1fr; }
+  .radar-rule-preview { grid-template-columns: 1fr; gap: 10px; }
+  .radar-rule-preview > div { padding: 0 0 10px; border-right: 0; border-bottom: 1px solid var(--line); }
   .radar-roadmap { padding-inline: 8px; }
 }
 

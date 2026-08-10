@@ -18,6 +18,7 @@
     notes: document.querySelector("#radar-notes"), noteCount: document.querySelector("#radar-note-count"),
     alertEnabled: document.querySelector("#radar-alert-enabled"), message: document.querySelector("#radar-form-message"),
     remove: document.querySelector("#radar-remove"), save: document.querySelector("#radar-save"),
+    rulePreview: document.querySelector("#radar-rule-preview"),
   };
   const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
   const decimalFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
@@ -106,7 +107,8 @@
     const velocity = finite(route?.dailySaleVelocity) ?? finite(market?.dailySaleVelocity)
       ?? finite(conversion?.dailySaleVelocity) ?? finite(signal?.context?.velocity);
     const trend = market?.trend || signal?.context?.trend || {};
-    const buyTarget = positiveNumber(favorite.buyTarget ?? favorite.targetPrice);
+    const buyTarget = positiveNumber(Object.hasOwn(favorite, "buyTarget")
+      ? favorite.buyTarget : favorite.targetPrice);
     const sellTarget = positiveNumber(favorite.sellTarget);
     const maxCapital = positiveNumber(favorite.maxCapital);
     const cooling = trend.signal === "COOLING" || signal?.state === "COOLING" || signal?.state === "STALE";
@@ -188,7 +190,7 @@
     const history = historyMarkup(entry.history);
     const world = entry.favorite.preferredWorldName || entry.sourceWorldName;
     card.innerHTML = `<div class="radar-card-head">${GilItemIcons.markup(entry.iconId, { fallback: entry.module === "snipe" ? "route" : "signal", tone: entry.module === "snipe" ? "gold" : "" })}<div><small>${escapeHtml(moduleLabel(entry.module))} · ${escapeHtml(entry.quality)}</small><h3>${escapeHtml(entry.name)}</h3>${world ? `<p>${entry.favorite.preferredWorldName ? "World preferido" : "Ruta actual"}: <strong>${escapeHtml(world)}</strong>${entry.preferredMismatch ? " · sin ruta activa" : ""}</p>` : ""}</div><span class="radar-status">${escapeHtml(status.label)}</span></div>
-      <p class="radar-status-detail">${escapeHtml(status.detail)}</p>
+      <p class="radar-status-detail">${escapeHtml(statusDetail(entry))}</p>
       <div class="radar-price-grid"><div><small>Entrada actual</small><strong>${gil(entry.currentBuyPrice)}</strong>${entry.buyTarget ? `<span>límite ${gil(entry.buyTarget)}</span>` : "<span>sin límite definido</span>"}</div><div><small>Salida estimada</small><strong>${gil(entry.currentSellPrice)}</strong>${entry.sellTarget ? `<span>objetivo ${gil(entry.sellTarget)}</span>` : "<span>sin objetivo definido</span>"}</div><div><small>Ventas / día</small><strong>${velocity(entry.velocity)}</strong><span>${trendLabel(entry.trend?.signal)}</span></div></div>
       ${history}
       <div class="radar-plan"><div><small>CAPITAL MÁXIMO</small><strong>${entry.maxCapital ? gil(entry.maxCapital) : "Sin asignar"}</strong></div><div><small>TAMAÑO ORIENTATIVO</small><strong>${entry.units !== null ? `${integerFormat.format(entry.units)} u.` : "—"}</strong></div><div><small>MARGEN POTENCIAL</small><strong class="${entry.projectedMargin !== null && entry.projectedMargin < 0 ? "negative" : ""}">${entry.projectedMargin !== null ? gil(entry.projectedMargin) : "—"}</strong></div></div>
@@ -256,8 +258,20 @@
     elements.notes.value = entry.favorite.notes || "";
     elements.noteCount.textContent = elements.notes.value.length;
     elements.alertEnabled.checked = entry.alertsEnabled;
+    updateRulePreview();
     setFormMessage("");
     elements.editor.showModal();
+  }
+
+  function updateRulePreview() {
+    const entry = state.entries.find((candidate) => candidate.key === state.editingKey);
+    if (!entry) return;
+    const buyTarget = inputNumber(elements.buy);
+    const sellTarget = inputNumber(elements.sell);
+    const rules = [];
+    if (buyTarget) rules.push(`Comprar si la entrada baja a ${gil(buyTarget)} o menos.`);
+    if (sellTarget) rules.push(`Preparar salida desde ${gil(sellTarget)}.`);
+    elements.rulePreview.innerHTML = `<div><small>PRECIO OBSERVADO</small><strong>${gil(entry.currentBuyPrice)}</strong><span>entrada actual</span></div><p>${escapeHtml(rules.join(" ") || "Define un precio de compra o venta para activar una alerta personal.")}</p>`;
   }
 
   async function saveEditor(event) {
@@ -333,6 +347,16 @@
   function gil(value) { return value !== null && value !== undefined && Number.isFinite(Number(value)) ? `${compactFormat.format(Number(value))} gil` : "—"; }
   function velocity(value) { return Number.isFinite(value) ? `${decimalFormat.format(value)} / día` : "—"; }
   function trendLabel(value) { return ({ DEMAND_UP: "Demanda al alza", PRICE_UP: "Precio al alza", COOLING: "Señal enfriándose", STABLE: "Mercado estable" })[value] || "Sin tendencia suficiente"; }
+  function statusDetail(entry) {
+    if (entry.status === "OUT" && entry.buyTarget && entry.currentBuyPrice) {
+      const difference = entry.currentBuyPrice - entry.buyTarget;
+      const ratio = entry.buyTarget ? difference / entry.buyTarget : null;
+      return `La entrada está ${gil(difference)} sobre tu límite${ratio !== null ? ` (${percentFormat.format(ratio)})` : ""}. Espera una baja o ajusta tu regla.`;
+    }
+    if (entry.status === "BUY" && entry.buyTarget) return `La entrada ya está dentro de tu máximo de ${gil(entry.buyTarget)}.`;
+    if (entry.status === "SELL" && entry.sellTarget) return `La salida estimada alcanzó tu objetivo de ${gil(entry.sellTarget)}.`;
+    return STATUSES[entry.status].detail;
+  }
   function signedPercent(value) { return Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${percentFormat.format(value)}` : "—"; }
   function shortDate(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? "sin fecha" : dateFormat.format(date); }
   function relativeTime(value) { const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000)); if (minutes < 60) return `hace ${Math.max(1, minutes)} min`; const hours = Math.round(minutes / 60); return hours < 24 ? `hace ${hours} h` : `hace ${Math.round(hours / 24)} d`; }
@@ -346,6 +370,8 @@
   elements.close.addEventListener("click", () => elements.editor.close());
   elements.editor.addEventListener("click", (event) => { if (event.target === elements.editor) elements.editor.close(); });
   elements.notes.addEventListener("input", () => { elements.noteCount.textContent = elements.notes.value.length; });
+  elements.buy.addEventListener("input", updateRulePreview);
+  elements.sell.addEventListener("input", updateRulePreview);
   elements.form.addEventListener("submit", (event) => void saveEditor(event));
   elements.remove.addEventListener("click", () => void removeEditing());
   document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); } });
