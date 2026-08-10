@@ -21,13 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `ae3b6e5` (`Add market projections, snipes, and listing depth`).
-- HEAD funcional desplegado: `ae3b6e5`.
+- Código productivo verificado: `ce30695` (`Map launch patterns to current expansion candidates`).
+- HEAD funcional desplegado: `ce30695`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v11`, digest
-  `sha256:81de8cdc943cc7f9cb1343974da348bf9dfd681599ac71a532a883b4bc79d89b`.
+- Imagen desplegada al cierre: `backend:v12`, digest
+  `sha256:ec7129567528f4a6bbe3381f8c27af727512bafefb22f5d54125dd30e516cbd6`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -65,6 +65,17 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
   cero fallos y estado de salud `ok`.
 - El dashboard publicó profundidad real para 151 conversiones; las rutas de API,
   Proyecciones y Snipeos respondieron HTTP 200.
+
+### Corrección del matching para Evercold 8.0
+
+- GitHub Pages publicó el commit `ce30695` y Cloud Run sirve `backend:v12` desde
+  `cactuar-api-00012-6fc`, con 100% del tráfico.
+- Se eliminó el matching genérico por categorías. Los ítems históricos enseñan el
+  rol; sólo IDs actuales explícitamente mapeados pueden ser candidatos.
+- El job `cactuar-archive-kjtvx` republicó desde SQLite sin requests a Universalis.
+- Producción expone 13 Materia XI adicionales, centralidad de recetas hasta Patch 7.5
+  y 25 equivalentes actuales en el radar; no aparecen los precrafts antiguos.
+- Validación final: 38 pruebas correctas y smoke visual del sitio público.
 
 ## Funcionalidad disponible
 
