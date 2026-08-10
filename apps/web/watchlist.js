@@ -77,7 +77,7 @@
         method: "PUT",
         body: JSON.stringify({ key: normalizedKey, metadata }),
       });
-      records[normalizedKey] = saved;
+      records[normalizedKey] = { ...saved, history: previous.history || [] };
       publish();
       return saved;
     } catch (error) {
