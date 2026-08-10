@@ -294,9 +294,20 @@ tbody tr:last-child td { border-bottom: 0; }
 .empty-state h3 { margin: 16px 0 8px; color: var(--ink); }
 .empty-state p { margin-bottom: 0; }
 
-.load-more { display: block; margin: 24px auto 0; min-width: 220px; padding: 13px 20px; color: var(--mint-bright); border: 1px solid rgba(130, 232, 188, 0.35); border-radius: 12px; background: rgba(130, 232, 188, 0.06); }
-.load-more:hover { background: rgba(130, 232, 188, 0.12); }
-.load-more[hidden] { display: none; }
+.pagination { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; margin-top: 24px; }
+.pagination[hidden] { display: none; }
+.page-numbers { display: flex; justify-content: center; align-items: center; gap: 6px; }
+.page-step, .page-number, .page-size { min-height: 42px; border: 1px solid var(--line); border-radius: 11px; background: rgba(12, 25, 21, .72); }
+.page-step, .page-number { color: var(--muted); }
+.page-step { padding: 0 15px; }
+.page-number { min-width: 42px; padding: 0 10px; }
+.page-number:hover, .page-number.active { color: #092019; border-color: var(--mint); background: var(--mint); }
+.page-step:hover:not(:disabled) { color: var(--mint-bright); border-color: rgba(130, 232, 188, .4); }
+.page-step:disabled { cursor: default; opacity: .38; }
+.page-ellipsis { min-width: 24px; color: var(--quiet); text-align: center; }
+.page-size { display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--quiet); font-size: .72rem; }
+.page-size select { border: 0; outline: 0; color: var(--ink); background: transparent; }
+.page-size option { background: var(--panel-solid); }
 
 .method-note { margin-bottom: 110px; padding: 52px; display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 70px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .method-note h2 { font-size: clamp(1.8rem, 3vw, 2.9rem); }
@@ -373,6 +384,10 @@ footer { min-height: 100px; display: flex; align-items: center; justify-content:
   td:nth-child(7) { position: absolute; top: 16px; right: 16px; }
   td:nth-child(7)::before { display: none; }
   .entity { max-width: calc(100% - 90px); }
+  .pagination { grid-template-columns: 1fr 1fr auto; }
+  .page-numbers { grid-column: 1 / -1; grid-row: 1; }
+  .page-step { grid-row: 2; }
+  .page-size { grid-row: 2; }
   .method-note { margin-bottom: 70px; }
   .detail-body { padding: 30px 22px; }
   footer { padding: 28px 0; align-items: flex-start; flex-direction: column; }

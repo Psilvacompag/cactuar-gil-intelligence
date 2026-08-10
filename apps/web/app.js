@@ -7,7 +7,8 @@ const state = {
   currencyId: null,
   sort: "net",
   freshOnly: true,
-  visible: 40,
+  page: 1,
+  pageSize: 50,
 };
 
 const elements = {
@@ -19,7 +20,11 @@ const elements = {
   chips: document.querySelector("#currency-chips"),
   count: document.querySelector("#result-count"),
   empty: document.querySelector("#empty-state"),
-  loadMore: document.querySelector("#load-more"),
+  pagination: document.querySelector("#pagination"),
+  pagePrevious: document.querySelector("#page-previous"),
+  pageNext: document.querySelector("#page-next"),
+  pageNumbers: document.querySelector("#page-numbers"),
+  pageSize: document.querySelector("#page-size-select"),
   dialog: document.querySelector("#detail-dialog"),
   dialogContent: document.querySelector("#dialog-content"),
 };
@@ -27,6 +32,7 @@ const elements = {
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 const decimalFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
 const gilFormat = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 2 });
+const highlightedCurrencyIds = [28, 48, 47, 26807, 26533, 41784, 41785, 28063];
 
 async function loadDashboard() {
   const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
@@ -73,8 +79,16 @@ function hydrateMeta() {
 }
 
 function renderChips() {
-  const popular = [...state.data.currencies]
-    .sort((a, b) => b.freshCount - a.freshCount || b.conversionCount - a.conversionCount)
+  const liquidity = currencyLiquidity();
+  const byId = new Map(state.data.currencies.map((currency) => [currency.itemId, currency]));
+  const highlighted = highlightedCurrencyIds.map((itemId) => byId.get(itemId)).filter(Boolean);
+  const ranked = [...state.data.currencies].sort((a, b) =>
+    (liquidity.get(b.itemId) || 0) - (liquidity.get(a.itemId) || 0)
+      || b.freshCount - a.freshCount
+      || b.conversionCount - a.conversionCount,
+  );
+  const highlightedIds = new Set(highlighted.map((currency) => currency.itemId));
+  const popular = [...highlighted, ...ranked.filter((currency) => !highlightedIds.has(currency.itemId))]
     .slice(0, 8);
   const all = document.createElement("button");
   all.className = "chip active";
@@ -88,15 +102,30 @@ function renderChips() {
     chip.type = "button";
     chip.dataset.currencyId = currency.itemId;
     chip.textContent = currency.name;
-    chip.title = `${currency.conversionCount} conversiones`;
+    chip.title = `${currency.conversionCount} conversiones · ${velocity(liquidity.get(currency.itemId))} combinadas`;
     chip.addEventListener("click", () => selectCurrency(currency.itemId));
     elements.chips.append(chip);
   }
 }
 
+function currencyLiquidity() {
+  const rewardVelocity = new Map();
+  for (const item of state.data.conversions) {
+    if (item.status !== "FRESH" || item.dailySaleVelocity === null) continue;
+    const rewardKey = `${item.currencyItemId}:${item.rewardItemId}:${item.rewardIsHq ? 1 : 0}`;
+    rewardVelocity.set(rewardKey, Math.max(rewardVelocity.get(rewardKey) || 0, item.dailySaleVelocity));
+  }
+  const totals = new Map();
+  for (const [key, observedVelocity] of rewardVelocity) {
+    const currencyId = Number(key.split(":", 1)[0]);
+    totals.set(currencyId, (totals.get(currencyId) || 0) + observedVelocity);
+  }
+  return totals;
+}
+
 function selectCurrency(currencyId) {
   state.currencyId = currencyId;
-  state.visible = 40;
+  state.page = 1;
   document.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle(
       "active",
@@ -127,13 +156,62 @@ function applyFilters() {
 
 function renderRows() {
   elements.rows.replaceChildren();
-  const visibleRows = state.filtered.slice(0, state.visible);
+  const totalPages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
+  state.page = Math.min(state.page, totalPages);
+  const firstIndex = (state.page - 1) * state.pageSize;
+  const visibleRows = state.filtered.slice(firstIndex, firstIndex + state.pageSize);
   const fragment = document.createDocumentFragment();
   visibleRows.forEach((item) => fragment.append(createRow(item)));
   elements.rows.append(fragment);
-  elements.count.textContent = `${integerFormat.format(state.filtered.length)} conversiones encontradas`;
+  const lastIndex = Math.min(firstIndex + visibleRows.length, state.filtered.length);
+  elements.count.textContent = state.filtered.length
+    ? `${integerFormat.format(state.filtered.length)} conversiones · ${integerFormat.format(firstIndex + 1)}–${integerFormat.format(lastIndex)}`
+    : "0 conversiones encontradas";
   elements.empty.hidden = state.filtered.length !== 0;
-  elements.loadMore.hidden = state.visible >= state.filtered.length;
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  elements.pagination.hidden = state.filtered.length === 0;
+  elements.pagePrevious.disabled = state.page <= 1;
+  elements.pageNext.disabled = state.page >= totalPages;
+  elements.pageNumbers.replaceChildren();
+  for (const entry of paginationEntries(state.page, totalPages)) {
+    if (entry === "…") {
+      const ellipsis = document.createElement("span");
+      ellipsis.className = "page-ellipsis";
+      ellipsis.textContent = entry;
+      elements.pageNumbers.append(ellipsis);
+      continue;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "page-number";
+    button.textContent = entry;
+    button.classList.toggle("active", entry === state.page);
+    button.setAttribute("aria-label", `Página ${entry}`);
+    if (entry === state.page) button.setAttribute("aria-current", "page");
+    button.addEventListener("click", () => goToPage(entry));
+    elements.pageNumbers.append(button);
+  }
+}
+
+function paginationEntries(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+  const result = [];
+  sorted.forEach((page, index) => {
+    if (index > 0 && page - sorted[index - 1] > 1) result.push("…");
+    result.push(page);
+  });
+  return result;
+}
+
+function goToPage(page) {
+  state.page = page;
+  renderRows();
+  document.querySelector("#explorer-title").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function createRow(item) {
@@ -365,12 +443,18 @@ function escapeHtml(value) {
 
 elements.search.addEventListener("input", (event) => {
   state.search = event.target.value;
-  state.visible = 40;
+  state.page = 1;
   applyFilters();
 });
-elements.sort.addEventListener("change", (event) => { state.sort = event.target.value; applyFilters(); });
-elements.fresh.addEventListener("change", (event) => { state.freshOnly = event.target.checked; applyFilters(); });
-elements.loadMore.addEventListener("click", () => { state.visible += 40; renderRows(); });
+elements.sort.addEventListener("change", (event) => { state.sort = event.target.value; state.page = 1; applyFilters(); });
+elements.fresh.addEventListener("change", (event) => { state.freshOnly = event.target.checked; state.page = 1; applyFilters(); });
+elements.pagePrevious.addEventListener("click", () => goToPage(state.page - 1));
+elements.pageNext.addEventListener("click", () => goToPage(state.page + 1));
+elements.pageSize.addEventListener("change", (event) => {
+  state.pageSize = Number(event.target.value);
+  state.page = 1;
+  renderRows();
+});
 document.querySelector("#dialog-close").addEventListener("click", () => elements.dialog.close());
 elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });
 document.addEventListener("keydown", (event) => {

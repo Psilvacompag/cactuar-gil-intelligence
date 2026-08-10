@@ -145,7 +145,19 @@
           </div>
         </div>
 
-        <button id="load-more" class="load-more" type="button">Mostrar más resultados</button>
+        <nav id="pagination" class="pagination" aria-label="Páginas de conversiones">
+          <button id="page-previous" class="page-step" type="button">← Anterior</button>
+          <div id="page-numbers" class="page-numbers"></div>
+          <button id="page-next" class="page-step" type="button">Siguiente →</button>
+          <label class="page-size">
+            <span>Filas</span>
+            <select id="page-size-select">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </nav>
       </section>
 
       <section class="method-note">
