@@ -21,12 +21,13 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código productivo verificado: `2ad2bd2` (`Use current listings for currency valuations`).
-- HEAD del repositorio al verificar: `6a06a7d` (`Document session handoff`).
+- Código productivo verificado: `ae3b6e5` (`Add market projections, snipes, and listing depth`).
+- HEAD funcional desplegado: `ae3b6e5`.
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v10`.
+- Imagen desplegada al cierre: `backend:v11`, digest
+  `sha256:81de8cdc943cc7f9cb1343974da348bf9dfd681599ac71a532a883b4bc79d89b`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
@@ -52,6 +53,18 @@ Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pag
 - Regresión de Grand Company seals confirmada: `200 Storm Seal -> 1 Glamour
   Dispeller`, listing mínimo de 270 gil y retorno neto de 1,2825 gil por seal.
 - Las 35 pruebas locales finalizaron correctamente.
+
+### Despliegue de Proyecciones, Snipeos y profundidad
+
+- GitHub Pages publicó correctamente el commit `ae3b6e5`.
+- Cloud Run API sirve `backend:v11` desde la revisión `cactuar-api-00010-qwg`,
+  con 100% del tráfico.
+- Los jobs `cactuar-refresh` y `cactuar-archive` usan la misma imagen `v11`.
+- La ejecución manual `cactuar-refresh-24tr8` terminó correctamente en 9m36s.
+- El snapshot productivo quedó actualizado a las 13:43 UTC: 16.843 ítems,
+  cero fallos y estado de salud `ok`.
+- El dashboard publicó profundidad real para 151 conversiones; las rutas de API,
+  Proyecciones y Snipeos respondieron HTTP 200.
 
 ## Funcionalidad disponible
 
@@ -94,7 +107,7 @@ Caso de regresión verificado:
 - Optimizador de capital y cantidad recomendada.
 - Son señales, no garantías; el precio debe confirmarse en el juego.
 
-## Trabajo local pendiente de commit y despliegue
+## Trabajo desplegado el 10 de agosto
 
 - La UI distingue `Sin datos Cactuar` de cero ventas y muestra una explicación visible
   junto a `Ventas / día`. En casos como Filtered Water, Universalis publica listing
