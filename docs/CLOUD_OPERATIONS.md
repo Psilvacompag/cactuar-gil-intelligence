@@ -11,7 +11,7 @@
 - GitHub Pages: frontend estático, con fallback al último JSON incluido en el repositorio.
 
 ```text
-Universalis -> Cloud Run Job -> bucket privado -> Cloud Run API -> GitHub Pages
+Universalis -> Cloud Run Job -> SQLite + BigQuery -> Cloud Run API -> GitHub Pages
 ```
 
 El catálogo estático se extrae desde `sqpack` sólo cuando cambia el parche. Cloud Run no accede a los archivos del juego.
@@ -20,7 +20,10 @@ El catálogo estático se extrae desde `sqpack` sólo cuando cambia el parche. C
 
 El job utiliza una conexión, un máximo de 1 request por segundo, timeout de 10 segundos y hasta dos reintentos acotados. Una carga completa requiere aproximadamente 170 requests. La programación normal es dos veces al día, en minutos no redondos, con zona horaria `America/Santiago`.
 
-El SQLite operativo conserva las últimas 14 corridas de Cactuar. Las páginas liberadas se reutilizan para evitar crecimiento ilimitado. El historial analítico de largo plazo se incorporará a BigQuery antes de la etapa de entrenamiento.
+El SQLite operativo conserva las últimas 14 corridas de Cactuar. Antes de podar,
+cada snapshot se archiva idempotentemente en BigQuery. El job rechaza una corrida
+si la cobertura, cantidad de conversiones, frescura o errores caen bajo los
+umbrales de seguridad; un payload idéntico al anterior se registra como alerta.
 
 ## Objetos
 
@@ -28,11 +31,15 @@ El SQLite operativo conserva las últimas 14 corridas de Cactuar. Las páginas l
 catalog/static_snapshot.json
 state/gil_intelligence.sqlite3
 public/dashboard.json
+public/history.json
 status/latest.json
 runs/YYYY-MM-DD/{market_snapshot_id}.json
 ```
 
-Todos los objetos permanecen privados. La API pública sólo expone `GET /v1/dashboard` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages y a los orígenes locales de desarrollo.
+Todos los objetos permanecen privados. La API pública expone `GET /v1/dashboard`,
+`GET /v1/history` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages
+y a los orígenes locales de desarrollo. Health responde 503 cuando los datos de
+mercado superan la edad máxima configurada.
 
 ## Despliegue reproducible
 

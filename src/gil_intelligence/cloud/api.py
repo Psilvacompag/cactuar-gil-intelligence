@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -16,7 +17,11 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
-def build_handler(cache: DashboardCache, settings: CloudSettings) -> type[BaseHTTPRequestHandler]:
+def build_handler(
+    cache: DashboardCache,
+    history_cache: DashboardCache,
+    settings: CloudSettings,
+) -> type[BaseHTTPRequestHandler]:
     allowed_origins = frozenset(settings.allowed_origins)
 
     class DashboardHandler(BaseHTTPRequestHandler):
@@ -42,6 +47,7 @@ def build_handler(cache: DashboardCache, settings: CloudSettings) -> type[BaseHT
                     {
                         "service": "cactuar-gil-intelligence",
                         "dashboard": "/v1/dashboard",
+                        "history": "/v1/history",
                         "health": "/v1/health",
                     },
                 )
@@ -50,7 +56,10 @@ def build_handler(cache: DashboardCache, settings: CloudSettings) -> type[BaseHT
                 self._serve_health()
                 return
             if path in {"/v1/dashboard", "/dashboard.json"}:
-                self._serve_dashboard()
+                self._serve_document(cache)
+                return
+            if path == "/v1/history":
+                self._serve_document(history_cache)
                 return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
@@ -63,23 +72,28 @@ def build_handler(cache: DashboardCache, settings: CloudSettings) -> type[BaseHT
                     {"status": "unavailable", "error": type(exc).__name__},
                 )
                 return
+            age_hours = _age_hours(document.market_collected_at)
+            is_stale = age_hours is None or age_hours > settings.max_data_age_hours
             self._send_json(
-                HTTPStatus.OK,
+                HTTPStatus.SERVICE_UNAVAILABLE if is_stale else HTTPStatus.OK,
                 {
-                    "status": "ok",
+                    "status": "stale" if is_stale else "ok",
                     "scope": settings.scope,
                     "dashboardGeneration": document.generation,
                     "dashboardUpdatedAt": document.updated_at,
+                    "marketCollectedAt": document.market_collected_at,
+                    "dataAgeHours": round(age_hours, 2) if age_hours is not None else None,
+                    "maximumDataAgeHours": settings.max_data_age_hours,
                 },
             )
 
-        def _serve_dashboard(self) -> None:
+        def _serve_document(self, document_cache: DashboardCache) -> None:
             origin = self.headers.get("Origin")
             if origin is not None and origin not in allowed_origins:
                 self._send_json(HTTPStatus.FORBIDDEN, {"error": "origin_not_allowed"})
                 return
             try:
-                document = cache.get()
+                document = document_cache.get()
             except Exception as exc:
                 self._send_json(
                     HTTPStatus.SERVICE_UNAVAILABLE,
@@ -141,6 +155,21 @@ def build_handler(cache: DashboardCache, settings: CloudSettings) -> type[BaseHT
     return DashboardHandler
 
 
+def _age_hours(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return max(
+        0.0,
+        (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds() / 3600,
+    )
+
+
 def main() -> int:
     settings = CloudSettings.from_environ()
     store = GcsObjectStore(settings.bucket)
@@ -149,8 +178,17 @@ def main() -> int:
         settings.dashboard_object,
         ttl_seconds=settings.cache_seconds,
     )
+    history_cache = DashboardCache(
+        store,
+        settings.history_object,
+        ttl_seconds=settings.cache_seconds,
+        expected_kind="currency-history",
+    )
     port = int(os.environ.get("PORT", "8080"))
-    server = ThreadingHTTPServer(("0.0.0.0", port), build_handler(cache, settings))
+    server = ThreadingHTTPServer(
+        ("0.0.0.0", port),
+        build_handler(cache, history_cache, settings),
+    )
     print(
         _json_bytes(
             {

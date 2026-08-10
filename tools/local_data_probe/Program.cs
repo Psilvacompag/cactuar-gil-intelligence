@@ -140,6 +140,8 @@ var requestedSheets = new[]
     "ENpcBase",
     "ENpcResident",
     "Item",
+    "ItemSearchCategory",
+    "ItemUICategory",
     "Level",
 };
 
@@ -315,9 +317,17 @@ static object ProbeLocalGameData(
 
     var specialShopType = excelAssembly.GetType("Lumina.Excel.Sheets.SpecialShop");
     var itemType = excelAssembly.GetType("Lumina.Excel.Sheets.Item");
+    var itemSearchCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.ItemSearchCategory");
+    var itemUiCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.ItemUICategory");
     var itemCatalog = itemType is null
         ? null
-        : BuildItemCatalog(gameData, getExcelSheet, itemType);
+        : BuildItemCatalog(
+            gameData,
+            getExcelSheet,
+            itemType,
+            itemSearchCategoryType,
+            itemUiCategoryType
+        );
     var tomestonesItemType = excelAssembly.GetType("Lumina.Excel.Sheets.TomestonesItem");
     var tomestoneCatalog = tomestonesItemType is null
         ? null
@@ -538,16 +548,30 @@ static object ExportSpecialShopSnapshot(
             }
         }
 
-        var assets = assetIds
+        // Keep the complete Item catalog. SpecialShop only references a subset, but
+        // market/expansion analysis needs categories for every tradeable item.
+        var assets = itemCatalog.Names.Keys
             .OrderBy(itemId => itemId)
             .Select(itemId => new NormalizedAsset(
                 itemId,
                 itemCatalog.Names.GetValueOrDefault(itemId),
-                itemCatalog.MarketableCandidates.Contains(itemId)
+                itemCatalog.MarketableCandidates.Contains(itemId),
+                itemCatalog.SearchCategoryByItem.GetValueOrDefault(itemId) is var searchCategoryId && searchCategoryId > 0
+                    ? searchCategoryId
+                    : null,
+                itemCatalog.SearchCategoryNames.GetValueOrDefault(
+                    itemCatalog.SearchCategoryByItem.GetValueOrDefault(itemId)
+                ),
+                itemCatalog.UiCategoryByItem.GetValueOrDefault(itemId) is var uiCategoryId && uiCategoryId > 0
+                    ? uiCategoryId
+                    : null,
+                itemCatalog.UiCategoryNames.GetValueOrDefault(
+                    itemCatalog.UiCategoryByItem.GetValueOrDefault(itemId)
+                )
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            1,
+            2,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -1063,7 +1087,13 @@ static TomestoneCatalog BuildTomestoneCatalog(
     }
 }
 
-static ItemCatalog BuildItemCatalog(object gameData, MethodInfo getExcelSheet, Type rowType)
+static ItemCatalog BuildItemCatalog(
+    object gameData,
+    MethodInfo getExcelSheet,
+    Type rowType,
+    Type? searchCategoryType,
+    Type? uiCategoryType
+)
 {
     try
     {
@@ -1073,6 +1103,10 @@ static ItemCatalog BuildItemCatalog(object gameData, MethodInfo getExcelSheet, T
             return new ItemCatalog(
                 new Dictionary<uint, string>(),
                 new HashSet<uint>(),
+                new Dictionary<uint, uint>(),
+                new Dictionary<uint, string>(),
+                new Dictionary<uint, uint>(),
+                new Dictionary<uint, string>(),
                 new { status = "FAIL", error = "Item sheet is not enumerable." }
             );
         }
@@ -1084,6 +1118,10 @@ static ItemCatalog BuildItemCatalog(object gameData, MethodInfo getExcelSheet, T
         var marketableCandidates = 0;
         var names = new Dictionary<uint, string>();
         var marketableIds = new HashSet<uint>();
+        var searchCategoryByItem = new Dictionary<uint, uint>();
+        var uiCategoryByItem = new Dictionary<uint, uint>();
+        var searchCategoryNames = BuildCategoryNames(gameData, getExcelSheet, searchCategoryType);
+        var uiCategoryNames = BuildCategoryNames(gameData, getExcelSheet, uiCategoryType);
         foreach (var row in rows)
         {
             if (row is null)
@@ -1101,6 +1139,15 @@ static ItemCatalog BuildItemCatalog(object gameData, MethodInfo getExcelSheet, T
             names[rowId] = name;
             var isUntradable = Convert.ToBoolean(ReadProperty(row, "IsUntradable") ?? true);
             var searchCategory = ReadRowRefId(ReadProperty(row, "ItemSearchCategory"));
+            var uiCategory = ReadRowRefId(ReadProperty(row, "ItemUICategory"));
+            if (searchCategory > 0)
+            {
+                searchCategoryByItem[rowId] = searchCategory;
+            }
+            if (uiCategory > 0)
+            {
+                uiCategoryByItem[rowId] = uiCategory;
+            }
             if (!isUntradable)
             {
                 tradableFlagItems++;
@@ -1130,16 +1177,60 @@ static ItemCatalog BuildItemCatalog(object gameData, MethodInfo getExcelSheet, T
                 .ToArray(),
             note = "Marketable candidates are local static flags, not a replacement for Universalis' canonical marketable list.",
         };
-        return new ItemCatalog(names, marketableIds, analysis);
+        return new ItemCatalog(
+            names,
+            marketableIds,
+            searchCategoryByItem,
+            searchCategoryNames,
+            uiCategoryByItem,
+            uiCategoryNames,
+            analysis
+        );
     }
     catch (Exception exception)
     {
         return new ItemCatalog(
             new Dictionary<uint, string>(),
             new HashSet<uint>(),
+            new Dictionary<uint, uint>(),
+            new Dictionary<uint, string>(),
+            new Dictionary<uint, uint>(),
+            new Dictionary<uint, string>(),
             new { status = "FAIL", error = UnwrapException(exception).Message }
         );
     }
+}
+
+static Dictionary<uint, string> BuildCategoryNames(
+    object gameData,
+    MethodInfo getExcelSheet,
+    Type? rowType
+)
+{
+    var names = new Dictionary<uint, string>();
+    if (rowType is null)
+    {
+        return names;
+    }
+    var sheet = getExcelSheet.MakeGenericMethod(rowType).Invoke(gameData, new object?[] { null, null });
+    if (sheet is not System.Collections.IEnumerable rows)
+    {
+        return names;
+    }
+    foreach (var row in rows)
+    {
+        if (row is null)
+        {
+            continue;
+        }
+        var rowId = ReadRowId(row) ?? 0;
+        var name = ReadProperty(row, "Name")?.ToString();
+        if (rowId > 0 && !string.IsNullOrWhiteSpace(name))
+        {
+            names[rowId] = name;
+        }
+    }
+    return names;
 }
 
 static object ProbeSheet(
@@ -1343,6 +1434,10 @@ static string FriendlyTypeName(Type type)
 sealed record ItemCatalog(
     Dictionary<uint, string> Names,
     HashSet<uint> MarketableCandidates,
+    Dictionary<uint, uint> SearchCategoryByItem,
+    Dictionary<uint, string> SearchCategoryNames,
+    Dictionary<uint, uint> UiCategoryByItem,
+    Dictionary<uint, string> UiCategoryNames,
     object Analysis
 );
 
@@ -1351,7 +1446,15 @@ sealed record TomestoneCatalog(
     object Analysis
 );
 
-sealed record NormalizedAsset(uint ItemId, string? Name, bool MarketableCandidate);
+sealed record NormalizedAsset(
+    uint ItemId,
+    string? Name,
+    bool MarketableCandidate,
+    uint? SearchCategoryId,
+    string? SearchCategoryName,
+    uint? UiCategoryId,
+    string? UiCategoryName
+);
 sealed record NormalizedShop(uint ShopId, string? Name, byte UseCurrencyType);
 sealed record NormalizedOffer(uint ShopId, int OfferIndex, string SourceSubrowKey, string ParseStatus);
 sealed record NormalizedOfferCost(

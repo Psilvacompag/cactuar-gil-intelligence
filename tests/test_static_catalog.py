@@ -125,6 +125,41 @@ class StaticCatalogImportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unsupported snapshot schema 99"):
                 import_static_snapshot(snapshot_path, root / "catalog.sqlite3")
 
+    def test_imports_schema_two_item_categories(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 2
+            payload["assets"][1].update(
+                {
+                    "searchCategoryId": 58,
+                    "searchCategoryName": "Materia",
+                    "uiCategoryId": 60,
+                    "uiCategoryName": "Materia",
+                }
+            )
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+
+            connection = sqlite3.connect(database_path)
+            try:
+                category = connection.execute(
+                    """
+                    SELECT search_category_id, search_category_name,
+                           ui_category_id, ui_category_name
+                    FROM dim_asset
+                    WHERE snapshot_id = ? AND item_id = 100
+                    """,
+                    (summary.snapshot_id,),
+                ).fetchone()
+            finally:
+                connection.close()
+            self.assertEqual(summary.snapshot_id, "sqpack:2026.08.05.0000.0000:schema-2")
+            self.assertEqual(category, (58, "Materia", 60, "Materia"))
+
     def test_rejects_non_positive_component_quantity_before_writing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

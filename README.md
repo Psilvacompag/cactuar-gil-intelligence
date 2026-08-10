@@ -4,9 +4,13 @@ Dashboard público: https://psilvacompag.github.io/cactuar-gil-intelligence/
 
 Backend público de sólo lectura: https://cactuar-api-mpkrb3h6wa-uc.a.run.app/
 
-Sistema local-first para analizar el Market Board, valorar conversiones de monedas y, más adelante, generar recomendaciones y señales de expansiones/parches.
+Sistema para analizar el Market Board, valorar conversiones de monedas y construir
+señales de demanda para expansiones y parches.
 
-El repositorio se encuentra en una etapa de factibilidad. Ya incluye pruebas de contratos HTTP, un extractor que lee las tablas estáticas del parche instalado localmente y persistencia de agregados live de Universalis.
+La recolección productiva se ejecuta dos veces al día en Google Cloud. SQLite
+mantiene una ventana operativa de 14 snapshots y BigQuery conserva el histórico
+analítico antes de cada poda. El catálogo de ítems y sus categorías se extrae de
+los archivos locales del juego, sin requests adicionales a servicios públicos.
 
 ## Ejecutar pruebas locales
 
@@ -45,7 +49,11 @@ El destino por defecto es `data/gil_intelligence.sqlite3`. Se conservan por sepa
 python tools/refresh_market_and_values.py --scope Aether
 ```
 
-En producción, Google Cloud ejecuta el refresh dos veces al día. También se puede ejecutar manualmente para desarrollo. El conteo observado de requests y los límites operativos están en [docs/OPERATIONS.md](docs/OPERATIONS.md); el despliegue se describe en [docs/CLOUD_OPERATIONS.md](docs/CLOUD_OPERATIONS.md).
+En producción, Google Cloud ejecuta el refresh dos veces al día. También se puede
+ejecutar manualmente para desarrollo. El conteo observado de requests y los
+límites operativos están en [docs/OPERATIONS.md](docs/OPERATIONS.md); el despliegue
+se describe en [docs/CLOUD_OPERATIONS.md](docs/CLOUD_OPERATIONS.md) y el análisis
+por categorías en [docs/EXPANSION_INTELLIGENCE.md](docs/EXPANSION_INTELLIGENCE.md).
 
 Para el perfil configurado actualmente:
 

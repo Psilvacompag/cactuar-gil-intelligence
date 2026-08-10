@@ -32,7 +32,9 @@ def export_currency_dashboard(
         run = connection.execute(
             """
             SELECT run.*, market.collected_at AS market_collected_at,
-                   market.request_count, market.collection_elapsed_seconds,
+                   market.requested_item_count, market.result_item_count,
+                   market.failed_item_count, market.request_count,
+                   market.collection_elapsed_seconds,
                    source.game_version
             FROM currency_valuation_run AS run
             JOIN market_source_snapshot AS market
@@ -100,6 +102,9 @@ def export_currency_dashboard(
             "gameVersion": run["game_version"],
             "generatedAt": generated_at,
             "requestCount": run["request_count"],
+            "requestedItemCount": run["requested_item_count"],
+            "resultItemCount": run["result_item_count"],
+            "failedItemCount": run["failed_item_count"],
             "collectionElapsedSeconds": run["collection_elapsed_seconds"],
             "source": "Universalis + FFXIV sqpack local",
         },

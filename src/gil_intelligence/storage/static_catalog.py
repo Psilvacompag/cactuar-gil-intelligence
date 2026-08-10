@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSION = 1
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,8 +64,10 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
             connection.executemany(
                 """
                 INSERT INTO dim_asset (
-                    snapshot_id, item_id, name, marketable_candidate
-                ) VALUES (?, ?, ?, ?)
+                    snapshot_id, item_id, name, marketable_candidate,
+                    search_category_id, search_category_name,
+                    ui_category_id, ui_category_name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     (
@@ -73,6 +75,10 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
                         row["itemId"],
                         row.get("name"),
                         int(row["marketableCandidate"]),
+                        row.get("searchCategoryId"),
+                        row.get("searchCategoryName"),
+                        row.get("uiCategoryId"),
+                        row.get("uiCategoryName"),
                     )
                     for row in normalized["assets"]
                 ),
@@ -207,6 +213,10 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             item_id INTEGER NOT NULL CHECK (item_id > 0),
             name TEXT,
             marketable_candidate INTEGER NOT NULL CHECK (marketable_candidate IN (0, 1)),
+            search_category_id INTEGER,
+            search_category_name TEXT,
+            ui_category_id INTEGER,
+            ui_category_name TEXT,
             PRIMARY KEY (snapshot_id, item_id),
             FOREIGN KEY (snapshot_id) REFERENCES source_snapshot(snapshot_id) ON DELETE CASCADE
         );
@@ -296,6 +306,30 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     )
     _ensure_column(
         connection,
+        "dim_asset",
+        "search_category_id",
+        "INTEGER",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
+        "search_category_name",
+        "TEXT",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
+        "ui_category_id",
+        "INTEGER",
+    )
+    _ensure_column(
+        connection,
+        "dim_asset",
+        "ui_category_name",
+        "TEXT",
+    )
+    _ensure_column(
+        connection,
         "bridge_offer_reward",
         "is_hq",
         "INTEGER NOT NULL DEFAULT 0 CHECK (is_hq IN (0, 1))",
@@ -339,10 +373,10 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
     missing = sorted(required - payload.keys())
     if missing:
         raise ValueError(f"Snapshot is missing fields: {', '.join(missing)}")
-    if payload["schemaVersion"] != SUPPORTED_SCHEMA_VERSION:
+    if payload["schemaVersion"] not in SUPPORTED_SCHEMA_VERSIONS:
         raise ValueError(
             f"Unsupported snapshot schema {payload['schemaVersion']}; "
-            f"expected {SUPPORTED_SCHEMA_VERSION}"
+            f"expected one of {sorted(SUPPORTED_SCHEMA_VERSIONS)}"
         )
     for name in ("source", "gameVersion", "extractedAt"):
         if not isinstance(payload[name], str) or not payload[name]:
@@ -357,6 +391,17 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
             quantity = row.get("quantity")
             if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
                 raise ValueError(f"{name}[{index}].quantity must be a positive integer")
+    for index, row in enumerate(payload["assets"]):
+        for field in ("searchCategoryId", "uiCategoryId"):
+            value = row.get(field)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            ):
+                raise ValueError(f"assets[{index}].{field} must be a positive integer")
+        for field in ("searchCategoryName", "uiCategoryName"):
+            value = row.get(field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"assets[{index}].{field} must be a string")
     return payload
 
 

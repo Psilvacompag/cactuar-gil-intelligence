@@ -1,5 +1,7 @@
 const state = {
   data: null,
+  history: null,
+  historyPromise: null,
   filtered: [],
   search: "",
   currencyId: null,
@@ -185,8 +187,134 @@ function showDetail(item) {
         <div><small>Ventas / día</small><strong>${velocity(item.dailySaleVelocity)}</strong></div>
         <div><small>Último upload</small><strong>${formatDate(item.latestUploadAt)}</strong></div>
       </div>
+      <section class="history-panel">
+        <div class="history-heading">
+          <div>
+            <small>HISTORIAL</small>
+            <strong>Gil neto por moneda</strong>
+          </div>
+          <span id="history-range">Cargando…</span>
+        </div>
+        <div id="history-chart" class="history-chart" data-history-key="${conversionKey(item)}">
+          <p>Cargando historial…</p>
+        </div>
+      </section>
     </div>`;
   elements.dialog.showModal();
+  renderHistory(item);
+}
+
+async function loadHistory() {
+  if (state.history) return state.history;
+  if (state.historyPromise) return state.historyPromise;
+  const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
+  if (!apiBaseUrl) throw new Error("El historial requiere el backend cloud");
+  state.historyPromise = fetch(`${apiBaseUrl}/v1/history`, { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then((payload) => {
+      state.history = new Map(payload.series.map((series) => [series.key, series]));
+      return state.history;
+    })
+    .finally(() => { state.historyPromise = null; });
+  return state.historyPromise;
+}
+
+async function renderHistory(item) {
+  const key = conversionKey(item);
+  try {
+    const history = await loadHistory();
+    const container = document.querySelector("#history-chart");
+    if (!container || container.dataset.historyKey !== key) return;
+    const series = history.get(key);
+    const points = (series?.points || []).filter((point) => point.netGilPerCurrency !== null);
+    if (points.length < 2) {
+      container.innerHTML = "<p>Se necesitan al menos dos snapshots para mostrar la tendencia.</p>";
+      document.querySelector("#history-range").textContent = `${points.length} punto`;
+      return;
+    }
+    drawHistoryChart(container, points);
+    document.querySelector("#history-range").textContent = `${points.length} snapshots`;
+  } catch (error) {
+    const container = document.querySelector("#history-chart");
+    if (!container || container.dataset.historyKey !== key) return;
+    container.innerHTML = `<p>Historial no disponible. (${escapeHtml(error.message)})</p>`;
+    document.querySelector("#history-range").textContent = "Sin datos";
+  }
+}
+
+function drawHistoryChart(container, points) {
+  const width = 520;
+  const height = 180;
+  const padding = { top: 18, right: 18, bottom: 32, left: 56 };
+  const values = points.map((point) => point.netGilPerCurrency);
+  let minimum = Math.min(...values);
+  let maximum = Math.max(...values);
+  if (minimum === maximum) {
+    minimum = Math.max(0, minimum * 0.95);
+    maximum *= 1.05;
+  }
+  const x = (index) => padding.left + (index / (points.length - 1)) * (width - padding.left - padding.right);
+  const y = (value) => padding.top + ((maximum - value) / (maximum - minimum)) * (height - padding.top - padding.bottom);
+  const namespace = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(namespace, "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Historial de gil neto por moneda, ${points.length} snapshots`);
+
+  const gridTop = document.createElementNS(namespace, "line");
+  gridTop.setAttribute("x1", padding.left);
+  gridTop.setAttribute("x2", width - padding.right);
+  gridTop.setAttribute("y1", y(maximum));
+  gridTop.setAttribute("y2", y(maximum));
+  gridTop.setAttribute("class", "history-grid");
+  const gridBottom = gridTop.cloneNode();
+  gridBottom.setAttribute("y1", y(minimum));
+  gridBottom.setAttribute("y2", y(minimum));
+
+  const line = document.createElementNS(namespace, "polyline");
+  line.setAttribute("points", points.map((point, index) => `${x(index)},${y(point.netGilPerCurrency)}`).join(" "));
+  line.setAttribute("class", "history-line");
+  svg.append(gridTop, gridBottom, line);
+
+  points.forEach((point, index) => {
+    const dot = document.createElementNS(namespace, "circle");
+    dot.setAttribute("cx", x(index));
+    dot.setAttribute("cy", y(point.netGilPerCurrency));
+    dot.setAttribute("r", index === points.length - 1 ? "4" : "2.5");
+    dot.setAttribute("class", "history-dot");
+    const title = document.createElementNS(namespace, "title");
+    title.textContent = `${formatDate(point.marketCollectedAt)}: ${gil(point.netGilPerCurrency)}`;
+    dot.append(title);
+    svg.append(dot);
+  });
+
+  const labels = [
+    { x: 4, y: y(maximum) + 4, text: gil(maximum) },
+    { x: 4, y: y(minimum) + 4, text: gil(minimum) },
+    { x: padding.left, y: height - 8, text: shortDate(points[0].marketCollectedAt), anchor: "start" },
+    { x: width - padding.right, y: height - 8, text: shortDate(points.at(-1).marketCollectedAt), anchor: "end" },
+  ];
+  labels.forEach((label) => {
+    const text = document.createElementNS(namespace, "text");
+    text.setAttribute("x", label.x);
+    text.setAttribute("y", label.y);
+    text.setAttribute("text-anchor", label.anchor || "start");
+    text.setAttribute("class", "history-label");
+    text.textContent = label.text;
+    svg.append(text);
+  });
+  container.replaceChildren(svg);
+}
+
+function conversionKey(item) {
+  return [item.currencyItemId, item.currencyQuantity, item.rewardItemId, item.rewardQuantity, item.rewardIsHq ? 1 : 0].join(":");
+}
+
+function shortDate(value) {
+  return new Intl.DateTimeFormat("es-CL", { day: "2-digit", month: "short" }).format(new Date(value));
 }
 
 function sorter(mode) {

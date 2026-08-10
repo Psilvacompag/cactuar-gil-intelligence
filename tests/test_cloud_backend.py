@@ -7,6 +7,9 @@ from pathlib import Path
 from gil_intelligence.cloud.config import CloudSettings
 from gil_intelligence.cloud.dashboard import DashboardCache
 from gil_intelligence.cloud.gcs import StoredObject
+from gil_intelligence.cloud.quality import DataQualityError, evaluate_refresh_quality
+from gil_intelligence.cloud.api import _age_hours
+from gil_intelligence.storage import MarketImportSummary
 from gil_intelligence.storage.retention import prune_market_history
 
 
@@ -44,6 +47,10 @@ class CloudSettingsTests(unittest.TestCase):
             settings.allowed_origins,
             ("https://example.test", "http://localhost:8000"),
         )
+
+    def test_health_age_rejects_invalid_or_naive_dates(self) -> None:
+        self.assertIsNone(_age_hours("not-a-date"))
+        self.assertIsNone(_age_hours("2026-08-09T12:00:00"))
 
 
 class DashboardCacheTests(unittest.TestCase):
@@ -118,6 +125,95 @@ class MarketRetentionTests(unittest.TestCase):
             self.assertEqual(summary.removed_snapshots, 2)
             self.assertEqual(remaining, [("aether-1",), ("cactuar-2",), ("cactuar-3",)])
             self.assertEqual(child_count, 2)
+
+
+class RefreshQualityTests(unittest.TestCase):
+    def test_accepts_complete_refresh_and_warns_on_identical_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "quality.sqlite3"
+            dashboard = root / "dashboard.json"
+            connection = sqlite3.connect(database)
+            connection.execute(
+                """
+                CREATE TABLE market_source_snapshot (
+                    market_snapshot_id TEXT PRIMARY KEY,
+                    scope TEXT NOT NULL,
+                    collected_at TEXT NOT NULL,
+                    payload_sha256 TEXT NOT NULL
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO market_source_snapshot VALUES (?, 'Cactuar', ?, 'same')",
+                (
+                    ("first", "2026-08-09T00:00:00+00:00"),
+                    ("second", "2026-08-09T12:00:00+00:00"),
+                ),
+            )
+            connection.commit()
+            connection.close()
+            dashboard.write_text(
+                json.dumps({"summary": {"directConversions": 800, "fresh": 700}}),
+                encoding="utf-8",
+            )
+            market = MarketImportSummary(
+                database_path=database,
+                snapshot_id="second",
+                scope="Cactuar",
+                collected_at="2026-08-09T12:00:00+00:00",
+                requested_items=1000,
+                result_items=995,
+                failed_items=5,
+                aggregate_rows=1,
+                freshness_rows=1,
+            )
+
+            report = evaluate_refresh_quality(database, dashboard, market)
+
+            self.assertAlmostEqual(report.coverage_ratio, 0.995)
+            self.assertTrue(report.stagnant_payload)
+            self.assertEqual(len(report.warnings), 1)
+
+    def test_rejects_incomplete_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "quality.sqlite3"
+            dashboard = root / "dashboard.json"
+            connection = sqlite3.connect(database)
+            connection.execute(
+                """
+                CREATE TABLE market_source_snapshot (
+                    market_snapshot_id TEXT PRIMARY KEY,
+                    scope TEXT NOT NULL,
+                    collected_at TEXT NOT NULL,
+                    payload_sha256 TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO market_source_snapshot VALUES ('bad', 'Cactuar', '2026-08-09T12:00:00+00:00', 'bad')"
+            )
+            connection.commit()
+            connection.close()
+            dashboard.write_text(
+                json.dumps({"summary": {"directConversions": 20, "fresh": 5}}),
+                encoding="utf-8",
+            )
+            market = MarketImportSummary(
+                database_path=database,
+                snapshot_id="bad",
+                scope="Cactuar",
+                collected_at="2026-08-09T12:00:00+00:00",
+                requested_items=1000,
+                result_items=700,
+                failed_items=300,
+                aggregate_rows=1,
+                freshness_rows=1,
+            )
+
+            with self.assertRaisesRegex(DataQualityError, "coverage"):
+                evaluate_refresh_quality(database, dashboard, market)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+from dataclasses import asdict
+from pathlib import Path
+
+from gil_intelligence.publishing import export_currency_dashboard, export_currency_history
+from gil_intelligence.storage import import_static_snapshot
+
+from .bigquery_archive import BigQueryArchive
+from .config import CloudSettings
+from .gcs import GcsObjectStore
+
+
+def main() -> int:
+    settings = CloudSettings.from_environ()
+    work_dir = Path(os.environ.get("CACTUAR_WORK_DIR", "/tmp/cactuar-archive"))
+    work_dir.mkdir(parents=True, exist_ok=True)
+    database_path = work_dir / "gil_intelligence.sqlite3"
+    static_path = work_dir / "static_snapshot.json"
+    dashboard_path = work_dir / "dashboard.json"
+    history_path = work_dir / "history.json"
+    for path in (database_path, static_path, dashboard_path, history_path):
+        path.unlink(missing_ok=True)
+    store = GcsObjectStore(settings.bucket)
+    if not store.download_if_exists(settings.database_object, database_path):
+        raise FileNotFoundError(settings.database_object)
+    if store.download_if_exists(settings.static_snapshot_object, static_path):
+        snapshot_id = _static_snapshot_id(static_path)
+        if not _has_static_snapshot(database_path, snapshot_id):
+            import_static_snapshot(static_path, database_path)
+    archive = BigQueryArchive(
+        project_id=settings.project_id,
+        dataset_id=settings.bigquery_dataset,
+        location=settings.bigquery_location,
+    )
+    archive_summary = archive.archive_all(database_path, scope=settings.scope, work_dir=work_dir)
+    dashboard_summary = export_currency_dashboard(database_path, dashboard_path, scope=settings.scope)
+    history_summary = export_currency_history(database_path, history_path, scope=settings.scope)
+    store.upload_file(
+        database_path,
+        settings.database_object,
+        content_type="application/vnd.sqlite3",
+        cache_control="no-store",
+    )
+    store.upload_file(
+        dashboard_path,
+        settings.dashboard_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    store.upload_file(
+        history_path,
+        settings.history_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    print(
+        json.dumps(
+            {
+                "archive": asdict(archive_summary),
+                "dashboardConversions": dashboard_summary.conversions,
+                "historySeries": history_summary.series,
+                "historyPoints": history_summary.points,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _static_snapshot_id(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return f"{payload['source']}:{payload['gameVersion']}:schema-{payload['schemaVersion']}"
+
+
+def _has_static_snapshot(database_path: Path, snapshot_id: str) -> bool:
+    connection = sqlite3.connect(database_path)
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM source_snapshot WHERE snapshot_id = ?",
+            (snapshot_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+    return row is not None
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

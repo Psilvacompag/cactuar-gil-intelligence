@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gil_intelligence.storage import import_static_snapshot, import_universalis_aggregates
-from gil_intelligence.publishing import export_currency_dashboard
+from gil_intelligence.publishing import export_currency_dashboard, export_currency_history
 from gil_intelligence.valuation import build_currency_valuations, get_top_currency_conversions
 
 from test_static_catalog import example_snapshot
@@ -95,6 +95,18 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertEqual(exported["meta"]["scope"], "Cactuar")
             self.assertEqual(exported["meta"]["scopeLevel"], "WORLD")
             self.assertEqual(exported["conversions"][0]["rewardName"], "Fire Shard")
+
+            history_path = root / "web" / "data" / "history.json"
+            history = export_currency_history(database_path, history_path, scope="Cactuar")
+            exported_history = json.loads(history_path.read_text(encoding="utf-8"))
+            self.assertEqual(history.series, 1)
+            self.assertEqual(history.points, 1)
+            self.assertEqual(exported_history["kind"], "currency-history")
+            self.assertEqual(exported_history["series"][0]["key"], "28:20:2:2:0")
+            self.assertAlmostEqual(
+                exported_history["series"][0]["points"][0]["netGilPerCurrency"],
+                7.6,
+            )
 
     def test_rejects_invalid_fee(self) -> None:
         with self.assertRaisesRegex(ValueError, "fee_rate"):
