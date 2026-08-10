@@ -6,7 +6,7 @@
 - Región de cómputo y objetos: `us-central1`.
 - Dataset analítico: BigQuery `US`, dataset `cactuar_gil`.
 - Cloud Run service `cactuar-api`: entrega el dashboard público, sin acceso al SQLite.
-- Cloud Run job `cactuar-refresh`: consulta Universalis, recalcula conversiones y publica el resultado.
+- Cloud Run job `cactuar-refresh`: consulta Universalis, verifica stock de la shortlist, recalcula conversiones y publica el resultado.
 - Cloud Storage privado: catálogo estático, SQLite operativo, dashboard generado y estado de ejecuciones.
 - GitHub Pages: frontend estático, con fallback al último JSON incluido en el repositorio.
 
@@ -18,7 +18,7 @@ El catálogo estático se extrae desde `sqpack` sólo cuando cambia el parche. C
 
 ## Política de requests
 
-El job utiliza una conexión, un máximo de 1 request por segundo, timeout de 10 segundos y hasta dos reintentos acotados. Una carga completa requiere aproximadamente 170 requests. La programación normal es dos veces al día, en minutos no redondos, con zona horaria `America/Santiago`.
+El job utiliza una conexión, un máximo de 1 request por segundo, timeout de 10 segundos y hasta dos reintentos acotados. Una carga completa requiere aproximadamente 170 requests agregados y 7 lotes detallados para la shortlist. La programación normal es dos veces al día, en minutos no redondos, con zona horaria `America/Santiago`.
 
 El SQLite operativo conserva las últimas 14 corridas de Cactuar. Antes de podar,
 cada snapshot se archiva idempotentemente en BigQuery. El job rechaza una corrida
@@ -32,12 +32,16 @@ catalog/static_snapshot.json
 state/gil_intelligence.sqlite3
 public/dashboard.json
 public/history.json
+public/market-items.json
+public/market-history.json
+public/opportunities.json
 status/latest.json
 runs/YYYY-MM-DD/{market_snapshot_id}.json
 ```
 
 Todos los objetos permanecen privados. La API pública expone `GET /v1/dashboard`,
-`GET /v1/history` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages
+`GET /v1/history`, `GET /v1/market-items`, `GET /v1/market-history`,
+`GET /v1/opportunities` y `GET /v1/health`, con CORS limitado al origen de GitHub Pages
 y a los orígenes locales de desarrollo. Health responde 503 cuando los datos de
 mercado superan la edad máxima configurada.
 
@@ -54,7 +58,7 @@ Antes de cambiar el Scheduler se debe ejecutar el job manualmente y comprobar:
 1. ejecución exitosa;
 2. `requestCount` y `elapsedSeconds` plausibles;
 3. actualización de `public/dashboard.json`;
-4. respuesta 200 de `/v1/health` y `/v1/dashboard`;
+4. respuesta 200 de `/v1/health`, `/v1/dashboard`, `/v1/market-history` y `/v1/opportunities`;
 5. carga primaria desde el backend en GitHub Pages.
 
 ## Costos y límites

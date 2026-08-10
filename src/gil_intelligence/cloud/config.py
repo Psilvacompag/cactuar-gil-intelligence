@@ -22,6 +22,7 @@ class CloudSettings:
     dashboard_object: str = "public/dashboard.json"
     history_object: str = "public/history.json"
     market_items_object: str = "public/market-items.json"
+    market_history_object: str = "public/market-history.json"
     opportunities_object: str = "public/opportunities.json"
     status_object: str = "status/latest.json"
     bigquery_dataset: str = "cactuar_gil"
@@ -72,6 +73,9 @@ class CloudSettings:
             market_items_object=source.get(
                 "CACTUAR_MARKET_ITEMS_OBJECT", "public/market-items.json"
             ).strip(),
+            market_history_object=source.get(
+                "CACTUAR_MARKET_HISTORY_OBJECT", "public/market-history.json"
+            ).strip(),
             opportunities_object=source.get(
                 "CACTUAR_OPPORTUNITIES_OBJECT", "public/opportunities.json"
             ).strip(),
@@ -102,6 +106,7 @@ class CloudSettings:
             "dashboard_object",
             "history_object",
             "market_items_object",
+            "market_history_object",
             "opportunities_object",
             "status_object",
             "bigquery_dataset",

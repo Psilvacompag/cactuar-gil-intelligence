@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3}
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4}
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +22,8 @@ class ImportSummary:
     costs: int
     rewards: int
     requirements: int
+    recipes: int
+    recipe_ingredients: int
 
 
 def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str) -> ImportSummary:
@@ -86,6 +88,46 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
                         row.get("gatheringType"),
                     )
                     for row in normalized["assets"]
+                ),
+            )
+            connection.executemany(
+                """
+                INSERT INTO dim_recipe (
+                    snapshot_id, recipe_id, result_item_id, result_quantity,
+                    craft_type_name, recipe_level_table_id, patch_number,
+                    can_hq, is_expert
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    (
+                        snapshot_id,
+                        row["recipeId"],
+                        row["resultItemId"],
+                        row["resultQuantity"],
+                        row["craftTypeName"],
+                        row.get("recipeLevelTableId"),
+                        row.get("patchNumber"),
+                        int(row.get("canHq", False)),
+                        int(row.get("isExpert", False)),
+                    )
+                    for row in normalized["recipes"]
+                ),
+            )
+            connection.executemany(
+                """
+                INSERT INTO bridge_recipe_ingredient (
+                    snapshot_id, recipe_id, ingredient_index, item_id, quantity
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    (
+                        snapshot_id,
+                        row["recipeId"],
+                        row["ingredientIndex"],
+                        row["itemId"],
+                        row["quantity"],
+                    )
+                    for row in normalized["recipeIngredients"]
                 ),
             )
             connection.executemany(
@@ -198,6 +240,8 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
         costs=len(normalized["costs"]),
         rewards=len(normalized["rewards"]),
         requirements=len(normalized["requirements"]),
+        recipes=len(normalized["recipes"]),
+        recipe_ingredients=len(normalized["recipeIngredients"]),
     )
 
 
@@ -238,6 +282,35 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             use_currency_type INTEGER NOT NULL,
             PRIMARY KEY (snapshot_id, shop_id),
             FOREIGN KEY (snapshot_id) REFERENCES source_snapshot(snapshot_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS dim_recipe (
+            snapshot_id TEXT NOT NULL,
+            recipe_id INTEGER NOT NULL CHECK (recipe_id > 0),
+            result_item_id INTEGER NOT NULL CHECK (result_item_id > 0),
+            result_quantity INTEGER NOT NULL CHECK (result_quantity > 0),
+            craft_type_name TEXT NOT NULL,
+            recipe_level_table_id INTEGER,
+            patch_number INTEGER,
+            can_hq INTEGER NOT NULL DEFAULT 0 CHECK (can_hq IN (0, 1)),
+            is_expert INTEGER NOT NULL DEFAULT 0 CHECK (is_expert IN (0, 1)),
+            PRIMARY KEY (snapshot_id, recipe_id),
+            FOREIGN KEY (snapshot_id) REFERENCES source_snapshot(snapshot_id) ON DELETE CASCADE,
+            FOREIGN KEY (snapshot_id, result_item_id)
+                REFERENCES dim_asset(snapshot_id, item_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS bridge_recipe_ingredient (
+            snapshot_id TEXT NOT NULL,
+            recipe_id INTEGER NOT NULL,
+            ingredient_index INTEGER NOT NULL CHECK (ingredient_index >= 0),
+            item_id INTEGER NOT NULL CHECK (item_id > 0),
+            quantity INTEGER NOT NULL CHECK (quantity > 0),
+            PRIMARY KEY (snapshot_id, recipe_id, ingredient_index),
+            FOREIGN KEY (snapshot_id, recipe_id)
+                REFERENCES dim_recipe(snapshot_id, recipe_id) ON DELETE CASCADE,
+            FOREIGN KEY (snapshot_id, item_id)
+                REFERENCES dim_asset(snapshot_id, item_id)
         );
 
         CREATE TABLE IF NOT EXISTS dim_shop_offer (
@@ -311,6 +384,10 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             ON bridge_offer_cost(snapshot_id, item_id);
         CREATE INDEX IF NOT EXISTS idx_offer_reward_item
             ON bridge_offer_reward(snapshot_id, item_id);
+        CREATE INDEX IF NOT EXISTS idx_recipe_result_item
+            ON dim_recipe(snapshot_id, result_item_id);
+        CREATE INDEX IF NOT EXISTS idx_recipe_ingredient_item
+            ON bridge_recipe_ingredient(snapshot_id, item_id);
         """
     )
     _ensure_column(
@@ -403,6 +480,8 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         "requirements",
         "coverage",
     }
+    if payload.get("schemaVersion") == 4:
+        required.update(("recipes", "recipeIngredients"))
     missing = sorted(required - payload.keys())
     if missing:
         raise ValueError(f"Snapshot is missing fields: {', '.join(missing)}")
@@ -414,7 +493,18 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
     for name in ("source", "gameVersion", "extractedAt"):
         if not isinstance(payload[name], str) or not payload[name]:
             raise ValueError(f"{name} must be a non-empty string")
-    for name in ("assets", "shops", "offers", "costs", "rewards", "requirements"):
+    payload.setdefault("recipes", [])
+    payload.setdefault("recipeIngredients", [])
+    for name in (
+        "assets",
+        "shops",
+        "offers",
+        "costs",
+        "rewards",
+        "requirements",
+        "recipes",
+        "recipeIngredients",
+    ):
         if not isinstance(payload[name], list) or not all(isinstance(row, dict) for row in payload[name]):
             raise ValueError(f"{name} must be a list of objects")
     if not isinstance(payload["coverage"], dict):
@@ -443,6 +533,41 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         if gathering_type is not None and gathering_type not in {"MINER_BOTANIST", "FISHING"}:
             raise ValueError(
                 f"assets[{index}].gatheringType must be MINER_BOTANIST or FISHING"
+            )
+    recipe_ids: set[int] = set()
+    for index, row in enumerate(payload["recipes"]):
+        for field in ("recipeId", "resultItemId", "resultQuantity"):
+            value = row.get(field)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"recipes[{index}].{field} must be a positive integer")
+        if row["recipeId"] in recipe_ids:
+            raise ValueError(f"recipes contains duplicate recipeId {row['recipeId']}")
+        recipe_ids.add(row["recipeId"])
+        if not isinstance(row.get("craftTypeName"), str) or not row["craftTypeName"]:
+            raise ValueError(f"recipes[{index}].craftTypeName must be a non-empty string")
+        for field in ("canHq", "isExpert"):
+            value = row.get(field)
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f"recipes[{index}].{field} must be a boolean")
+    for index, row in enumerate(payload["recipeIngredients"]):
+        for field in ("recipeId", "itemId", "quantity"):
+            value = row.get(field)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(
+                    f"recipeIngredients[{index}].{field} must be a positive integer"
+                )
+        ingredient_index = row.get("ingredientIndex")
+        if (
+            isinstance(ingredient_index, bool)
+            or not isinstance(ingredient_index, int)
+            or ingredient_index < 0
+        ):
+            raise ValueError(
+                f"recipeIngredients[{index}].ingredientIndex must be a non-negative integer"
+            )
+        if row["recipeId"] not in recipe_ids:
+            raise ValueError(
+                f"recipeIngredients[{index}].recipeId does not reference a recipe"
             )
     return payload
 

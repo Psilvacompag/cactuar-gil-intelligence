@@ -6,12 +6,17 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from gil_intelligence.storage import import_static_snapshot, import_universalis_aggregates
+from gil_intelligence.collectors import DetailedListingCollection
 from gil_intelligence.publishing import (
     export_currency_dashboard,
     export_currency_history,
     export_market_items,
     export_opportunities,
+)
+from gil_intelligence.storage import (
+    import_detailed_listings,
+    import_static_snapshot,
+    import_universalis_aggregates,
 )
 from gil_intelligence.valuation import build_currency_valuations, get_top_currency_conversions
 
@@ -158,7 +163,7 @@ class CurrencyValuationTests(unittest.TestCase):
             import_static_snapshot(snapshot_path, database_path)
             now = datetime.now(timezone.utc)
             upload_millis = int(now.timestamp() * 1000)
-            import_universalis_aggregates(
+            market_import = import_universalis_aggregates(
                 {
                     "results": [
                         {
@@ -197,6 +202,34 @@ class CurrencyValuationTests(unittest.TestCase):
                 requested_items=1,
             )
 
+            import_detailed_listings(
+                DetailedListingCollection(
+                    requested_pairs=((57, 100),),
+                    batch_count=1,
+                    items=(
+                        {
+                            "itemId": 100,
+                            "worldId": 57,
+                            "lastUploadTime": upload_millis,
+                            "listings": [
+                                {
+                                    "rank": 0,
+                                    "listingId": "listing-1",
+                                    "pricePerUnit": 3000,
+                                    "quantity": 10,
+                                    "hq": False,
+                                    "lastReviewTime": int(now.timestamp()),
+                                }
+                            ],
+                        },
+                    ),
+                ),
+                database_path,
+                market_snapshot_id=market_import.snapshot_id,
+                collected_at=now.isoformat(),
+                request_count=1,
+            )
+
             output_path = root / "opportunities.json"
             summary = export_opportunities(database_path, output_path, scope="Cactuar")
             exported = json.loads(output_path.read_text(encoding="utf-8"))
@@ -207,6 +240,8 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertEqual(opportunity["recommendedQuantity"], 5)
             self.assertAlmostEqual(opportunity["unitProfit"], 3840)
             self.assertEqual(opportunity["confidenceBand"], "HIGH")
+            self.assertTrue(opportunity["stockVerified"])
+            self.assertEqual(opportunity["availableUnits"], 10)
 
     def test_rejects_invalid_fee(self) -> None:
         with self.assertRaisesRegex(ValueError, "fee_rate"):

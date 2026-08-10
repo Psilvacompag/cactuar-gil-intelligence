@@ -60,7 +60,7 @@
 
       <aside class="caution-note" aria-label="Advertencia importante">
         <strong>Es una señal, no una garantía.</strong>
-        <span>Confirma en el Market Board que el listing y la cantidad sigan disponibles antes de viajar.</span>
+        <span>Las señales verificadas usan listings y cantidades reales del último chequeo; confirma igualmente antes de comprar.</span>
       </aside>
 
       <section class="metrics" aria-label="Resumen de oportunidades">
@@ -75,15 +75,29 @@
           <small>mejor combinación de margen y demanda</small>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Confianza media</span>
-          <strong id="metric-medium">—</strong>
-          <small>requieren mayor revisión</small>
+          <span class="metric-label">Stock verificado</span>
+          <strong id="metric-verified">—</strong>
+          <small>precio y unidades comprobados</small>
         </article>
         <article class="metric-card">
           <span class="metric-label">Estrés aplicado</span>
           <strong id="metric-stress">—</strong>
           <small id="metric-fee">antes del fee de mercado</small>
         </article>
+      </section>
+
+      <section class="capital-planner" aria-labelledby="capital-title">
+        <div>
+          <p class="eyebrow">PLAN DE COMPRA</p>
+          <h2 id="capital-title">Distribuye tu capital.</h2>
+          <p>Arma una cesta con señales verificadas, respetando stock y cantidad sugerida. El cálculo prioriza ganancia estimada sin concentrar todo en un solo item.</p>
+        </div>
+        <form id="capital-form" class="capital-form">
+          <label><span>Capital disponible</span><input id="capital-input" type="number" min="10000" step="10000" value="1000000" /></label>
+          <label><span>Máximo por item</span><select id="capital-share"><option value="0.20">20%</option><option value="0.30" selected>30%</option><option value="0.50">50%</option></select></label>
+          <button type="submit">Calcular cesta</button>
+        </form>
+        <div id="capital-result" class="capital-result" aria-live="polite"></div>
       </section>
 
       <section class="explorer" aria-labelledby="explorer-title">
@@ -126,7 +140,14 @@
               <option value="roi">Mayor retorno</option>
             </select>
           </label>
+          <label class="toggle-control">
+            <input id="watchlist-toggle" type="checkbox" />
+            <span class="toggle-ui" aria-hidden="true"></span>
+            Mi lista
+          </label>
         </div>
+
+        <div id="watch-summary" class="watch-summary" aria-live="polite"></div>
 
         <div class="table-shell">
           <table class="opportunities-table">
@@ -139,6 +160,7 @@
                 <th class="numeric">Ganancia / u.</th>
                 <th class="numeric">ROI</th>
                 <th class="numeric">Ventas / día</th>
+                <th>Stock</th>
                 <th>Confianza</th>
               </tr>
             </thead>
@@ -173,8 +195,8 @@
         </div>
         <div class="method-grid">
           <p><span>01</span> La venta usa el menor precio observado y luego lo reduce un 20%.</p>
-          <p><span>02</span> Se descuenta el fee, se exige al menos 5 ventas/día y un beneficio mínimo por unidad.</p>
-          <p><span>03</span> La confianza combina margen, liquidez, frescura y persistencia en los últimos snapshots.</p>
+          <p><span>02</span> Se descuenta el fee, se exige al menos 5 ventas/día, 20% de ROI y 1.000 gil por unidad.</p>
+          <p><span>03</span> Confianza alta exige stock verificado; la estrella guarda una lista y muestra alertas locales.</p>
         </div>
       </section>
     </main>

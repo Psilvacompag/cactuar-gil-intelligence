@@ -28,6 +28,7 @@ class OpportunitiesExportSummary:
     opportunities: int
     high_confidence: int
     medium_confidence: int
+    stock_verified: int
 
 
 def export_opportunities(
@@ -73,6 +74,7 @@ def export_opportunities(
             home_world_id=home_world_id,
         )
         history = _opportunity_history(connection, scope, fee_rate, price_stress, home_world_id)
+        detailed = _detailed_listings(connection, market["market_snapshot_id"])
     finally:
         connection.close()
 
@@ -108,6 +110,30 @@ def export_opportunities(
             continue
         conservative_sell_price = safe_price * (1 - price_stress)
         net_sell_price = conservative_sell_price * (1 - fee_rate)
+        detail = detailed.get((row["item_id"], source_world_id, row["quality"]))
+        stock_verified = detail is not None
+        purchase_tiers: list[dict[str, int]] = []
+        available_units: int | None = None
+        detail_age_hours: float | None = None
+        if detail is not None:
+            detail_upload = _utc_datetime(detail["lastUploadAt"])
+            if detail_upload is not None:
+                detail_age_hours = max(
+                    0.0,
+                    (generated_at - detail_upload).total_seconds() / 3600,
+                )
+                age_hours = max(target_age_hours, detail_age_hours)
+            maximum_buy_price = min(net_sell_price - 1000, net_sell_price / 1.20)
+            eligible = [
+                listing
+                for listing in detail["listings"]
+                if listing["pricePerUnit"] <= maximum_buy_price
+            ]
+            if not eligible:
+                continue
+            source_price = eligible[0]["pricePerUnit"]
+            purchase_tiers = eligible
+            available_units = sum(listing["quantity"] for listing in eligible)
         unit_profit = net_sell_price - source_price
         roi = unit_profit / source_price
         if unit_profit < 1000 or not 0.20 <= roi <= 2.0:
@@ -122,6 +148,22 @@ def export_opportunities(
             "HIGH" if confidence_score >= 75 else "MEDIUM" if confidence_score >= 55 else "WATCH"
         )
         recommended_quantity = max(1, min(20, math.floor(float(velocity) * 0.25)))
+        purchase_cost = source_price * recommended_quantity
+        average_purchase_price = source_price
+        if stock_verified:
+            recommended_quantity = min(recommended_quantity, available_units or 0)
+            if recommended_quantity <= 0:
+                continue
+            purchase_cost, used_tiers = _tiered_purchase_cost(
+                purchase_tiers,
+                recommended_quantity,
+            )
+            average_purchase_price = purchase_cost / recommended_quantity
+            unit_profit = net_sell_price - average_purchase_price
+            roi = unit_profit / average_purchase_price
+            purchase_tiers = used_tiers
+        elif confidence_band == "HIGH":
+            confidence_band = "MEDIUM"
         opportunities.append(
             {
                 "itemId": row["item_id"],
@@ -131,6 +173,7 @@ def export_opportunities(
                 "sourceWorldId": source_world_id,
                 "sourceWorldName": AETHER_WORLD_NAMES.get(source_world_id, f"World {source_world_id}"),
                 "sourcePrice": source_price,
+                "averagePurchasePrice": average_purchase_price,
                 "cactuarMinPrice": row["target_min_price"],
                 "cactuarMedianPrice": row["target_median_price"],
                 "cactuarAverageSalePrice": row["target_average_sale_price"],
@@ -139,7 +182,15 @@ def export_opportunities(
                 "roi": roi,
                 "dailySaleVelocity": velocity,
                 "recommendedQuantity": recommended_quantity,
-                "estimatedTripProfit": unit_profit * recommended_quantity,
+                "estimatedPurchaseCost": purchase_cost,
+                "estimatedTripProfit": net_sell_price * recommended_quantity - purchase_cost,
+                "stockVerified": stock_verified,
+                "stockStatus": "VERIFIED" if stock_verified else "UNVERIFIED",
+                "availableUnits": available_units,
+                "verifiedListingCount": len(purchase_tiers) if stock_verified else None,
+                "purchaseTiers": purchase_tiers if stock_verified else [],
+                "stockCheckedAt": detail["collectedAt"] if detail is not None else None,
+                "stockDataAgeHours": detail_age_hours,
                 "sourceUploadAt": row["source_upload_at"],
                 "targetUploadAt": row["target_upload_at"],
                 "dataAgeHours": age_hours,
@@ -161,6 +212,7 @@ def export_opportunities(
     )
     high = sum(item["confidenceBand"] == "HIGH" for item in opportunities)
     medium = sum(item["confidenceBand"] == "MEDIUM" for item in opportunities)
+    verified = sum(item["stockVerified"] for item in opportunities)
     payload = {
         "schemaVersion": 1,
         "kind": "market-opportunities",
@@ -181,6 +233,7 @@ def export_opportunities(
             "highConfidence": high,
             "mediumConfidence": medium,
             "watch": len(opportunities) - high - medium,
+            "stockVerified": verified,
         },
         "opportunities": opportunities,
     }
@@ -196,7 +249,85 @@ def export_opportunities(
         opportunities=len(opportunities),
         high_confidence=high,
         medium_confidence=medium,
+        stock_verified=verified,
     )
+
+
+def _detailed_listings(
+    connection: sqlite3.Connection,
+    market_snapshot_id: str,
+) -> dict[tuple[int, int, str], dict[str, Any]]:
+    tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }
+    if not {
+        "detail_source_snapshot",
+        "detail_item_snapshot",
+        "fact_market_listing_snapshot",
+    }.issubset(tables):
+        return {}
+    rows = connection.execute(
+        """
+        SELECT source.collected_at, item.item_id, item.world_id,
+               item.last_upload_at, listing.quality, listing.price_per_unit,
+               listing.quantity, listing.listing_rank
+        FROM detail_source_snapshot AS source
+        JOIN detail_item_snapshot AS item USING (detail_snapshot_id)
+        LEFT JOIN fact_market_listing_snapshot AS listing
+          ON listing.detail_snapshot_id = item.detail_snapshot_id
+         AND listing.item_id = item.item_id
+         AND listing.world_id = item.world_id
+        WHERE source.market_snapshot_id = ?
+        ORDER BY item.item_id, item.world_id, listing.quality,
+                 listing.price_per_unit, listing.listing_rank
+        """,
+        (market_snapshot_id,),
+    ).fetchall()
+    result: dict[tuple[int, int, str], dict[str, Any]] = {}
+    for row in rows:
+        for quality in ("NQ", "HQ"):
+            result.setdefault(
+                (row["item_id"], row["world_id"], quality),
+                {
+                    "collectedAt": row["collected_at"],
+                    "lastUploadAt": row["last_upload_at"],
+                    "listings": [],
+                },
+            )
+        if row["quality"] is None:
+            continue
+        document = result[(row["item_id"], row["world_id"], row["quality"])]
+        document["listings"].append(
+            {
+                "pricePerUnit": row["price_per_unit"],
+                "quantity": row["quantity"],
+            }
+        )
+    return result
+
+
+def _tiered_purchase_cost(
+    tiers: list[dict[str, int]],
+    quantity: int,
+) -> tuple[float, list[dict[str, int]]]:
+    remaining = quantity
+    total = 0.0
+    used: list[dict[str, int]] = []
+    for tier in tiers:
+        take = min(remaining, tier["quantity"])
+        if take <= 0:
+            continue
+        total += take * tier["pricePerUnit"]
+        used.append({"pricePerUnit": tier["pricePerUnit"], "quantity": take})
+        remaining -= take
+        if remaining == 0:
+            break
+    if remaining:
+        raise ValueError("Detailed listing tiers did not cover the requested quantity")
+    return total, used
 
 
 def _pivoted_market_rows(

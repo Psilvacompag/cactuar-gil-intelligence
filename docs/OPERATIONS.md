@@ -22,11 +22,16 @@ El backend de producción se ejecuta en Google Cloud dos veces al día:
 | Job | Frecuencia normal | Requests aproximados |
 |---|---:|---:|
 | Snapshot agregado completo | Cada 12 horas | ~170 por ejecución / ~340 al día |
+| Stock detallado de la shortlist | En la misma ejecución | ~1 lote por world de origen, normalmente 7 |
 | Catálogo estático local | Sólo al cambiar versión del juego | 0 requests públicos |
 | Valorar conversiones | Después de cada snapshot | 0 requests adicionales |
-| Candidatos prioritarios | Pendiente, 30–60 minutos | Se añadirá cuando exista ranking estable |
 
-Los ~340 requests diarios equivalen a un promedio inferior a 0,004 requests/s. Cloud Scheduler ejecuta a las 03:17 y 15:17 en `America/Santiago`. El Cloud Run Job usa una tarea, paralelismo 1 y cero reintentos del job completo.
+El total esperado queda cerca de 177 requests por corrida, o 354 diarios. Los
+detalles se consultan sólo para los candidatos que ya superaron margen, liquidez
+y frescura; se piden hasta 20 listings, sin historial de ventas duplicado. Aun
+incluyendo esos lotes, el promedio diario es inferior a 0,005 requests/s. Cloud
+Scheduler ejecuta a las 03:17 y 15:17 en `America/Santiago`. El Cloud Run Job usa
+una tarea, paralelismo 1 y cero reintentos del job completo.
 
 La primera ejecución cloud del 9 de agosto de 2026 obtuvo 170 respuestas exitosas en 171 intentos —una solicitud necesitó retry— y 423 segundos de recolección. La ejecución completa, incluido el aprovisionamiento, terminó en 9 minutos y 5 segundos.
 

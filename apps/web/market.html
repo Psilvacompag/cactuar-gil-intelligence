@@ -75,9 +75,9 @@
           <small id="fresh-window">según uploads de Cactuar</small>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Ranking</span>
-          <strong>Ventas</strong>
-          <small>velocidad e ingreso diario estimado</small>
+          <span class="metric-label">Crafteos rentables</span>
+          <strong id="metric-profitable">—</strong>
+          <small>con costo completo y confianza media o alta</small>
         </article>
       </section>
 
@@ -113,6 +113,8 @@
             <select id="sort-select">
               <option value="velocity">Más vendidos</option>
               <option value="revenue">Mayor gil / día</option>
+              <option value="profit">Mayor ganancia de craft</option>
+              <option value="momentum">Demanda en alza</option>
               <option value="price">Mayor precio medio</option>
               <option value="name">Nombre</option>
             </select>
@@ -126,7 +128,14 @@
             <span class="toggle-ui" aria-hidden="true"></span>
             Sólo frescos
           </label>
+          <label class="toggle-control">
+            <input id="watchlist-toggle" type="checkbox" />
+            <span class="toggle-ui" aria-hidden="true"></span>
+            Mi lista
+          </label>
         </div>
+
+        <div id="watch-summary" class="watch-summary" aria-live="polite"></div>
 
         <div class="table-shell">
           <table class="production-table">
@@ -137,7 +146,7 @@
                 <th>Categoría</th>
                 <th class="numeric">Precio medio</th>
                 <th class="numeric">Ventas / día</th>
-                <th class="numeric">Gil / día</th>
+                <th id="value-column-label" class="numeric">Gil / día</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -172,8 +181,8 @@
         </div>
         <div class="method-grid">
           <p><span>01</span> “Más vendidos” usa la velocidad de ventas observada en Cactuar.</p>
-          <p><span>02</span> Gil / día multiplica el precio medio por esa velocidad; es una referencia, no una promesa.</p>
-          <p><span>03</span> Un item puede aparecer en ambas vistas si se obtiene tanto por gathering como por crafting.</p>
+          <p><span>02</span> En Crafting se descuentan materiales y fee usando una venta conservadora; abre una fila para ver la receta.</p>
+          <p><span>03</span> El historial permite distinguir una demanda sostenida de un salto aislado. La estrella guarda una lista local en este navegador.</p>
         </div>
       </section>
     </main>

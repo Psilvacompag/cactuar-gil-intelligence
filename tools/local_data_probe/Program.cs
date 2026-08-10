@@ -594,7 +594,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            3,
+            4,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -604,6 +604,8 @@ static object ExportSpecialShopSnapshot(
             costs,
             rewards,
             requirements,
+            itemCatalog.Recipes,
+            itemCatalog.RecipeIngredients,
             new CoverageAudit(sourceRows, offers.Count, rowsIgnored, 0)
         );
 
@@ -632,6 +634,8 @@ static object ExportSpecialShopSnapshot(
             costs = costs.Count,
             rewards = rewards.Count,
             requirements = requirements.Count,
+            recipes = itemCatalog.Recipes.Count,
+            recipeIngredients = itemCatalog.RecipeIngredients.Count,
         };
     }
     catch (Exception exception)
@@ -1138,6 +1142,8 @@ static ItemCatalog BuildItemCatalog(
                 new Dictionary<uint, string>(),
                 new HashSet<uint>(),
                 new HashSet<uint>(),
+                new List<NormalizedRecipe>(),
+                new List<NormalizedRecipeIngredient>(),
                 new { status = "FAIL", error = "Item sheet is not enumerable." }
             );
         }
@@ -1154,6 +1160,12 @@ static ItemCatalog BuildItemCatalog(
         var searchCategoryNames = BuildCategoryNames(gameData, getExcelSheet, searchCategoryType);
         var uiCategoryNames = BuildCategoryNames(gameData, getExcelSheet, uiCategoryType);
         var craftTypesByItem = BuildCraftTypesByItem(
+            gameData,
+            getExcelSheet,
+            recipeType,
+            craftType
+        );
+        var (recipes, recipeIngredients) = BuildRecipes(
             gameData,
             getExcelSheet,
             recipeType,
@@ -1229,6 +1241,8 @@ static ItemCatalog BuildItemCatalog(
             searchableItems,
             marketableCandidates,
             craftableItems = craftTypesByItem.Count,
+            recipes = recipes.Count,
+            recipeIngredients = recipeIngredients.Count,
             gatherableItems = gatherableItems.Count,
             fishingItems = fishingItems.Count,
             poeticsMatches = names
@@ -1247,6 +1261,8 @@ static ItemCatalog BuildItemCatalog(
             craftTypesByItem,
             gatherableItems,
             fishingItems,
+            recipes,
+            recipeIngredients,
             analysis
         );
     }
@@ -1262,6 +1278,8 @@ static ItemCatalog BuildItemCatalog(
             new Dictionary<uint, string>(),
             new HashSet<uint>(),
             new HashSet<uint>(),
+            new List<NormalizedRecipe>(),
+            new List<NormalizedRecipeIngredient>(),
             new { status = "FAIL", error = UnwrapException(exception).Message }
         );
     }
@@ -1302,18 +1320,7 @@ static Dictionary<uint, string> BuildCraftTypesByItem(
         {
             craftName = craftTypeId > 0 ? $"Craft {craftTypeId}" : "Crafting";
         }
-        craftName = craftName switch
-        {
-            "Crafting" => "Carpenter",
-            "Smithing" => "Blacksmith",
-            "Armorcraft" => "Armorer",
-            "Goldsmithing" => "Goldsmith",
-            "Leatherworking" => "Leatherworker",
-            "Clothcraft" => "Weaver",
-            "Alchemy" => "Alchemist",
-            "Cooking" => "Culinarian",
-            _ => craftName,
-        };
+        craftName = NormalizeCraftTypeName(craftName);
         if (!result.TryGetValue(itemId, out var names))
         {
             names = new HashSet<string>(StringComparer.Ordinal);
@@ -1325,6 +1332,92 @@ static Dictionary<uint, string> BuildCraftTypesByItem(
         pair => pair.Key,
         pair => string.Join(" / ", pair.Value.OrderBy(name => name, StringComparer.Ordinal))
     );
+}
+
+static (List<NormalizedRecipe> Recipes, List<NormalizedRecipeIngredient> Ingredients) BuildRecipes(
+    object gameData,
+    MethodInfo getExcelSheet,
+    Type? recipeType,
+    Type? craftType
+)
+{
+    var recipes = new List<NormalizedRecipe>();
+    var ingredients = new List<NormalizedRecipeIngredient>();
+    if (recipeType is null)
+    {
+        return (recipes, ingredients);
+    }
+    var craftTypeNames = BuildCategoryNames(gameData, getExcelSheet, craftType);
+    var sheet = getExcelSheet.MakeGenericMethod(recipeType).Invoke(gameData, new object?[] { null, null });
+    if (sheet is not System.Collections.IEnumerable rows)
+    {
+        return (recipes, ingredients);
+    }
+    foreach (var row in rows)
+    {
+        if (row is null)
+        {
+            continue;
+        }
+        var recipeId = ReadRowId(row) ?? 0;
+        var resultItemId = ReadRowRefId(ReadProperty(row, "ItemResult"));
+        if (recipeId == 0 || resultItemId == 0)
+        {
+            continue;
+        }
+        var craftTypeId = ReadRowRefId(ReadProperty(row, "CraftType"));
+        var craftName = craftTypeNames.GetValueOrDefault(craftTypeId);
+        if (string.IsNullOrWhiteSpace(craftName))
+        {
+            craftName = craftTypeId > 0 ? $"Craft {craftTypeId}" : "Crafting";
+        }
+        craftName = NormalizeCraftTypeName(craftName);
+        var resultQuantity = Math.Max(1u, ReadUnsigned(ReadProperty(row, "AmountResult")));
+        recipes.Add(new NormalizedRecipe(
+            recipeId,
+            resultItemId,
+            resultQuantity,
+            craftName,
+            ReadRowRefId(ReadProperty(row, "RecipeLevelTable")),
+            ReadUnsigned(ReadProperty(row, "PatchNumber")),
+            Convert.ToBoolean(ReadProperty(row, "CanHq") ?? false),
+            Convert.ToBoolean(ReadProperty(row, "IsExpert") ?? false)
+        ));
+        var ingredientRefs = EnumerateProperty(row, "Ingredient").ToArray();
+        var amounts = EnumerateProperty(row, "AmountIngredient").Select(ReadUnsigned).ToArray();
+        for (var index = 0; index < Math.Min(ingredientRefs.Length, amounts.Length); index++)
+        {
+            var ingredientItemId = ReadRowRefId(ingredientRefs[index]);
+            var quantity = amounts[index];
+            if (ingredientItemId == 0 || quantity == 0)
+            {
+                continue;
+            }
+            ingredients.Add(new NormalizedRecipeIngredient(
+                recipeId,
+                index,
+                ingredientItemId,
+                quantity
+            ));
+        }
+    }
+    return (recipes, ingredients);
+}
+
+static string NormalizeCraftTypeName(string craftName)
+{
+    return craftName switch
+    {
+        "Crafting" => "Carpenter",
+        "Smithing" => "Blacksmith",
+        "Armorcraft" => "Armorer",
+        "Goldsmithing" => "Goldsmith",
+        "Leatherworking" => "Leatherworker",
+        "Clothcraft" => "Weaver",
+        "Alchemy" => "Alchemist",
+        "Cooking" => "Culinarian",
+        _ => craftName,
+    };
 }
 
 static HashSet<uint> BuildReferencedItemIds(
@@ -1599,6 +1692,8 @@ sealed record ItemCatalog(
     Dictionary<uint, string> CraftTypesByItem,
     HashSet<uint> GatherableItems,
     HashSet<uint> FishingItems,
+    IReadOnlyList<NormalizedRecipe> Recipes,
+    IReadOnlyList<NormalizedRecipeIngredient> RecipeIngredients,
     object Analysis
 );
 
@@ -1645,6 +1740,22 @@ sealed record NormalizedRequirement(
     string RequirementType,
     uint RequirementValue
 );
+sealed record NormalizedRecipe(
+    uint RecipeId,
+    uint ResultItemId,
+    uint ResultQuantity,
+    string CraftTypeName,
+    uint RecipeLevelTableId,
+    uint PatchNumber,
+    bool CanHq,
+    bool IsExpert
+);
+sealed record NormalizedRecipeIngredient(
+    uint RecipeId,
+    int IngredientIndex,
+    uint ItemId,
+    uint Quantity
+);
 sealed record CoverageAudit(int SourceRows, int OffersEmitted, int RowsIgnored, int RowsFailed);
 sealed record NormalizedSnapshot(
     int SchemaVersion,
@@ -1657,6 +1768,8 @@ sealed record NormalizedSnapshot(
     IReadOnlyList<NormalizedOfferCost> Costs,
     IReadOnlyList<NormalizedOfferReward> Rewards,
     IReadOnlyList<NormalizedRequirement> Requirements,
+    IReadOnlyList<NormalizedRecipe> Recipes,
+    IReadOnlyList<NormalizedRecipeIngredient> RecipeIngredients,
     CoverageAudit Coverage
 );
 

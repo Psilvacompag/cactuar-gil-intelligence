@@ -207,6 +207,52 @@ class StaticCatalogImportTests(unittest.TestCase):
             self.assertEqual(summary.snapshot_id, "sqpack:2026.08.05.0000.0000:schema-3")
             self.assertEqual(production, (1, "Goldsmith", 1, "MINER_BOTANIST"))
 
+    def test_imports_schema_four_recipes_and_ingredients(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 4
+            payload["recipes"] = [
+                {
+                    "recipeId": 500,
+                    "resultItemId": 100,
+                    "resultQuantity": 2,
+                    "craftTypeName": "Goldsmith",
+                    "recipeLevelTableId": 90,
+                    "patchNumber": 70,
+                    "canHq": True,
+                    "isExpert": False,
+                }
+            ]
+            payload["recipeIngredients"] = [
+                {
+                    "recipeId": 500,
+                    "ingredientIndex": 0,
+                    "itemId": 28,
+                    "quantity": 3,
+                }
+            ]
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+
+            connection = sqlite3.connect(database_path)
+            try:
+                recipe = connection.execute(
+                    "SELECT recipe_id, result_item_id, result_quantity, can_hq FROM dim_recipe"
+                ).fetchone()
+                ingredient = connection.execute(
+                    "SELECT recipe_id, item_id, quantity FROM bridge_recipe_ingredient"
+                ).fetchone()
+            finally:
+                connection.close()
+            self.assertEqual(summary.recipes, 1)
+            self.assertEqual(summary.recipe_ingredients, 1)
+            self.assertEqual(recipe, (500, 100, 2, 1))
+            self.assertEqual(ingredient, (500, 28, 3))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,6 +21,7 @@ def build_handler(
     cache: DashboardCache,
     history_cache: DashboardCache,
     market_items_cache: DashboardCache,
+    market_history_cache: DashboardCache,
     opportunities_cache: DashboardCache,
     settings: CloudSettings,
 ) -> type[BaseHTTPRequestHandler]:
@@ -51,6 +52,7 @@ def build_handler(
                         "dashboard": "/v1/dashboard",
                         "history": "/v1/history",
                         "marketItems": "/v1/market-items",
+                        "marketHistory": "/v1/market-history",
                         "opportunities": "/v1/opportunities",
                         "health": "/v1/health",
                     },
@@ -67,6 +69,9 @@ def build_handler(
                 return
             if path == "/v1/market-items":
                 self._serve_document(market_items_cache)
+                return
+            if path == "/v1/market-history":
+                self._serve_document(market_history_cache)
                 return
             if path == "/v1/opportunities":
                 self._serve_document(opportunities_cache)
@@ -206,10 +211,23 @@ def main() -> int:
         ttl_seconds=settings.cache_seconds,
         expected_kind="market-opportunities",
     )
+    market_history_cache = DashboardCache(
+        store,
+        settings.market_history_object,
+        ttl_seconds=settings.cache_seconds,
+        expected_kind="market-history",
+    )
     port = int(os.environ.get("PORT", "8080"))
     server = ThreadingHTTPServer(
         ("0.0.0.0", port),
-        build_handler(cache, history_cache, market_items_cache, opportunities_cache, settings),
+        build_handler(
+            cache,
+            history_cache,
+            market_items_cache,
+            market_history_cache,
+            opportunities_cache,
+            settings,
+        ),
     )
     print(
         _json_bytes(

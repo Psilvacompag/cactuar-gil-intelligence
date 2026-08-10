@@ -34,6 +34,8 @@ TABLES: dict[str, dict[str, Any]] = {
             ("freshness_hours", "FLOAT", "NULLABLE"),
             ("aggregate_row_count", "INTEGER", "NULLABLE"),
             ("valuation_row_count", "INTEGER", "NULLABLE"),
+            ("detail_request_count", "INTEGER", "NULLABLE"),
+            ("listing_row_count", "INTEGER", "NULLABLE"),
             ("archived_at", "TIMESTAMP", "REQUIRED"),
         ),
         "partition": "collected_at",
@@ -102,6 +104,39 @@ TABLES: dict[str, dict[str, Any]] = {
         "partition": "collected_at",
         "cluster": ("scope", "item_id"),
     },
+    "detailed_runs": {
+        "schema": (
+            ("detail_snapshot_id", "STRING", "REQUIRED"),
+            ("market_snapshot_id", "STRING", "REQUIRED"),
+            ("scope", "STRING", "REQUIRED"),
+            ("collected_at", "TIMESTAMP", "REQUIRED"),
+            ("requested_item_count", "INTEGER", "REQUIRED"),
+            ("request_count", "INTEGER", "REQUIRED"),
+            ("batch_count", "INTEGER", "REQUIRED"),
+            ("listing_count", "INTEGER", "REQUIRED"),
+            ("payload_sha256", "STRING", "REQUIRED"),
+        ),
+        "partition": "collected_at",
+        "cluster": ("scope", "market_snapshot_id", "detail_snapshot_id"),
+    },
+    "market_listings": {
+        "schema": (
+            ("detail_snapshot_id", "STRING", "REQUIRED"),
+            ("market_snapshot_id", "STRING", "REQUIRED"),
+            ("scope", "STRING", "REQUIRED"),
+            ("collected_at", "TIMESTAMP", "REQUIRED"),
+            ("item_id", "INTEGER", "REQUIRED"),
+            ("world_id", "INTEGER", "REQUIRED"),
+            ("quality", "STRING", "REQUIRED"),
+            ("listing_rank", "INTEGER", "REQUIRED"),
+            ("listing_id", "STRING", "NULLABLE"),
+            ("price_per_unit", "INTEGER", "REQUIRED"),
+            ("quantity", "INTEGER", "REQUIRED"),
+            ("last_review_at", "TIMESTAMP", "NULLABLE"),
+        ),
+        "partition": "collected_at",
+        "cluster": ("scope", "item_id", "world_id", "quality"),
+    },
     "static_snapshots": {
         "schema": (
             ("static_snapshot_id", "STRING", "REQUIRED"),
@@ -135,6 +170,36 @@ TABLES: dict[str, dict[str, Any]] = {
         "partition": "extracted_at",
         "cluster": ("item_id", "search_category_id", "game_version"),
     },
+    "recipes": {
+        "schema": (
+            ("static_snapshot_id", "STRING", "REQUIRED"),
+            ("game_version", "STRING", "REQUIRED"),
+            ("extracted_at", "TIMESTAMP", "REQUIRED"),
+            ("recipe_id", "INTEGER", "REQUIRED"),
+            ("result_item_id", "INTEGER", "REQUIRED"),
+            ("result_quantity", "INTEGER", "REQUIRED"),
+            ("craft_type_name", "STRING", "REQUIRED"),
+            ("recipe_level_table_id", "INTEGER", "NULLABLE"),
+            ("patch_number", "INTEGER", "NULLABLE"),
+            ("can_hq", "BOOLEAN", "REQUIRED"),
+            ("is_expert", "BOOLEAN", "REQUIRED"),
+        ),
+        "partition": "extracted_at",
+        "cluster": ("result_item_id", "craft_type_name", "game_version"),
+    },
+    "recipe_ingredients": {
+        "schema": (
+            ("static_snapshot_id", "STRING", "REQUIRED"),
+            ("game_version", "STRING", "REQUIRED"),
+            ("extracted_at", "TIMESTAMP", "REQUIRED"),
+            ("recipe_id", "INTEGER", "REQUIRED"),
+            ("ingredient_index", "INTEGER", "REQUIRED"),
+            ("item_id", "INTEGER", "REQUIRED"),
+            ("quantity", "INTEGER", "REQUIRED"),
+        ),
+        "partition": "extracted_at",
+        "cluster": ("item_id", "recipe_id", "game_version"),
+    },
 }
 
 
@@ -147,6 +212,10 @@ class BigQueryArchiveSummary:
     valuation_rows: int
     failure_rows: int
     catalog_rows: int
+    recipe_rows: int
+    recipe_ingredient_rows: int
+    detailed_runs: int
+    listing_rows: int
 
 
 class BigQueryArchive:
@@ -223,6 +292,10 @@ class BigQueryArchive:
                 "valuation_rows": 0,
                 "failure_rows": 0,
                 "catalog_rows": 0,
+                "recipe_rows": 0,
+                "recipe_ingredient_rows": 0,
+                "detailed_runs": 0,
+                "listing_rows": 0,
             }
             archived_at = datetime.now(timezone.utc).isoformat()
             static_snapshot_ids = [
@@ -232,15 +305,16 @@ class BigQueryArchive:
                 )
             ]
             for static_snapshot_id in static_snapshot_ids:
-                catalog_rows = self._archive_static_snapshot(
+                static_rows = self._archive_static_snapshot(
                     connection,
                     static_snapshot_id,
                     work_dir,
                     archived_at,
                 )
-                if catalog_rows >= 0:
+                if static_rows is not None:
                     totals["archived_static_snapshots"] += 1
-                    totals["catalog_rows"] += catalog_rows
+                    for name, count in static_rows.items():
+                        totals[name] += count
             for snapshot_id in snapshot_ids:
                 summary = self._archive_snapshot(connection, snapshot_id, work_dir)
                 for name in totals:
@@ -263,6 +337,10 @@ class BigQueryArchive:
             "valuation_rows": 0,
             "failure_rows": 0,
             "catalog_rows": 0,
+            "recipe_rows": 0,
+            "recipe_ingredient_rows": 0,
+            "detailed_runs": 0,
+            "listing_rows": 0,
         }
         if self._marker_exists("market_runs", "market_snapshot_id", market_snapshot_id):
             empty["skipped_market_snapshots"] = 1
@@ -291,8 +369,10 @@ class BigQueryArchive:
                 work_dir,
                 archived_at,
             )
-            empty["archived_static_snapshots"] += int(static_rows >= 0)
-            empty["catalog_rows"] += max(0, static_rows)
+            if static_rows is not None:
+                empty["archived_static_snapshots"] += 1
+                for name, count in static_rows.items():
+                    empty[name] += count
 
         aggregate_rows = self._load_rows(
             "market_aggregates",
@@ -312,6 +392,19 @@ class BigQueryArchive:
             job_key=market_snapshot_id,
             work_dir=work_dir,
         )
+        listing_rows = self._load_rows(
+            "market_listings",
+            _listing_rows(connection, market_snapshot_id),
+            job_key=market_snapshot_id,
+            work_dir=work_dir,
+        )
+        detail_run_rows = self._load_rows(
+            "detailed_runs",
+            _detail_run_rows(connection, market_snapshot_id, listing_rows),
+            job_key=market_snapshot_id,
+            work_dir=work_dir,
+        )
+        detail = _detail_snapshot(connection, market_snapshot_id)
         run_row = {
             "market_snapshot_id": market_snapshot_id,
             "scope": market["scope"],
@@ -332,6 +425,8 @@ class BigQueryArchive:
             "freshness_hours": valuation_run["freshness_hours"] if valuation_run else None,
             "aggregate_row_count": aggregate_rows,
             "valuation_row_count": valuation_rows,
+            "detail_request_count": detail["request_count"] if detail else None,
+            "listing_row_count": listing_rows,
             "archived_at": archived_at,
         }
         self._load_rows(
@@ -345,6 +440,8 @@ class BigQueryArchive:
             aggregate_rows=aggregate_rows,
             valuation_rows=valuation_rows,
             failure_rows=failure_rows,
+            detailed_runs=detail_run_rows,
+            listing_rows=listing_rows,
         )
         return empty
 
@@ -354,9 +451,9 @@ class BigQueryArchive:
         static_snapshot_id: str,
         work_dir: Path,
         archived_at: str,
-    ) -> int:
+    ) -> dict[str, int] | None:
         if self._marker_exists("static_snapshots", "static_snapshot_id", static_snapshot_id):
-            return -1
+            return None
         source = connection.execute(
             "SELECT * FROM source_snapshot WHERE snapshot_id = ?",
             (static_snapshot_id,),
@@ -366,6 +463,18 @@ class BigQueryArchive:
         catalog_rows = self._load_rows(
             "item_catalog",
             _catalog_rows(connection, static_snapshot_id),
+            job_key=static_snapshot_id,
+            work_dir=work_dir,
+        )
+        recipe_rows = self._load_rows(
+            "recipes",
+            _recipe_rows(connection, static_snapshot_id),
+            job_key=static_snapshot_id,
+            work_dir=work_dir,
+        )
+        recipe_ingredient_rows = self._load_rows(
+            "recipe_ingredients",
+            _recipe_ingredient_rows(connection, static_snapshot_id),
             job_key=static_snapshot_id,
             work_dir=work_dir,
         )
@@ -387,7 +496,11 @@ class BigQueryArchive:
             job_key=static_snapshot_id,
             work_dir=work_dir,
         )
-        return catalog_rows
+        return {
+            "catalog_rows": catalog_rows,
+            "recipe_rows": recipe_rows,
+            "recipe_ingredient_rows": recipe_ingredient_rows,
+        }
 
     def _marker_exists(self, table: str, field: str, value: str) -> bool:
         bigquery = self._bigquery
@@ -523,6 +636,69 @@ def _valuation_rows(
         yield payload
 
 
+def _detail_snapshot(
+    connection: sqlite3.Connection,
+    market_snapshot_id: str,
+) -> sqlite3.Row | None:
+    if not _sqlite_table_exists(connection, "detail_source_snapshot"):
+        return None
+    return connection.execute(
+        "SELECT * FROM detail_source_snapshot WHERE market_snapshot_id = ?",
+        (market_snapshot_id,),
+    ).fetchone()
+
+
+def _detail_run_rows(
+    connection: sqlite3.Connection,
+    market_snapshot_id: str,
+    listing_count: int,
+) -> Iterator[dict[str, Any]]:
+    detail = _detail_snapshot(connection, market_snapshot_id)
+    if detail is None:
+        return
+    market = connection.execute(
+        "SELECT scope FROM market_source_snapshot WHERE market_snapshot_id = ?",
+        (market_snapshot_id,),
+    ).fetchone()
+    yield {
+        "detail_snapshot_id": detail["detail_snapshot_id"],
+        "market_snapshot_id": market_snapshot_id,
+        "scope": market["scope"],
+        "collected_at": detail["collected_at"],
+        "requested_item_count": detail["requested_item_count"],
+        "request_count": detail["request_count"],
+        "batch_count": detail["batch_count"],
+        "listing_count": listing_count,
+        "payload_sha256": detail["payload_sha256"],
+    }
+
+
+def _listing_rows(
+    connection: sqlite3.Connection,
+    market_snapshot_id: str,
+) -> Iterator[dict[str, Any]]:
+    if not _sqlite_table_exists(connection, "fact_market_listing_snapshot"):
+        return
+    rows = connection.execute(
+        """
+        SELECT detail.detail_snapshot_id, detail.market_snapshot_id,
+               market.scope, detail.collected_at, listing.item_id,
+               listing.world_id, listing.quality, listing.listing_rank,
+               listing.listing_id, listing.price_per_unit, listing.quantity,
+               listing.last_review_at
+        FROM fact_market_listing_snapshot AS listing
+        JOIN detail_source_snapshot AS detail USING (detail_snapshot_id)
+        JOIN market_source_snapshot AS market USING (market_snapshot_id)
+        WHERE detail.market_snapshot_id = ?
+        ORDER BY listing.item_id, listing.world_id,
+                 listing.quality, listing.listing_rank
+        """,
+        (market_snapshot_id,),
+    )
+    for row in rows:
+        yield dict(row)
+
+
 def _catalog_rows(
     connection: sqlite3.Connection,
     static_snapshot_id: str,
@@ -565,6 +741,62 @@ def _catalog_rows(
         if payload["gatherable"] is not None:
             payload["gatherable"] = bool(payload["gatherable"])
         yield payload
+
+
+def _recipe_rows(
+    connection: sqlite3.Connection,
+    static_snapshot_id: str,
+) -> Iterator[dict[str, Any]]:
+    if not _sqlite_table_exists(connection, "dim_recipe"):
+        return
+    rows = connection.execute(
+        """
+        SELECT recipe.snapshot_id AS static_snapshot_id, source.game_version,
+               source.extracted_at, recipe.recipe_id, recipe.result_item_id,
+               recipe.result_quantity, recipe.craft_type_name,
+               recipe.recipe_level_table_id, recipe.patch_number,
+               recipe.can_hq, recipe.is_expert
+        FROM dim_recipe AS recipe
+        JOIN source_snapshot AS source ON source.snapshot_id = recipe.snapshot_id
+        WHERE recipe.snapshot_id = ?
+        ORDER BY recipe.recipe_id
+        """,
+        (static_snapshot_id,),
+    )
+    for row in rows:
+        payload = dict(row)
+        payload["can_hq"] = bool(payload["can_hq"])
+        payload["is_expert"] = bool(payload["is_expert"])
+        yield payload
+
+
+def _recipe_ingredient_rows(
+    connection: sqlite3.Connection,
+    static_snapshot_id: str,
+) -> Iterator[dict[str, Any]]:
+    if not _sqlite_table_exists(connection, "bridge_recipe_ingredient"):
+        return
+    rows = connection.execute(
+        """
+        SELECT ingredient.snapshot_id AS static_snapshot_id, source.game_version,
+               source.extracted_at, ingredient.recipe_id,
+               ingredient.ingredient_index, ingredient.item_id, ingredient.quantity
+        FROM bridge_recipe_ingredient AS ingredient
+        JOIN source_snapshot AS source ON source.snapshot_id = ingredient.snapshot_id
+        WHERE ingredient.snapshot_id = ?
+        ORDER BY ingredient.recipe_id, ingredient.ingredient_index
+        """,
+        (static_snapshot_id,),
+    )
+    for row in rows:
+        yield dict(row)
+
+
+def _sqlite_table_exists(connection: sqlite3.Connection, table: str) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table,),
+    ).fetchone() is not None
 
 
 def _job_id(table: str, key: str) -> str:

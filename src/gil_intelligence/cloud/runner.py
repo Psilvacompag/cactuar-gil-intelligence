@@ -9,16 +9,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from gil_intelligence.collectors import collect_aggregated_market
+from gil_intelligence.collectors import collect_aggregated_market, collect_detailed_listings
 from gil_intelligence.probes.http import JsonHttpClient
 from gil_intelligence.publishing import (
     export_currency_dashboard,
     export_currency_history,
+    export_market_history,
     export_market_items,
     export_opportunities,
 )
 from gil_intelligence.storage import (
     import_static_snapshot,
+    import_detailed_listings,
     import_universalis_aggregates,
     prune_market_history,
 )
@@ -47,6 +49,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     dashboard_path = work_dir / "dashboard.json"
     history_path = work_dir / "history.json"
     market_items_path = work_dir / "market-items.json"
+    market_history_path = work_dir / "market-history.json"
     opportunities_path = work_dir / "opportunities.json"
     static_path = work_dir / "static_snapshot.json"
     for generated_path in (
@@ -54,6 +57,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         dashboard_path,
         history_path,
         market_items_path,
+        market_history_path,
         opportunities_path,
         static_path,
     ):
@@ -128,6 +132,45 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         valuation_run_id=valuation_summary.valuation_run_id,
     )
     quality_summary = evaluate_refresh_quality(database_path, dashboard_path, market_summary)
+    export_opportunities(
+        database_path,
+        opportunities_path,
+        scope=settings.scope,
+        fee_rate=settings.fee_rate,
+    )
+    candidate_payload = json.loads(opportunities_path.read_text(encoding="utf-8"))
+    candidates = candidate_payload.get("opportunities", [])
+    detail_summary = None
+    detail_error = None
+    detail_batch_count = 0
+    detail_requests_before = client.request_attempt_count
+
+    def report_detail_progress(completed: int, total: int) -> None:
+        _emit("Detailed listing batch collected", completed=completed, total=total)
+
+    try:
+        detailed_collection = collect_detailed_listings(
+            client,
+            candidates=candidates,
+            listings_per_item=20,
+            progress=report_detail_progress,
+        )
+        detail_batch_count = detailed_collection.batch_count
+        detail_summary = import_detailed_listings(
+            detailed_collection,
+            database_path,
+            market_snapshot_id=market_summary.snapshot_id,
+            collected_at=datetime.now(timezone.utc).isoformat(),
+            request_count=client.request_attempt_count - detail_requests_before,
+        )
+        _emit("Detailed listings imported", **asdict(detail_summary))
+    except Exception as exc:
+        detail_error = f"{type(exc).__name__}: {exc}"
+        _emit(
+            "Detailed listing validation failed; publishing unverified signals",
+            severity="WARNING",
+            detail=detail_error,
+        )
     archive = BigQueryArchive(
         project_id=settings.project_id,
         dataset_id=settings.bigquery_dataset,
@@ -153,6 +196,13 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         market_items_path,
         scope=settings.scope,
         freshness_hours=settings.freshness_hours,
+        fee_rate=settings.fee_rate,
+    )
+    market_history_summary = export_market_history(
+        database_path,
+        market_history_path,
+        scope=settings.scope,
+        max_snapshots=settings.retention_runs,
     )
     opportunities_summary = export_opportunities(
         database_path,
@@ -171,6 +221,10 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "successfulRequestCount": client.successful_request_count,
         "marketableItems": len(marketable.data),
         "batchCount": collection.batch_count,
+        "detailBatchCount": detail_batch_count,
+        "detailItems": detail_summary.items if detail_summary else 0,
+        "detailListings": detail_summary.listings if detail_summary else 0,
+        "detailError": detail_error,
         "marketSnapshotId": market_summary.snapshot_id,
         "valuationRunId": valuation_summary.valuation_run_id,
         "conversions": dashboard_summary.conversions,
@@ -180,8 +234,12 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "marketRows": market_items_summary.rows,
         "gatheringItems": market_items_summary.gathering_items,
         "craftingItems": market_items_summary.crafting_items,
+        "profitableCrafts": market_items_summary.profitable_crafts,
+        "marketHistorySeries": market_history_summary.series,
+        "marketHistoryPoints": market_history_summary.points,
         "opportunities": opportunities_summary.opportunities,
         "highConfidenceOpportunities": opportunities_summary.high_confidence,
+        "stockVerifiedOpportunities": opportunities_summary.stock_verified,
         "quality": asdict(quality_summary),
         "bigQuery": asdict(archive_summary),
         "retainedMarketSnapshots": retention_summary.kept_snapshots,
@@ -190,6 +248,7 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         "dashboardBytes": dashboard_path.stat().st_size,
         "historyBytes": history_path.stat().st_size,
         "marketItemsBytes": market_items_path.stat().st_size,
+        "marketHistoryBytes": market_history_path.stat().st_size,
         "opportunitiesBytes": opportunities_path.stat().st_size,
     }
 
@@ -214,6 +273,12 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
     store.upload_file(
         market_items_path,
         settings.market_items_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    store.upload_file(
+        market_history_path,
+        settings.market_history_object,
         content_type="application/json; charset=utf-8",
         cache_control="public, max-age=60",
     )

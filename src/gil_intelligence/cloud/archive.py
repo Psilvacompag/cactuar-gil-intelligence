@@ -9,6 +9,7 @@ from pathlib import Path
 from gil_intelligence.publishing import (
     export_currency_dashboard,
     export_currency_history,
+    export_market_history,
     export_market_items,
     export_opportunities,
 )
@@ -28,6 +29,7 @@ def main() -> int:
     dashboard_path = work_dir / "dashboard.json"
     history_path = work_dir / "history.json"
     market_items_path = work_dir / "market-items.json"
+    market_history_path = work_dir / "market-history.json"
     opportunities_path = work_dir / "opportunities.json"
     for path in (
         database_path,
@@ -35,6 +37,7 @@ def main() -> int:
         dashboard_path,
         history_path,
         market_items_path,
+        market_history_path,
         opportunities_path,
     ):
         path.unlink(missing_ok=True)
@@ -58,6 +61,13 @@ def main() -> int:
         market_items_path,
         scope=settings.scope,
         freshness_hours=settings.freshness_hours,
+        fee_rate=settings.fee_rate,
+    )
+    market_history_summary = export_market_history(
+        database_path,
+        market_history_path,
+        scope=settings.scope,
+        max_snapshots=settings.retention_runs,
     )
     opportunities_summary = export_opportunities(
         database_path,
@@ -90,6 +100,12 @@ def main() -> int:
         cache_control="public, max-age=60",
     )
     store.upload_file(
+        market_history_path,
+        settings.market_history_object,
+        content_type="application/json; charset=utf-8",
+        cache_control="public, max-age=60",
+    )
+    store.upload_file(
         opportunities_path,
         settings.opportunities_object,
         content_type="application/json; charset=utf-8",
@@ -105,8 +121,12 @@ def main() -> int:
                 "marketRows": market_items_summary.rows,
                 "gatheringItems": market_items_summary.gathering_items,
                 "craftingItems": market_items_summary.crafting_items,
+                "profitableCrafts": market_items_summary.profitable_crafts,
+                "marketHistorySeries": market_history_summary.series,
+                "marketHistoryPoints": market_history_summary.points,
                 "opportunities": opportunities_summary.opportunities,
                 "highConfidenceOpportunities": opportunities_summary.high_confidence,
+                "stockVerifiedOpportunities": opportunities_summary.stock_verified,
             },
             ensure_ascii=False,
             indent=2,

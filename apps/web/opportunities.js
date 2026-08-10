@@ -1,10 +1,15 @@
+const OPPORTUNITY_WATCHLIST_KEY = "gil-intelligence.opportunity-watchlist";
+
 const state = {
   data: null,
+  dataSource: "",
   filtered: [],
   search: "",
   confidence: "recommended",
   world: "",
   sort: "confidence",
+  watchOnly: false,
+  watchlist: loadWatchlist(),
   page: 1,
   pageSize: 25,
 };
@@ -15,6 +20,8 @@ const elements = {
   confidence: document.querySelector("#confidence-select"),
   world: document.querySelector("#world-select"),
   sort: document.querySelector("#sort-select"),
+  watchOnly: document.querySelector("#watchlist-toggle"),
+  watchSummary: document.querySelector("#watch-summary"),
   count: document.querySelector("#result-count"),
   empty: document.querySelector("#empty-state"),
   pagination: document.querySelector("#pagination"),
@@ -24,6 +31,10 @@ const elements = {
   pageSize: document.querySelector("#page-size-select"),
   dialog: document.querySelector("#detail-dialog"),
   dialogContent: document.querySelector("#dialog-content"),
+  capitalForm: document.querySelector("#capital-form"),
+  capitalInput: document.querySelector("#capital-input"),
+  capitalShare: document.querySelector("#capital-share"),
+  capitalResult: document.querySelector("#capital-result"),
 };
 
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -46,18 +57,15 @@ async function loadOpportunities() {
       const response = await fetch(endpoint.url, { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
-      if (payload.kind !== "market-opportunities" || !Array.isArray(payload.opportunities)) {
-        throw new Error("formato inesperado");
-      }
+      if (payload.kind !== "market-opportunities" || !Array.isArray(payload.opportunities)) throw new Error("formato inesperado");
       state.data = payload;
       state.dataSource = endpoint.source;
       hydrateMeta();
       renderWorldOptions();
       applyFilters();
+      calculateCapitalPlan();
       return;
-    } catch (error) {
-      errors.push(`${endpoint.source}: ${error.message}`);
-    }
+    } catch (error) { errors.push(`${endpoint.source}: ${error.message}`); }
   }
   elements.count.textContent = "No pudimos cargar los datos";
   elements.empty.hidden = false;
@@ -72,15 +80,14 @@ function hydrateMeta() {
   document.querySelector("#updated-label").textContent = `Mercado ${relativeTime(meta.marketCollectedAt)}`;
   document.querySelector("#metric-total").textContent = integerFormat.format(summary.opportunities);
   document.querySelector("#metric-high").textContent = integerFormat.format(summary.highConfidence);
-  document.querySelector("#metric-medium").textContent = integerFormat.format(summary.mediumConfidence);
+  document.querySelector("#metric-verified").textContent = integerFormat.format(summary.stockVerified ?? 0);
   document.querySelector("#metric-stress").textContent = percentFormat.format(meta.priceStress);
   document.querySelector("#metric-fee").textContent = `más fee de ${percentFormat.format(meta.feeRate)}`;
   document.querySelector("#footer-source").textContent = `${meta.source} · ${meta.scope} · ${state.dataSource}`;
 }
 
 function renderWorldOptions() {
-  const worlds = [...new Set(state.data.opportunities.map((item) => item.sourceWorldName))]
-    .sort(nameCollator.compare);
+  const worlds = [...new Set(state.data.opportunities.map((item) => item.sourceWorldName))].sort(nameCollator.compare);
   const all = elements.world.firstElementChild;
   elements.world.replaceChildren(all);
   worlds.forEach((world) => {
@@ -98,30 +105,22 @@ function applyFilters() {
     if (state.confidence === "recommended" && item.confidenceBand === "WATCH") return false;
     if (state.confidence && state.confidence !== "recommended" && item.confidenceBand !== state.confidence) return false;
     if (state.world && item.sourceWorldName !== state.world) return false;
+    if (state.watchOnly && !isWatched(item)) return false;
     if (!query) return true;
-    return normalize([
-      item.name,
-      item.itemId,
-      item.categoryName,
-      item.sourceWorldName,
-      item.quality,
-    ].join(" ")).includes(query);
+    return normalize([item.name, item.itemId, item.categoryName, item.sourceWorldName, item.quality, item.stockStatus].join(" ")).includes(query);
   });
   state.filtered.sort(sorter(state.sort));
   renderRows();
+  renderWatchSummary();
 }
 
 function sorter(sort) {
-  const descending = (field) => (a, b) =>
-    numberOrLow(b[field]) - numberOrLow(a[field]) || b.confidenceScore - a.confidenceScore;
+  const descending = (field) => (a, b) => numberOrLow(b[field]) - numberOrLow(a[field]) || b.confidenceScore - a.confidenceScore;
   if (sort === "trip") return descending("estimatedTripProfit");
   if (sort === "profit") return descending("unitProfit");
   if (sort === "velocity") return descending("dailySaleVelocity");
   if (sort === "roi") return descending("roi");
-  return (a, b) =>
-    b.confidenceScore - a.confidenceScore
-      || b.estimatedTripProfit - a.estimatedTripProfit
-      || nameCollator.compare(a.name, b.name);
+  return (a, b) => b.confidenceScore - a.confidenceScore || b.estimatedTripProfit - a.estimatedTripProfit || nameCollator.compare(a.name, b.name);
 }
 
 function renderRows() {
@@ -145,70 +144,119 @@ function createRow(item) {
   const row = document.createElement("tr");
   row.tabIndex = 0;
   row.innerHTML = `
-    <td data-label="Item"><div class="entity"><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></div></td>
+    <td data-label="Item"><div class="entity entity-watch"><button class="watch-button ${isWatched(item) ? "active" : ""}" type="button" aria-label="${isWatched(item) ? "Quitar" : "Guardar"} ${escapeHtml(item.name)}">★</button><span><strong>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</small></span></div></td>
     <td data-label="Comprar en"><div class="entity source-world"><strong>${escapeHtml(item.sourceWorldName)}</strong><small>Aether · World ${item.sourceWorldId}</small></div></td>
-    <td data-label="Compra" class="numeric">${gil(item.sourcePrice)}</td>
+    <td data-label="Compra" class="numeric">${gil(item.averagePurchasePrice ?? item.sourcePrice)}</td>
     <td data-label="Venta conservadora" class="numeric">${gil(item.conservativeSellPrice)}</td>
     <td data-label="Ganancia / u." class="numeric net-cell">${gil(item.unitProfit)}</td>
     <td data-label="ROI" class="numeric">${percentFormat.format(item.roi)}</td>
     <td data-label="Ventas / día" class="numeric">${velocity(item.dailySaleVelocity)}</td>
+    <td data-label="Stock"><span class="stock-pill ${item.stockVerified ? "verified" : "unverified"}">${item.stockVerified ? `${integerFormat.format(item.availableUnits)} u.` : "SIN VERIFICAR"}</span></td>
     <td data-label="Confianza"><span class="confidence-pill ${item.confidenceBand.toLowerCase()}">${confidenceLabel(item.confidenceBand)} · ${item.confidenceScore}</span></td>
   `;
+  row.querySelector(".watch-button").addEventListener("click", (event) => { event.stopPropagation(); toggleWatch(item); });
   row.addEventListener("click", () => showDetail(item));
   row.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      showDetail(item);
-    }
+    if ((event.key === "Enter" || event.key === " ") && event.target === row) { event.preventDefault(); showDetail(item); }
   });
   return row;
 }
 
 function showDetail(item) {
   const components = item.scoreComponents || {};
+  const stockText = item.stockVerified
+    ? `<strong>Stock comprobado:</strong> ${integerFormat.format(item.availableUnits)} unidades elegibles en ${integerFormat.format(item.verifiedListingCount)} tiers; revisado ${relativeTime(item.stockCheckedAt)}.`
+    : `<strong>Stock sin verificar:</strong> el precio proviene del agregado. Confirma listing y cantidad antes de viajar.`;
+  const tiers = item.stockVerified && item.purchaseTiers?.length
+    ? `<div class="purchase-tiers">${item.purchaseTiers.map((tier) => `<span>${integerFormat.format(tier.quantity)} × ${gil(tier.pricePerUnit)}</span>`).join("")}</div>`
+    : "";
   elements.dialogContent.innerHTML = `
     <div class="detail-body">
       <p class="eyebrow">${escapeHtml(item.sourceWorldName)} → CACTUAR · ${escapeHtml(item.quality)}</p>
+      <button class="watch-button detail-watch ${isWatched(item) ? "active" : ""}" type="button">★ ${isWatched(item) ? "Guardado" : "Guardar"}</button>
       <h3>${escapeHtml(item.name)}${item.quality === "HQ" ? " · HQ" : ""}</h3>
       <p>${escapeHtml(item.categoryName || `Item ${item.itemId}`)}</p>
       <div class="trip-route">
-        <div><small>COMPRAR</small><strong>${gil(item.sourcePrice)}</strong><span>${escapeHtml(item.sourceWorldName)}</span></div>
+        <div><small>COMPRAR PROMEDIO</small><strong>${gil(item.averagePurchasePrice ?? item.sourcePrice)}</strong><span>${escapeHtml(item.sourceWorldName)}</span></div>
         <b aria-hidden="true">→</b>
         <div><small>VENDER HASTA</small><strong>${gil(item.conservativeSellPrice)}</strong><span>Cactuar</span></div>
       </div>
+      ${tiers}
       <div class="detail-stats">
         <div><small>Ganancia / unidad</small><strong>${gil(item.unitProfit)}</strong></div>
         <div><small>Retorno</small><strong>${percentFormat.format(item.roi)}</strong></div>
         <div><small>Cantidad sugerida</small><strong>${integerFormat.format(item.recommendedQuantity)}</strong></div>
+        <div><small>Capital requerido</small><strong>${gil(item.estimatedPurchaseCost)}</strong></div>
         <div><small>Ganancia por viaje</small><strong>${gil(item.estimatedTripProfit)}</strong></div>
         <div><small>Ventas / día</small><strong>${velocity(item.dailySaleVelocity)}</strong></div>
-        <div><small>Edad máxima del dato</small><strong>${decimalFormat.format(item.dataAgeHours)} h</strong></div>
       </div>
       <section class="score-panel">
-        <div class="score-heading">
-          <div><small>CONFIANZA</small><strong>${confidenceLabel(item.confidenceBand)}</strong></div>
-          <b>${item.confidenceScore}<span>/100</span></b>
-        </div>
+        <div class="score-heading"><div><small>CONFIANZA</small><strong>${confidenceLabel(item.confidenceBand)}</strong></div><b>${item.confidenceScore}<span>/100</span></b></div>
         ${scoreRow("Margen", components.margin, 30)}
         ${scoreRow("Liquidez", components.liquidity, 25)}
         ${scoreRow("Frescura", components.freshness, 20)}
         ${scoreRow("Persistencia", components.persistence, 25)}
         <p>El spread conservador apareció en ${percentFormat.format(item.persistenceRatio)} de ${item.historySamples} snapshots disponibles.</p>
       </section>
-      <p class="detail-warning"><strong>Antes de viajar:</strong> revisa stock, cantidad y precio actual. El endpoint agregado no muestra cuántas unidades quedan en ese listing.</p>
-    </div>
-  `;
-  elements.dialog.showModal();
+      <p class="detail-warning">${stockText}</p>
+    </div>`;
+  elements.dialogContent.querySelector(".detail-watch").addEventListener("click", () => { toggleWatch(item); showDetail(item); });
+  if (!elements.dialog.open) elements.dialog.showModal();
+}
+
+function calculateCapitalPlan() {
+  if (!state.data) return;
+  const capital = Number(elements.capitalInput.value);
+  const maxShare = Number(elements.capitalShare.value);
+  if (!Number.isFinite(capital) || capital < 10000) {
+    elements.capitalResult.innerHTML = "<p>Ingresa al menos 10.000 gil.</p>";
+    return;
+  }
+  const candidates = state.filtered.filter((item) => item.stockVerified && item.purchaseTiers?.length && item.unitProfit > 0);
+  const units = [];
+  candidates.forEach((item) => {
+    let remaining = item.recommendedQuantity;
+    const itemBudget = capital * maxShare;
+    let itemSpend = 0;
+    const netSell = item.conservativeSellPrice * (1 - state.data.meta.feeRate);
+    item.purchaseTiers.forEach((tier) => {
+      const count = Math.min(remaining, tier.quantity);
+      for (let index = 0; index < count; index += 1) {
+        if (itemSpend + tier.pricePerUnit > itemBudget) break;
+        const profit = netSell - tier.pricePerUnit;
+        if (profit > 0) units.push({ item, cost: tier.pricePerUnit, profit, roi: profit / tier.pricePerUnit });
+        itemSpend += tier.pricePerUnit;
+        remaining -= 1;
+      }
+    });
+  });
+  units.sort((a, b) => b.roi - a.roi || b.profit - a.profit);
+  let spent = 0, profit = 0;
+  const selected = new Map();
+  units.forEach((unit) => {
+    if (spent + unit.cost > capital) return;
+    spent += unit.cost;
+    profit += unit.profit;
+    const key = opportunityKey(unit.item);
+    const selection = selected.get(key) || { item: unit.item, quantity: 0, cost: 0, profit: 0 };
+    selection.quantity += 1;
+    selection.cost += unit.cost;
+    selection.profit += unit.profit;
+    selected.set(key, selection);
+  });
+  if (!selected.size) {
+    elements.capitalResult.innerHTML = `<p>No hay unidades con stock verificado dentro de los filtros y el capital actual. Prueba ampliar los filtros o aumentar el monto.</p>`;
+    return;
+  }
+  const selections = [...selected.values()].sort((a, b) => b.profit - a.profit);
+  elements.capitalResult.innerHTML = `
+    <div class="capital-totals"><div><small>Invertir</small><strong>${gil(spent)}</strong></div><div><small>Reserva</small><strong>${gil(capital - spent)}</strong></div><div><small>Ganancia estimada</small><strong>${gil(profit)}</strong></div><div><small>ROI cesta</small><strong>${percentFormat.format(profit / spent)}</strong></div></div>
+    <div class="capital-list">${selections.map((selection) => `<div><span><strong>${escapeHtml(selection.item.name)}${selection.item.quality === "HQ" ? " · HQ" : ""}</strong><small>${escapeHtml(selection.item.sourceWorldName)} · ${selection.quantity} u.</small></span><span><b>${gil(selection.cost)}</b><small>+${gil(selection.profit)}</small></span></div>`).join("")}</div>
+    <p class="optimizer-note">Estimación greedy por ROI, con venta estresada, fee, stock observado y un máximo de ${percentFormat.format(maxShare)} por item. No considera impuestos de compra ni cambios posteriores.</p>`;
 }
 
 function scoreRow(label, value = 0, maximum) {
-  return `
-    <div class="score-row">
-      <span>${escapeHtml(label)}</span>
-      <progress max="${maximum}" value="${Math.max(0, Math.min(maximum, value))}">${decimalFormat.format(value)}</progress>
-      <strong>${decimalFormat.format(value)}/${maximum}</strong>
-    </div>
-  `;
+  return `<div class="score-row"><span>${escapeHtml(label)}</span><progress max="${maximum}" value="${Math.max(0, Math.min(maximum, value))}">${decimalFormat.format(value)}</progress><strong>${decimalFormat.format(value)}/${maximum}</strong></div>`;
 }
 
 function renderPagination(totalPages) {
@@ -237,45 +285,36 @@ function renderPagination(totalPages) {
 
 function paginationEntries(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
-  const pages = [...new Set([1, total, current - 1, current, current + 1])]
-    .filter((page) => page >= 1 && page <= total)
-    .sort((a, b) => a - b);
+  const pages = [...new Set([1, total, current - 1, current, current + 1])].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
   const entries = [];
-  pages.forEach((page, index) => {
-    if (index > 0 && page - pages[index - 1] > 1) entries.push("…");
-    entries.push(page);
-  });
+  pages.forEach((page, index) => { if (index > 0 && page - pages[index - 1] > 1) entries.push("…"); entries.push(page); });
   return entries;
 }
 
-function goToPage(page) {
-  state.page = page;
-  renderRows();
-  document.querySelector("#explorer-title").scrollIntoView({ behavior: "smooth", block: "start" });
+function goToPage(page) { state.page = page; renderRows(); document.querySelector("#explorer-title").scrollIntoView({ behavior: "smooth", block: "start" }); }
+function opportunityKey(item) { return `${item.itemId}:${item.quality}:${item.sourceWorldId}`; }
+function isWatched(item) { return state.watchlist.has(opportunityKey(item)); }
+function toggleWatch(item) {
+  const key = opportunityKey(item);
+  if (state.watchlist.has(key)) state.watchlist.delete(key); else state.watchlist.add(key);
+  localStorage.setItem(OPPORTUNITY_WATCHLIST_KEY, JSON.stringify([...state.watchlist]));
+  applyFilters();
+}
+function loadWatchlist() {
+  try { return new Set(JSON.parse(localStorage.getItem(OPPORTUNITY_WATCHLIST_KEY) || "[]")); }
+  catch (_error) { return new Set(); }
+}
+function renderWatchSummary() {
+  const watched = state.data.opportunities.filter(isWatched);
+  const active = watched.filter((item) => item.stockVerified && item.confidenceBand !== "WATCH");
+  elements.watchSummary.innerHTML = `<span>★ ${integerFormat.format(watched.length)} guardados</span><strong>${integerFormat.format(active.length)} listos para revisar</strong><small>La lista queda sólo en este navegador.</small>`;
 }
 
-function confidenceLabel(value) {
-  return { HIGH: "ALTA", MEDIUM: "MEDIA", WATCH: "OBSERVAR" }[value] || value;
-}
-
-function normalize(value) {
-  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-}
-
-function numberOrLow(value) {
-  return Number.isFinite(value) ? value : -Infinity;
-}
-
-function gil(value) {
-  if (value === null || value === undefined) return "—";
-  return `${gilFormat.format(value)} gil`;
-}
-
-function velocity(value) {
-  if (value === null || value === undefined) return "—";
-  return `${decimalFormat.format(value)} /d`;
-}
-
+function confidenceLabel(value) { return ({ HIGH: "ALTA", MEDIUM: "MEDIA", WATCH: "OBSERVAR" })[value] || value; }
+function normalize(value) { return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
+function numberOrLow(value) { return Number.isFinite(value) ? value : -Infinity; }
+function gil(value) { return value === null || value === undefined ? "—" : `${gilFormat.format(value)} gil`; }
+function velocity(value) { return value === null || value === undefined ? "—" : `${decimalFormat.format(value)} /d`; }
 function relativeTime(value) {
   if (!value) return "sin fecha";
   const deltaMinutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
@@ -284,49 +323,19 @@ function relativeTime(value) {
   const hours = Math.round(deltaMinutes / 60);
   return hours < 24 ? `hace ${hours} h` : `hace ${Math.round(hours / 24)} d`;
 }
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]); }
 
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
-  })[character]);
-}
-
-elements.search.addEventListener("input", (event) => {
-  state.search = event.target.value;
-  state.page = 1;
-  applyFilters();
-});
-elements.confidence.addEventListener("change", (event) => {
-  state.confidence = event.target.value;
-  state.page = 1;
-  applyFilters();
-});
-elements.world.addEventListener("change", (event) => {
-  state.world = event.target.value;
-  state.page = 1;
-  applyFilters();
-});
-elements.sort.addEventListener("change", (event) => {
-  state.sort = event.target.value;
-  state.page = 1;
-  applyFilters();
-});
+elements.search.addEventListener("input", (event) => { state.search = event.target.value; state.page = 1; applyFilters(); });
+elements.confidence.addEventListener("change", (event) => { state.confidence = event.target.value; state.page = 1; applyFilters(); });
+elements.world.addEventListener("change", (event) => { state.world = event.target.value; state.page = 1; applyFilters(); });
+elements.sort.addEventListener("change", (event) => { state.sort = event.target.value; state.page = 1; applyFilters(); });
+elements.watchOnly.addEventListener("change", (event) => { state.watchOnly = event.target.checked; state.page = 1; applyFilters(); });
+elements.capitalForm.addEventListener("submit", (event) => { event.preventDefault(); calculateCapitalPlan(); });
 elements.pagePrevious.addEventListener("click", () => goToPage(state.page - 1));
 elements.pageNext.addEventListener("click", () => goToPage(state.page + 1));
-elements.pageSize.addEventListener("change", (event) => {
-  state.pageSize = Number(event.target.value);
-  state.page = 1;
-  renderRows();
-});
+elements.pageSize.addEventListener("change", (event) => { state.pageSize = Number(event.target.value); state.page = 1; renderRows(); });
 document.querySelector("#dialog-close").addEventListener("click", () => elements.dialog.close());
-elements.dialog.addEventListener("click", (event) => {
-  if (event.target === elements.dialog) elements.dialog.close();
-});
-document.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-    event.preventDefault();
-    elements.search.focus();
-  }
-});
+elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });
+document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); elements.search.focus(); } });
 
 loadOpportunities();
