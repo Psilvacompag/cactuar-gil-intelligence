@@ -93,6 +93,7 @@
     gateLogin: gate.querySelector("#gate-login"),
     gateLogout: gate.querySelector("#gate-logout"),
   };
+  const adminNavLinks = [...document.querySelectorAll(".admin-nav-link")];
 
   function snapshot() {
     return { user: currentUser, profile: currentProfile, error: bootError };
@@ -120,6 +121,7 @@
   function render() {
     const signedIn = Boolean(currentUser);
     const profile = currentProfile;
+    const canAdmin = profile?.role === "ADMIN" && profile?.status === "ACTIVE";
     trigger.classList.toggle("signed-in", signedIn);
     trigger.querySelector("span").textContent = profile?.displayName?.split(" ")[0] || (signedIn ? "Cuenta" : "Ingresar");
     if (signedIn && profile?.photoURL) {
@@ -132,7 +134,8 @@
     ui.profile.hidden = !signedIn;
     ui.login.hidden = signedIn;
     ui.logout.hidden = !signedIn;
-    ui.admin.hidden = profile?.role !== "ADMIN" || profile?.status !== "ACTIVE";
+    ui.admin.hidden = !canAdmin;
+    adminNavLinks.forEach((link) => { link.hidden = !canAdmin; });
     if (signedIn) {
       ui.name.textContent = profile?.displayName || currentUser.displayName || "Cuenta Google";
       ui.email.textContent = profile?.email || currentUser.email || "";
