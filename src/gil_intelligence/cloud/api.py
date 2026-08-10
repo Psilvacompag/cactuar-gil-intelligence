@@ -116,20 +116,27 @@ def build_handler(
                     origin=origin,
                 )
                 return
-            if self.headers.get("If-None-Match") == document.etag:
+            use_gzip = _accepts_gzip(self.headers.get("Accept-Encoding"))
+            content = document.compressed_content if use_gzip else document.content
+            etag = document.etag[:-1] + '-gzip"' if use_gzip else document.etag
+            if self.headers.get("If-None-Match") == etag:
                 self.send_response(HTTPStatus.NOT_MODIFIED)
                 self._send_security_headers(origin)
-                self.send_header("ETag", document.etag)
+                self.send_header("Vary", "Accept-Encoding")
+                self.send_header("ETag", etag)
                 self.end_headers()
                 return
             self.send_response(HTTPStatus.OK)
             self._send_security_headers(origin)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(document.content)))
-            self.send_header("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
-            self.send_header("ETag", document.etag)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "public, max-age=300, stale-while-revalidate=900")
+            self.send_header("Vary", "Accept-Encoding")
+            if use_gzip:
+                self.send_header("Content-Encoding", "gzip")
+            self.send_header("ETag", etag)
             self.end_headers()
-            self.wfile.write(document.content)
+            self.wfile.write(content)
 
         def _send_json(
             self,
@@ -168,6 +175,24 @@ def build_handler(
             )
 
     return DashboardHandler
+
+
+def _accepts_gzip(value: str | None) -> bool:
+    if not value:
+        return False
+    for entry in value.casefold().split(","):
+        encoding, *parameters = (part.strip() for part in entry.split(";"))
+        if encoding not in {"gzip", "*"}:
+            continue
+        quality = next((part for part in parameters if part.startswith("q=")), None)
+        if quality is None:
+            return True
+        try:
+            if float(quality[2:]) > 0:
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 def _age_hours(value: str | None) -> float | None:

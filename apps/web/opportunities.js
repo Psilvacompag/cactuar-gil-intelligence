@@ -54,7 +54,7 @@ async function loadOpportunities() {
   const errors = [];
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(endpoint.url, { cache: "no-store" });
+      const response = await fetch(endpoint.url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       if (payload.kind !== "market-opportunities" || !Array.isArray(payload.opportunities)) throw new Error("formato inesperado");

@@ -33,7 +33,7 @@ class CloudSettings:
     fee_rate: float = 0.05
     freshness_hours: float = 24.0
     retention_runs: int = 14
-    cache_seconds: int = 60
+    cache_seconds: int = 300
     max_data_age_hours: float = 18.0
     allowed_origins: tuple[str, ...] = DEFAULT_ALLOWED_ORIGINS
 
@@ -88,7 +88,7 @@ class CloudSettings:
             fee_rate=float(source.get("CACTUAR_FEE_RATE", "0.05")),
             freshness_hours=float(source.get("CACTUAR_FRESHNESS_HOURS", "24.0")),
             retention_runs=int(source.get("CACTUAR_RETENTION_RUNS", "14")),
-            cache_seconds=int(source.get("CACTUAR_CACHE_SECONDS", "60")),
+            cache_seconds=int(source.get("CACTUAR_CACHE_SECONDS", "300")),
             max_data_age_hours=float(source.get("CACTUAR_MAX_DATA_AGE_HOURS", "18")),
             allowed_origins=allowed_origins,
         )

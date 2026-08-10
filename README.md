@@ -78,12 +78,12 @@ El dashboard queda disponible localmente en `http://localhost:8000`.
 
 ## Verificar los datos estáticos locales
 
-El probe C# compila con el SDK instalado y se ejecuta con el runtime incluido por XIVLauncher:
+El probe C# usa .NET 10, igual que la versiÃ³n actual de Lumina incluida por XIVLauncher:
 
 ```powershell
-dotnet build tools\local_data_probe\LocalDataProbe.csproj
-$env:DOTNET_ROLL_FORWARD = "Major"
-& "$env:APPDATA\XIVLauncher\runtime\dotnet.exe" tools\local_data_probe\bin\Debug\net8.0\LocalDataProbe.dll
+$dotnet = Join-Path $env:LOCALAPPDATA "CactuarDotnet\dotnet.exe"
+& $dotnet build tools\local_data_probe\LocalDataProbe.csproj
+& $dotnet tools\local_data_probe\bin\Debug\net10.0\LocalDataProbe.dll
 ```
 
 Lee `sqpack`, no el proceso del juego. Las rutas detectadas en esta máquina pueden reemplazarse con `FFXIV_GAME_DIR`, `FFXIV_LUMINA_DIR` y `FFXIV_ALLAGAN_DIR`.

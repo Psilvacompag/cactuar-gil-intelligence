@@ -37,7 +37,7 @@ const elements = {
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 const decimalFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
 const gilFormat = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 2 });
-const highlightedCurrencyIds = [28, 48, 47, 26807, 26533, 41784, 41785, 28063];
+const highlightedCurrencyIds = [20, 21, 22, 28, 48, 47, 26807, 26533, 41784, 41785, 28063];
 
 async function loadDashboard() {
   const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
@@ -50,7 +50,7 @@ async function loadDashboard() {
   const errors = [];
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(endpoint.url, { cache: "no-store" });
+      const response = await fetch(endpoint.url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       state.data = await response.json();
       state.dataSource = endpoint.source;
@@ -385,7 +385,7 @@ async function loadHistory() {
   if (state.historyPromise) return state.historyPromise;
   const apiBaseUrl = window.GIL_INTELLIGENCE_CONFIG?.apiBaseUrl?.replace(/\/$/, "");
   if (!apiBaseUrl) throw new Error("El historial requiere el backend cloud");
-  state.historyPromise = fetch(`${apiBaseUrl}/v1/history`, { cache: "no-store" })
+  state.historyPromise = fetch(`${apiBaseUrl}/v1/history`)
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();

@@ -1,4 +1,5 @@
 import json
+import gzip
 import sqlite3
 import tempfile
 import unittest
@@ -8,7 +9,7 @@ from gil_intelligence.cloud.config import CloudSettings
 from gil_intelligence.cloud.dashboard import DashboardCache
 from gil_intelligence.cloud.gcs import StoredObject
 from gil_intelligence.cloud.quality import DataQualityError, evaluate_refresh_quality
-from gil_intelligence.cloud.api import _age_hours
+from gil_intelligence.cloud.api import _accepts_gzip, _age_hours
 from gil_intelligence.storage import MarketImportSummary
 from gil_intelligence.storage.retention import prune_market_history
 
@@ -52,6 +53,11 @@ class CloudSettingsTests(unittest.TestCase):
         self.assertIsNone(_age_hours("not-a-date"))
         self.assertIsNone(_age_hours("2026-08-09T12:00:00"))
 
+    def test_gzip_content_negotiation_respects_quality(self) -> None:
+        self.assertTrue(_accepts_gzip("br, gzip"))
+        self.assertTrue(_accepts_gzip("*;q=0.5"))
+        self.assertFalse(_accepts_gzip("gzip;q=0, br"))
+
 
 class DashboardCacheTests(unittest.TestCase):
     def test_caches_dashboard_for_configured_ttl(self) -> None:
@@ -69,6 +75,7 @@ class DashboardCacheTests(unittest.TestCase):
         self.assertEqual(store.calls, 2)
         self.assertEqual(third.generation, "2")
         self.assertEqual(first.etag, '"gcs-1"')
+        self.assertEqual(gzip.decompress(first.compressed_content), first.content)
 
     def test_rejects_unknown_dashboard_schema(self) -> None:
         class InvalidStore:

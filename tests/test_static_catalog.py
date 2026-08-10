@@ -253,6 +253,24 @@ class StaticCatalogImportTests(unittest.TestCase):
             self.assertEqual(recipe, (500, 100, 2, 1))
             self.assertEqual(ingredient, (500, 28, 3))
 
+    def test_accepts_schema_five_shop_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 5
+            payload["recipes"] = []
+            payload["recipeIngredients"] = []
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+
+            self.assertEqual(
+                summary.snapshot_id,
+                "sqpack:2026.08.05.0000.0000:schema-5",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

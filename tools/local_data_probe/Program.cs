@@ -127,7 +127,10 @@ var requestedSheets = new[]
 {
     "SpecialShop",
     "GCScripShopItem",
+    "GCScripShopCategory",
     "GCShop",
+    "GrandCompany",
+    "GrandCompanyRank",
     "InclusionShop",
     "CollectablesShop",
     "FccShop",
@@ -321,6 +324,9 @@ static object ProbeLocalGameData(
     }
 
     var specialShopType = excelAssembly.GetType("Lumina.Excel.Sheets.SpecialShop");
+    var gcScripShopItemType = excelAssembly.GetType("Lumina.Excel.Sheets.GCScripShopItem");
+    var gcScripShopCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.GCScripShopCategory");
+    var grandCompanyType = excelAssembly.GetType("Lumina.Excel.Sheets.GrandCompany");
     var itemType = excelAssembly.GetType("Lumina.Excel.Sheets.Item");
     var itemSearchCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.ItemSearchCategory");
     var itemUiCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.ItemUICategory");
@@ -353,12 +359,20 @@ static object ProbeLocalGameData(
     var gameVersion = ReadGameVersion(gameDirectory);
     var normalizedSnapshot = snapshotOutputPath is null
         ? new { status = "SKIPPED", reason = "Pass --snapshot-out <path> to export normalized SpecialShop rows." } as object
-        : specialShopType is null || itemCatalog is null
-            ? new { status = "MISSING_TYPE", error = "SpecialShop or Item sheet type was not found." } as object
+        : specialShopType is null
+            || gcScripShopItemType is null
+            || gcScripShopCategoryType is null
+            || grandCompanyType is null
+            || itemCatalog is null
+            ? new { status = "MISSING_TYPE", error = "A required shop or item sheet type was not found." } as object
             : ExportSpecialShopSnapshot(
                 gameData,
                 getExcelSheet,
+                getSubrowExcelSheet,
                 specialShopType,
+                gcScripShopItemType,
+                gcScripShopCategoryType,
+                grandCompanyType,
                 itemCatalog,
                 tomestoneCatalog,
                 gameVersion,
@@ -415,7 +429,11 @@ static object ProbeLocalGameData(
 static object ExportSpecialShopSnapshot(
     object gameData,
     MethodInfo getExcelSheet,
+    MethodInfo getSubrowExcelSheet,
     Type rowType,
+    Type gcScripShopItemType,
+    Type gcScripShopCategoryType,
+    Type grandCompanyType,
     ItemCatalog itemCatalog,
     TomestoneCatalog? tomestoneCatalog,
     string? gameVersion,
@@ -563,6 +581,23 @@ static object ExportSpecialShopSnapshot(
             }
         }
 
+        var gcCoverage = AppendGrandCompanyOffers(
+            gameData,
+            getExcelSheet,
+            getSubrowExcelSheet,
+            gcScripShopItemType,
+            gcScripShopCategoryType,
+            grandCompanyType,
+            shops,
+            offers,
+            costs,
+            rewards,
+            requirements,
+            assetIds
+        );
+        sourceRows += gcCoverage.SourceRows;
+        rowsIgnored += gcCoverage.RowsIgnored;
+
         // Keep the complete Item catalog. SpecialShop only references a subset, but
         // market/expansion analysis needs categories for every tradeable item.
         var assets = itemCatalog.Names.Keys
@@ -594,7 +629,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            4,
+            5,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -640,8 +675,131 @@ static object ExportSpecialShopSnapshot(
     }
     catch (Exception exception)
     {
-        return new { status = "FAIL", error = UnwrapException(exception).Message };
+        var unwrapped = UnwrapException(exception);
+        return new { status = "FAIL", error = unwrapped.Message, detail = unwrapped.ToString() };
     }
+}
+
+static GcCoverage AppendGrandCompanyOffers(
+    object gameData,
+    MethodInfo getExcelSheet,
+    MethodInfo getSubrowExcelSheet,
+    Type itemType,
+    Type categoryType,
+    Type grandCompanyType,
+    ICollection<NormalizedShop> shops,
+    ICollection<NormalizedOffer> offers,
+    ICollection<NormalizedOfferCost> costs,
+    ICollection<NormalizedOfferReward> rewards,
+    ICollection<NormalizedRequirement> requirements,
+    ISet<uint> assetIds
+)
+{
+    var itemSheet = getSubrowExcelSheet.MakeGenericMethod(itemType)
+        .Invoke(gameData, new object?[] { null, null });
+    var categorySheet = getExcelSheet.MakeGenericMethod(categoryType)
+        .Invoke(gameData, new object?[] { null, null });
+    var companySheet = getExcelSheet.MakeGenericMethod(grandCompanyType)
+        .Invoke(gameData, new object?[] { null, null });
+    if (
+        itemSheet is not System.Collections.IEnumerable itemRows
+        || categorySheet is not System.Collections.IEnumerable categoryRows
+        || companySheet is not System.Collections.IEnumerable companyRows
+    )
+    {
+        throw new InvalidOperationException("Grand Company shop sheets are not enumerable.");
+    }
+
+    var companyByCategory = categoryRows.Cast<object>().ToDictionary(
+        row => ReadRowId(row) ?? 0,
+        row => ReadRowRefId(ReadProperty(row, "GrandCompany"))
+    );
+    var companyNames = companyRows.Cast<object>()
+        .Select(row => new
+        {
+            Id = ReadRowId(row) ?? 0,
+            Name = ReadProperty(row, "Name")?.ToString() ?? string.Empty,
+        })
+        .Where(row => row.Id > 0)
+        .ToDictionary(row => row.Id, row => row.Name);
+    var currencyByCompany = new Dictionary<uint, uint>
+    {
+        [1] = 20, // Maelstrom: Storm Seal
+        [2] = 21, // Order of the Twin Adder: Serpent Seal
+        [3] = 22, // Immortal Flames: Flame Seal
+    };
+    var createdShops = new HashSet<uint>();
+    var nextOfferIndex = new Dictionary<uint, int>();
+    var sourceRows = 0;
+    var rowsIgnored = 0;
+
+    foreach (var group in itemRows.Cast<object>())
+    {
+        if (group is not System.Collections.IEnumerable subrows)
+        {
+            rowsIgnored++;
+            continue;
+        }
+        foreach (var row in subrows.Cast<object>())
+        {
+            sourceRows++;
+            var categoryId = ReadRowId(row) ?? 0;
+            var companyId = companyByCategory.GetValueOrDefault(categoryId);
+            var currencyItemId = currencyByCompany.GetValueOrDefault(companyId);
+            var rewardItemId = ReadRowRefId(ReadProperty(row, "Item"));
+            var sealCost = ReadUnsigned(ReadProperty(row, "CostGCSeals"));
+            if (companyId == 0 || currencyItemId == 0 || rewardItemId == 0 || sealCost == 0)
+            {
+                rowsIgnored++;
+                continue;
+            }
+
+            var shopId = 3_000_000_000u + companyId;
+            if (createdShops.Add(shopId))
+            {
+                var companyName = companyNames.GetValueOrDefault(companyId);
+                shops.Add(new NormalizedShop(
+                    shopId,
+                    string.IsNullOrWhiteSpace(companyName)
+                        ? $"Grand Company {companyId}"
+                        : $"Grand Company · {companyName}",
+                    0
+                ));
+                AddRequirement(requirements, shopId, null, "GRAND_COMPANY", companyId);
+            }
+
+            var offerIndex = nextOfferIndex.GetValueOrDefault(shopId);
+            nextOfferIndex[shopId] = offerIndex + 1;
+            var subrowId = ReadUnsigned(ReadProperty(row, "SubrowId"));
+            offers.Add(new NormalizedOffer(
+                shopId,
+                offerIndex,
+                $"GCScripShopItem:{categoryId}:{subrowId}",
+                "PARSED"
+            ));
+            costs.Add(new NormalizedOfferCost(
+                shopId,
+                offerIndex,
+                0,
+                currencyItemId,
+                currencyItemId,
+                sealCost,
+                0
+            ));
+            rewards.Add(new NormalizedOfferReward(shopId, offerIndex, 0, rewardItemId, 1, false));
+            AddRequirement(
+                requirements,
+                shopId,
+                offerIndex,
+                "GRAND_COMPANY_RANK",
+                ReadRowRefId(ReadProperty(row, "RequiredGrandCompanyRank"))
+            );
+            assetIds.Add(currencyItemId);
+            assetIds.Add(rewardItemId);
+        }
+    }
+
+    return new GcCoverage(sourceRows, rowsIgnored);
 }
 
 static void AddRequirement(
@@ -1757,6 +1915,7 @@ sealed record NormalizedRecipeIngredient(
     uint Quantity
 );
 sealed record CoverageAudit(int SourceRows, int OffersEmitted, int RowsIgnored, int RowsFailed);
+sealed record GcCoverage(int SourceRows, int RowsIgnored);
 sealed record NormalizedSnapshot(
     int SchemaVersion,
     string Source,

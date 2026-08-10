@@ -49,7 +49,7 @@ async function loadMarket() {
   const errors = [];
   for (const endpoint of dataEndpoints("market-items")) {
     try {
-      const response = await fetch(endpoint.url, { cache: "no-store" });
+      const response = await fetch(endpoint.url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       if (payload.kind !== "market-items" || !Array.isArray(payload.items)) throw new Error("formato inesperado");
@@ -276,7 +276,7 @@ async function loadHistory() {
     const errors = [];
     for (const endpoint of dataEndpoints("market-history")) {
       try {
-        const response = await fetch(endpoint.url, { cache: "no-store" });
+        const response = await fetch(endpoint.url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
         if (payload.kind !== "market-history" || !Array.isArray(payload.series)) throw new Error("formato inesperado");

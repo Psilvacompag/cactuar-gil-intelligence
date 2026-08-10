@@ -262,31 +262,31 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         dashboard_path,
         settings.dashboard_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         history_path,
         settings.history_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         market_items_path,
         settings.market_items_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         market_history_path,
         settings.market_history_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         opportunities_path,
         settings.opportunities_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     status_content = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     store.upload_bytes(

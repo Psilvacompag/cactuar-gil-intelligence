@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import json
 import time
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ class ObjectReader(Protocol):
 @dataclass(frozen=True, slots=True)
 class DashboardDocument:
     content: bytes
+    compressed_content: bytes
     generation: str
     updated_at: str | None
     market_collected_at: str | None = None
@@ -57,6 +59,7 @@ class DashboardCache:
         meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
         document = DashboardDocument(
             content=stored.content,
+            compressed_content=gzip.compress(stored.content, compresslevel=6),
             generation=stored.generation,
             updated_at=stored.updated_at,
             market_collected_at=meta.get("marketCollectedAt"),

@@ -14,6 +14,7 @@ from gil_intelligence.publishing import (
     export_opportunities,
 )
 from gil_intelligence.storage import import_static_snapshot
+from gil_intelligence.valuation import build_currency_valuations
 
 from .bigquery_archive import BigQueryArchive
 from .config import CloudSettings
@@ -44,10 +45,19 @@ def main() -> int:
     store = GcsObjectStore(settings.bucket)
     if not store.download_if_exists(settings.database_object, database_path):
         raise FileNotFoundError(settings.database_object)
+    valuation_summary = None
     if store.download_if_exists(settings.static_snapshot_object, static_path):
         snapshot_id = _static_snapshot_id(static_path)
         if not _has_static_snapshot(database_path, snapshot_id):
             import_static_snapshot(static_path, database_path)
+            valuation_summary = build_currency_valuations(
+                database_path,
+                scope=settings.scope,
+                price_basis="RECENT_AVG_SALE",
+                fee_rate=settings.fee_rate,
+                freshness_hours=settings.freshness_hours,
+                static_snapshot_id=snapshot_id,
+            )
     archive = BigQueryArchive(
         project_id=settings.project_id,
         dataset_id=settings.bigquery_dataset,
@@ -85,36 +95,39 @@ def main() -> int:
         dashboard_path,
         settings.dashboard_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         history_path,
         settings.history_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         market_items_path,
         settings.market_items_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         market_history_path,
         settings.market_history_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     store.upload_file(
         opportunities_path,
         settings.opportunities_object,
         content_type="application/json; charset=utf-8",
-        cache_control="public, max-age=60",
+        cache_control="public, max-age=300",
     )
     print(
         json.dumps(
             {
                 "archive": asdict(archive_summary),
+                "staticRevaluation": (
+                    asdict(valuation_summary) if valuation_summary is not None else None
+                ),
                 "dashboardConversions": dashboard_summary.conversions,
                 "historySeries": history_summary.series,
                 "historyPoints": history_summary.points,
@@ -130,6 +143,7 @@ def main() -> int:
             },
             ensure_ascii=False,
             indent=2,
+            default=str,
         )
     )
     return 0
