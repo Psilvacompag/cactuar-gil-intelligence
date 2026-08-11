@@ -10,6 +10,8 @@ const state = {
   freshOnly: true,
   page: 1,
   pageSize: 50,
+  advice: null,
+  budget: 1000,
 };
 
 const elements = {
@@ -34,6 +36,11 @@ const elements = {
   currencyDirectoryCount: document.querySelector("#currency-directory-count"),
   currencyDirectoryList: document.querySelector("#currency-directory-list"),
   freshLabel: document.querySelector("#fresh-toggle-label"),
+  advisor: document.querySelector("#conversion-advisor"),
+  advisorContent: document.querySelector("#advisor-content"),
+  advisorBudgetControl: document.querySelector("#advisor-budget-control"),
+  advisorBudget: document.querySelector("#advisor-budget"),
+  scoreSortOption: document.querySelector("#score-sort-option"),
 };
 
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -44,6 +51,7 @@ const highlightedCurrencyIds = [20, 21, 22, 28, 48, 47, 26807, 26533, 41784, 417
 async function loadDashboard() {
   try {
     state.data = await GilAuth.data("/v1/dashboard");
+    state.advice = GilConversionAdvisor.buildIndex(state.data.conversions);
     state.dataSource = "cloud-authenticated";
     hydrateMeta();
     renderChips();
@@ -126,7 +134,17 @@ function currencyLiquidity() {
 }
 
 function selectCurrency(currencyId) {
+  const selectingSpecificCurrency = currencyId !== null && state.currencyId !== currencyId;
   state.currencyId = currencyId;
+  if (selectingSpecificCurrency) {
+    state.sort = "score";
+    state.sortDirection = "desc";
+    elements.sort.value = "score";
+  } else if (currencyId === null && state.sort === "score") {
+    state.sort = "net";
+    state.sortDirection = "desc";
+    elements.sort.value = "net";
+  }
   state.page = 1;
   updateCurrencyControls();
   applyFilters();
@@ -146,6 +164,7 @@ function updateCurrencyControls() {
   const selectedHasNoFreshPrice = selected && !selected.freshCount && !selected.valuedCount;
   elements.freshLabel.textContent = selectedHasNoFreshPrice ? "Canjes sin precio" : "Sólo frescos";
   elements.fresh.disabled = Boolean(selectedHasNoFreshPrice);
+  elements.scoreSortOption.disabled = state.currencyId === null;
   directory.textContent = selected && !selectedChip
     ? `${selected.name} · cambiar`
     : `Ver las ${integerFormat.format(state.data.currencies.length)} monedas`;
@@ -259,7 +278,63 @@ function applyFilters() {
   });
   state.filtered.sort(sorter(state.sort));
   updateSortHeaders();
+  renderAdvisor();
   renderRows();
+}
+
+function renderAdvisor() {
+  const currency = state.data.currencies.find((item) => item.itemId === state.currencyId);
+  const advice = state.advice?.currencies.get(state.currencyId);
+  elements.advisorBudgetControl.hidden = !currency;
+  elements.advisor.classList.toggle("empty", !currency || !advice);
+  if (!currency) {
+    elements.advisorContent.innerHTML = '<div class="advisor-empty"><strong>Selecciona una moneda</strong><span>Te mostraremos la compra con mejor equilibrio y sus alternativas.</span></div>';
+    return;
+  }
+  if (!advice) {
+    elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Sin recomendación defendible para ${escapeHtml(currency.name)}</strong><span>No hay una conversión fresca con precio y retorno calculable. Conviene esperar datos antes de gastar.</span></div>`;
+    return;
+  }
+
+  const selection = GilConversionAdvisor.selectForBudget(advice, state.budget);
+  if (!selection) {
+    const minimum = Math.min(...advice.ranked.map((candidate) => candidate.item.currencyQuantity));
+    elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Aún no alcanza para un canje</strong><span>La opción fresca más barata cuesta ${integerFormat.format(minimum)} ${escapeHtml(currency.name)}.</span></div>`;
+    return;
+  }
+  const primary = selection.best;
+  const alternatives = [selection.returnLeader, selection.liquidityLeader]
+    .filter((candidate, index, list) => candidate && candidate !== primary && list.indexOf(candidate) === index);
+  elements.advisorContent.innerHTML = `
+    ${advisorCard(primary, selection.unverified ? "Opción tentativa · sin velocidad" : "Mejor equilibrio", true)}
+    <div class="advisor-alternatives">
+      ${alternatives.map((candidate) => advisorCard(
+        candidate,
+        candidate === selection.returnLeader ? "Mayor retorno" : "Alternativa líquida",
+        false,
+      )).join("") || '<p class="advisor-single">La mejor opción también lidera las métricas disponibles.</p>'}
+    </div>`;
+}
+
+function advisorCard(candidate, label, primary) {
+  const item = candidate.item;
+  const plan = GilConversionAdvisor.purchasePlan(item, state.budget);
+  const noVelocity = item.dailySaleVelocity === null || item.dailySaleVelocity === undefined;
+  const batch = plan.pilotUnits > 0 && plan.pilotUnits < plan.units
+    ? `Publica primero ${integerFormat.format(plan.pilotUnits)} de ${integerFormat.format(plan.units)} unidades para no saturar.`
+    : plan.units > 0
+      ? `El lote calculado cabe dentro del ritmo observado.`
+      : `Necesitas al menos ${integerFormat.format(item.currencyQuantity)} monedas para este canje.`;
+  const reason = noVelocity
+    ? `Retorno alto, pero sin velocidad local: prueba una sola unidad antes de comprometer más.`
+    : `${gil(item.netGilPerCurrency)} por moneda y ${velocity(item.dailySaleVelocity)} observadas. ${batch}`;
+  return `<article class="advisor-card ${primary ? "primary" : ""}">
+    <div class="advisor-card-top"><span>${escapeHtml(label)}</span><b>${candidate.score}/100</b></div>
+    <div class="advisor-item">${GilItemIcons.markup(item.rewardIconId, { fallback: "item" })}<div><strong>${escapeHtml(item.rewardName)}</strong><small>${integerFormat.format(item.currencyQuantity)} ${escapeHtml(item.currencyName)} por canje</small></div></div>
+    <div class="advisor-plan"><div><small>Comprar</small><strong>${integerFormat.format(plan.units)} u.</strong></div><div><small>Gastar</small><strong>${integerFormat.format(plan.spent)}</strong></div><div><small>Gil neto estimado</small><strong>${gil(plan.netGil)}</strong></div></div>
+    <p>${escapeHtml(reason)}</p>
+    ${plan.remaining ? `<small class="advisor-remainder">Quedan ${integerFormat.format(plan.remaining)} monedas sin usar.</small>` : ""}
+  </article>`;
 }
 
 function renderRows() {
@@ -376,10 +451,10 @@ function createRow(item) {
     velocityCell.title = "Universalis no publicó velocidad diaria para Cactuar. No significa cero ventas.";
   }
   const pill = row.querySelector(".status-pill");
-  const status = statusMeta(item.status, item.isMultiCost);
-  pill.textContent = status.label;
-  pill.title = status.detail;
-  pill.classList.add(status.className);
+  const decision = decisionMeta(item);
+  pill.textContent = decision.label;
+  pill.title = decision.detail;
+  pill.classList.add(decision.className);
   row.addEventListener("click", () => showDetail(item));
   row.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -455,6 +530,17 @@ function statusMeta(value, isMultiCost = false) {
   return isMultiCost
     ? { ...status, label: `COMBINADO · ${status.label}`, detail: `Requiere varias monedas a la vez. ${status.detail}` }
     : status;
+}
+
+function decisionMeta(item) {
+  const candidate = state.advice?.rows.get(GilConversionAdvisor.conversionKey(item));
+  if (!candidate?.role) return statusMeta(item.status, item.isMultiCost);
+  return ({
+    BEST: { label: `MEJOR · ${candidate.score}`, className: "decision-best", detail: "Mejor equilibrio relativo entre retorno, liquidez y calidad de datos para esta moneda." },
+    RETURN: { label: "MÁS GIL", className: "decision-return", detail: "Mayor gil por moneda, aunque puede vender más lento que la recomendación principal." },
+    LIQUID: { label: "SALIDA RÁPIDA", className: "decision-liquid", detail: "Alternativa con velocidad alta y un retorno mínimo razonable frente a las demás conversiones de esta moneda." },
+    SPECULATIVE: { label: "RIESGO", className: "decision-risk", detail: "Retorno aparente alto, pero sin velocidad local para validar la salida." },
+  })[candidate.role];
 }
 
 function costRoute(item) {
@@ -595,7 +681,8 @@ function shortDate(value) {
 
 function sorter(mode) {
   let compare;
-  if (mode === "velocity") compare = (a, b) => numericValue(a.dailySaleVelocity) - numericValue(b.dailySaleVelocity);
+  if (mode === "score") compare = (a, b) => adviceScore(a) - adviceScore(b);
+  else if (mode === "velocity") compare = (a, b) => numericValue(a.dailySaleVelocity) - numericValue(b.dailySaleVelocity);
   else if (mode === "price") compare = (a, b) => numericValue(a.marketUnitPrice) - numericValue(b.marketUnitPrice);
   else if (mode === "cost") compare = (a, b) => numericValue(a.currencyQuantity) - numericValue(b.currencyQuantity);
   else if (mode === "currency") compare = (a, b) => a.currencyName.localeCompare(b.currencyName, "es");
@@ -604,6 +691,10 @@ function sorter(mode) {
   return state.sortDirection === "asc"
     ? (a, b) => compare(a, b) || a.rewardName.localeCompare(b.rewardName, "es")
     : (a, b) => -compare(a, b) || a.rewardName.localeCompare(b.rewardName, "es");
+}
+
+function adviceScore(item) {
+  return state.advice?.rows.get(GilConversionAdvisor.conversionKey(item))?.score ?? -Infinity;
 }
 
 function numericValue(value) { return Number.isFinite(value) ? value : -Infinity; }
@@ -681,6 +772,11 @@ elements.pageSize.addEventListener("change", (event) => {
   state.pageSize = Number(event.target.value);
   state.page = 1;
   renderRows();
+});
+elements.advisorBudget.addEventListener("input", (event) => {
+  const value = Math.max(1, Math.floor(Number(event.target.value) || 1));
+  state.budget = value;
+  renderAdvisor();
 });
 document.querySelector("#dialog-close").addEventListener("click", () => elements.dialog.close());
 elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });

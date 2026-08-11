@@ -122,6 +122,7 @@
             <span>Ordenar</span>
             <select id="sort-select">
               <option value="net">Gil por moneda</option>
+              <option id="score-sort-option" value="score" disabled>Recomendación inteligente</option>
               <option value="velocity">Liquidez</option>
               <option value="price">Listing mínimo</option>
               <option value="currency">Nombre de moneda</option>
@@ -138,6 +139,23 @@
 
         <div id="currency-chips" class="currency-chips" aria-label="Monedas destacadas"></div>
 
+        <section id="conversion-advisor" class="conversion-advisor" aria-labelledby="advisor-title">
+          <div class="advisor-heading">
+            <div>
+              <p class="eyebrow">DECISIÓN ASISTIDA</p>
+              <h3 id="advisor-title">Qué conviene comprar</h3>
+              <p>Equilibra gil por moneda, ventas diarias, frescura y presión de oferta.</p>
+            </div>
+            <label id="advisor-budget-control" class="advisor-budget" hidden>
+              <span>Monedas disponibles</span>
+              <input id="advisor-budget" type="number" min="1" step="100" value="1000" inputmode="numeric" />
+            </label>
+          </div>
+          <div id="advisor-content" class="advisor-content" aria-live="polite">
+            <div class="advisor-empty"><strong>Selecciona una moneda</strong><span>Te mostraremos la compra con mejor equilibrio y sus alternativas.</span></div>
+          </div>
+        </section>
+
         <p class="velocity-explainer"><span class="velocity-mark" aria-hidden="true">?</span><span class="velocity-copy"><strong>Ventas / día:</strong> “Sin datos Cactuar” significa que Universalis no entregó velocidad local; no significa cero ventas.</span></p>
 
         <div class="table-shell">
@@ -150,7 +168,7 @@
                 <th class="numeric" data-sort="price"><button class="sort-button" type="button">Listing mínimo<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th class="numeric" data-sort="net"><button class="sort-button" type="button">Gil / moneda<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th class="numeric" data-sort="velocity"><button class="sort-button" type="button">Ventas / día<span class="sort-indicator" aria-hidden="true"></span></button></th>
-                <th>Estado</th>
+                <th>Señal</th>
               </tr>
             </thead>
             <tbody id="conversion-rows"></tbody>
@@ -187,6 +205,7 @@
           <p><span>02</span> La velocidad corresponde a ventas observadas. “Sin datos” significa que Universalis no publicó la métrica para Cactuar; no significa cero ventas.</p>
           <p><span>03</span> Los datos fuera de la ventana de frescura se marcan como antiguos.</p>
           <p><span>04</span> Los canjes combinados muestran todas las monedas requeridas y el gil neto del canje completo; nunca atribuyen todo ese valor a una sola moneda.</p>
+          <p><span>05</span> La recomendación compara únicamente canjes frescos de la misma moneda y pondera retorno, ventas diarias y presión de oferta. Es una ayuda para decidir, no una garantía de venta.</p>
         </div>
       </section>
     </main>
@@ -246,6 +265,7 @@
     <script src="./watchlist.js" defer></script>
     <script src="./item-icons.js" defer></script>
     <script src="./intelligence.js" defer></script>
+    <script src="./conversion-advisor.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>
