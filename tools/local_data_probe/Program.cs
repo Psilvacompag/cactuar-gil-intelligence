@@ -643,7 +643,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            6,
+            7,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
