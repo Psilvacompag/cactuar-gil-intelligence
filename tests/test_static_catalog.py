@@ -330,11 +330,11 @@ class StaticCatalogImportTests(unittest.TestCase):
                 "sqpack:2026.08.05.0000.0000:schema-8",
             )
 
-    def test_accepts_schema_nine_shop_locations(self) -> None:
+    def test_accepts_schema_ten_shop_locations(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             payload = example_snapshot()
-            payload["schemaVersion"] = 9
+            payload["schemaVersion"] = 10
             payload["recipes"] = []
             payload["recipeIngredients"] = []
             payload["shopLocations"] = [{
