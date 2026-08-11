@@ -1,6 +1,6 @@
 # Memoria de sesión
 
-Última actualización: 10 de agosto de 2026, `America/Santiago`.
+Última actualización: 11 de agosto de 2026, `America/Santiago`.
 
 Este documento es el punto de reanudación del proyecto. No contiene secretos ni
 credenciales.
@@ -21,18 +21,39 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
 - Web pública: <https://psilvacompag.github.io/cactuar-gil-intelligence/>
 - API pública de sólo lectura: <https://cactuar-api-mpkrb3h6wa-uc.a.run.app/>
 - Repositorio: <https://github.com/Psilvacompag/cactuar-gil-intelligence>
-- Código base anterior: `fbc7f7a` (`Make sales velocity explanation always visible`).
+- Código desplegado: `5474c79` (`Add conversion planning and catalog audits`).
 - Proyecto Google Cloud: `cactuar-gil-intelligence-8148`.
 - Región de Cloud Run y Storage: `us-central1`.
 - Dataset BigQuery: `cactuar_gil`, ubicación `US`.
-- Imagen desplegada al cierre: `backend:v21`, digest
-  `sha256:9200670fd3d477d6463409a976d634edcb4d8e3d87cdbeb8edda7e4d3f1d9d42`.
+- Imagen desplegada al cierre: `backend:v29`, digest
+  `sha256:442dd9ebae16c3ff294549b4da2e9901ec695be96853f47fe577a2b89a5d253a`.
 - Servicio: `cactuar-api`.
 - Jobs: `cactuar-refresh` y `cactuar-archive`.
 - Scheduler: 03:17 y 15:17, zona `America/Santiago`.
 - Presupuesto configurado: CLP 5.000, alertas al 50%, 90% y 100%.
 - Los datos de mercado continúan públicos. Google/Firebase protege perfiles,
   favoritos y administración de usuarios.
+
+## Entrega del 11 de agosto de 2026
+
+- Conversiones incluye un planificador de cartera de hasta cuatro recompensas. Usa
+  retorno, velocidad y presión de listings, limita el lote y puede mantener moneda
+  en reserva.
+- Los planes se guardan por usuario y cada refresh registra una observación para
+  comparar el gil neto estimado contra mercados posteriores; no presume ventas.
+- La tabla y el planificador filtran por expansión y disponibilidad de mapa.
+- El dashboard publica una auditoría de catálogo. La primera republicación v29
+  informó 2.298 rutas, 223 tiendas, 133 con ubicación/mapa/expansión, 90 sin
+  ubicación confiable y 751 filas duplicadas eliminadas antes de publicar.
+- El administrador muestra el costo mensual desde `billing_export`. El dataset y
+  permisos están listos; falta activar una vez la exportación estándar desde Cloud
+  Billing, paso que Google sólo ofrece en Console.
+- Artifact Registry conserva las siete imágenes más recientes y elimina versiones
+  mayores a 14 días. La política quedó activa, sin borrado inmediato por antigüedad.
+- Producción: revisión `cactuar-api-00030-t7s`; ambos jobs usan `backend:v29`; la
+  ejecución `cactuar-archive-gb8pj` republicó sin consultar Universalis.
+- Verificación: 61 pruebas Python, sintaxis de los tres JavaScript modificados,
+  health productivo, rutas protegidas, artefactos GCS y archivos de GitHub Pages.
 
 El flujo vigente es:
 
@@ -306,8 +327,9 @@ Caso de regresión verificado:
    progresivo del endpoint `/history`.
 4. Observar durante varios refresh la cobertura y utilidad de la nueva profundidad
    de listings antes de ampliar la shortlist más allá de 100 ítems.
-5. Revisar gasto real de Google Cloud después de varios días completos de operación;
-   mantener Vertex AI deshabilitado mientras ML esté pospuesto.
+5. Activar la exportación estándar hacia `billing_export` desde Cloud Billing y
+   comprobar `/v1/admin/costs` después de su primera carga; mantener Vertex AI
+   deshabilitado mientras ML esté pospuesto.
 6. Diseñar la segunda fase de Favoritos: notas, umbrales personalizados y
    agrupaciones. La sincronización básica ya está resuelta.
 
@@ -320,7 +342,7 @@ $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 ```
 
-Estado al cierre: 44 pruebas exitosas.
+Estado al cierre: 61 pruebas exitosas.
 
 Health productivo:
 
