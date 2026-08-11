@@ -29,6 +29,7 @@ class CloudSettings:
     status_object: str = "status/latest.json"
     bigquery_dataset: str = "cactuar_gil"
     bigquery_location: str = "US"
+    billing_dataset: str = "billing_export"
     requests_per_second: float = 1.0
     timeout_seconds: float = 10.0
     retries: int = 2
@@ -91,6 +92,7 @@ class CloudSettings:
             status_object=source.get("CACTUAR_STATUS_OBJECT", "status/latest.json").strip(),
             bigquery_dataset=source.get("CACTUAR_BIGQUERY_DATASET", "cactuar_gil").strip(),
             bigquery_location=source.get("CACTUAR_BIGQUERY_LOCATION", "US").strip(),
+            billing_dataset=source.get("CACTUAR_BILLING_DATASET", "billing_export").strip(),
             requests_per_second=float(source.get("CACTUAR_RPS", "1.0")),
             timeout_seconds=float(source.get("CACTUAR_HTTP_TIMEOUT", "10.0")),
             retries=int(source.get("CACTUAR_RETRIES", "2")),
@@ -127,6 +129,7 @@ class CloudSettings:
             "status_object",
             "bigquery_dataset",
             "bigquery_location",
+            "billing_dataset",
         ):
             if not getattr(self, field_name):
                 raise ValueError(f"{field_name} must not be empty")

@@ -1,5 +1,5 @@
 (function initializeAdminPanel() {
-  const state = { users: [], invitations: [], loading: false };
+  const state = { users: [], invitations: [], loading: false, costs: null };
   const elements = {
     users: document.querySelector("#admin-users"),
     search: document.querySelector("#admin-search"),
@@ -13,6 +13,11 @@
     accessEmail: document.querySelector("#admin-access-email"),
     accessSubmit: document.querySelector("#admin-access-submit"),
     accessMessage: document.querySelector("#admin-access-message"),
+    costCopy: document.querySelector("#admin-cost-copy"),
+    costTotal: document.querySelector("#admin-cost-total"),
+    costUpdated: document.querySelector("#admin-cost-updated"),
+    costServices: document.querySelector("#admin-cost-services"),
+    costSetup: document.querySelector("#admin-cost-setup"),
   };
 
   function hasAccess() {
@@ -23,6 +28,46 @@
     if (!value) return "Sin registro";
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? "Sin registro" : new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  }
+
+  function money(value, currency = "CLP") {
+    return new Intl.NumberFormat("es-CL", { style: "currency", currency: currency || "CLP", maximumFractionDigits: currency === "CLP" ? 0 : 2 }).format(Number(value) || 0);
+  }
+
+  function renderCosts() {
+    const costs = state.costs;
+    if (!costs) return;
+    const ready = costs.status === "READY";
+    elements.costSetup.hidden = ready;
+    elements.costServices.replaceChildren();
+    if (!ready) {
+      elements.costTotal.textContent = "Sin exportación";
+      elements.costUpdated.textContent = `Dataset preparado: ${costs.dataset}`;
+      elements.costCopy.textContent = "La lectura exacta está lista, pero Cloud Billing todavía no está exportando sus cargos. Esa activación se confirma una vez en la consola de Google.";
+      return;
+    }
+    elements.costTotal.textContent = money(costs.netCost, costs.currency);
+    elements.costUpdated.textContent = costs.latestExportAt ? `Última exportación: ${formatDate(costs.latestExportAt)}` : "Mes sin cargos exportados";
+    elements.costCopy.textContent = "Costo neto oficial del proyecto en el mes actual, después de créditos. Puede existir retraso entre el uso y la exportación.";
+    (costs.services || []).forEach((service) => {
+      const row = document.createElement("div");
+      row.innerHTML = `<span>${escapeHtml(service.service || "Servicio sin nombre")}</span><strong>${escapeHtml(money(service.netCost, service.currency || costs.currency))}</strong>`;
+      elements.costServices.append(row);
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
+  }
+
+  async function loadCosts() {
+    try {
+      state.costs = await GilAuth.request("/v1/admin/costs");
+      renderCosts();
+    } catch (error) {
+      elements.costTotal.textContent = "No disponible";
+      elements.costCopy.textContent = error.message || "No pudimos leer los costos del proyecto.";
+    }
   }
 
   function empty(message) {
@@ -176,6 +221,7 @@
       const payload = await GilAuth.request("/v1/admin/users");
       state.users = payload.users || [];
       state.invitations = payload.invitations || [];
+      void loadCosts();
     } catch (error) {
       empty(error.message || "No pudimos cargar los usuarios.");
       return;

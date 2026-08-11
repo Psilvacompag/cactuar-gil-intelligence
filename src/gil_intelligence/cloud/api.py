@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .config import CloudSettings
+from .costs import CloudCostService
 from .dashboard import DashboardCache
 from .gcs import GcsObjectStore
 from .users import FirebaseUserService, UserApiError
@@ -27,6 +28,7 @@ def build_handler(
     signals_cache: DashboardCache,
     settings: CloudSettings,
     user_service: Any | None = None,
+    cost_service: Any | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     allowed_origins = frozenset(settings.allowed_origins)
 
@@ -61,6 +63,8 @@ def build_handler(
                         "health": "/v1/health",
                         "authConfig": "/v1/auth/config",
                         "me": "/v1/me",
+                        "conversionPlans": "/v1/me/conversion-plans",
+                        "costs": "/v1/admin/costs",
                     },
                 )
                 return
@@ -88,6 +92,13 @@ def build_handler(
                     }
                 )
                 return
+            if path == "/v1/me/conversion-plans":
+                self._serve_private(
+                    lambda service: {
+                        "plans": service.conversion_plans(self.headers.get("Authorization"))
+                    }
+                )
+                return
             if path == "/v1/admin/users":
                 self._serve_private(
                     lambda service: {
@@ -97,6 +108,15 @@ def build_handler(
                         ),
                     }
                 )
+                return
+            if path == "/v1/admin/costs":
+                def costs(service: Any) -> dict[str, Any]:
+                    service.authorize_admin(self.headers.get("Authorization"))
+                    if cost_service is None:
+                        raise UserApiError(HTTPStatus.SERVICE_UNAVAILABLE, "cost_service_unavailable")
+                    return cost_service.month_to_date()
+
+                self._serve_private(costs)
                 return
             if path == "/v1/health":
                 self._serve_health()
@@ -136,6 +156,13 @@ def build_handler(
                     )
                 )
                 return
+            if path == "/v1/me/conversion-plans":
+                self._serve_private(
+                    lambda service: service.save_conversion_plan(
+                        self.headers.get("Authorization"), self._read_json()
+                    )
+                )
+                return
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
         def do_PUT(self) -> None:  # noqa: N802
@@ -165,6 +192,16 @@ def build_handler(
                     return {"deleted": True}
 
                 self._serve_private(remove)
+                return
+            if path == "/v1/me/conversion-plans":
+                def remove_plan(service: Any) -> dict[str, Any]:
+                    service.delete_conversion_plan(
+                        self.headers.get("Authorization"),
+                        str(self._read_json().get("id") or ""),
+                    )
+                    return {"deleted": True}
+
+                self._serve_private(remove_plan)
                 return
             if path == "/v1/admin/invitations":
                 def revoke_invitation(service: Any) -> dict[str, Any]:
@@ -483,6 +520,11 @@ def main() -> int:
         if firebase_config is not None
         else None
     )
+    cost_service = CloudCostService(
+        project_id=settings.project_id,
+        dataset_id=settings.billing_dataset,
+        location=settings.bigquery_location,
+    )
     server = ThreadingHTTPServer(
         ("0.0.0.0", port),
         build_handler(
@@ -494,6 +536,7 @@ def main() -> int:
             signals_cache,
             settings,
             user_service,
+            cost_service,
         ),
     )
     print(

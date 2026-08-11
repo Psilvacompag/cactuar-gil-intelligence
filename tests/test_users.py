@@ -187,6 +187,58 @@ class FirebaseUserServiceTests(unittest.TestCase):
         ]
         self.assertEqual(history_documents, [])
 
+    def test_conversion_plan_is_private_and_tracks_market_observations(self):
+        self.service.register("Bearer owner")
+        saved = self.service.save_conversion_plan("Bearer owner", {
+            "currencyItemId": 41784,
+            "currencyName": "Orange Crafters' Scrip",
+            "budget": 1000,
+            "spent": 900,
+            "remaining": 100,
+            "expectedNetGil": 450000,
+            "marketCollectedAt": "2026-08-11T12:00:00+00:00",
+            "dashboardGeneratedAt": "2026-08-11T12:05:00+00:00",
+            "filters": {"expansion": "Dawntrail", "map": "WITH_MAP"},
+            "lines": [{
+                "rewardItemId": 44001,
+                "rewardName": "Test Material",
+                "rewardIsHq": False,
+                "shopId": 1770001,
+                "offerIndex": 4,
+                "exchanges": 3,
+                "units": 3,
+                "spent": 900,
+                "expectedNetGil": 450000,
+                "score": 87,
+            }],
+        })
+
+        summary = self.service.record_conversion_plan_observations(
+            dashboard={"conversions": [{
+                "currencyItemId": 41784,
+                "rewardItemId": 44001,
+                "rewardName": "Test Material",
+                "rewardIsHq": False,
+                "shopId": 1770001,
+                "offerIndex": 4,
+                "status": "FRESH",
+                "marketUnitPrice": 170000,
+                "netGilPerExchange": 161500,
+                "dailySaleVelocity": 7.5,
+            }]},
+            market_snapshot_id="snapshot-plan-1",
+            observed_at="2026-08-11T15:00:00+00:00",
+        )
+        plans = self.service.conversion_plans("Bearer owner")
+
+        self.assertEqual(summary, {"tracked": 1, "recorded": 1})
+        self.assertEqual(plans[0]["id"], saved["id"])
+        self.assertEqual(plans[0]["observations"][0]["currentExpectedNetGil"], 484500)
+        self.assertEqual(plans[0]["observations"][0]["lines"][0]["dailySaleVelocity"], 7.5)
+
+        self.service.delete_conversion_plan("Bearer owner", saved["id"])
+        self.assertEqual(self.service.conversion_plans("Bearer owner"), [])
+
     def test_admin_can_preapprove_email_before_first_login(self):
         self.service.register("Bearer owner")
         granted = self.service.grant_access("Bearer owner", " Member@Example.com ")

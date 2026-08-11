@@ -111,6 +111,11 @@ class FirebaseUserService:
         _, profile = self._authorized_profile(authorization)
         return self._public_profile(profile)
 
+    def authorize_admin(self, authorization: str | None) -> dict[str, Any]:
+        """Require an approved administrator for operational endpoints."""
+        _, profile = self._authorized_profile(authorization, require_admin=True)
+        return self._public_profile(profile)
+
     def favorites(self, authorization: str | None) -> list[dict[str, Any]]:
         _, profile = self._authorized_profile(authorization)
         documents = self._users().document(profile["uid"]).collection("favorites").stream()
@@ -159,6 +164,124 @@ class FirebaseUserService:
         for observation in reference.collection("history").stream():
             observation.reference.delete()
         reference.delete()
+
+    def conversion_plans(self, authorization: str | None) -> list[dict[str, Any]]:
+        _, profile = self._authorized_profile(authorization)
+        documents = self._users().document(profile["uid"]).collection("conversionPlans").stream()
+        plans: list[dict[str, Any]] = []
+        for document in documents:
+            plan = document.to_dict() or {}
+            observations = [
+                observation.to_dict() or {}
+                for observation in document.reference.collection("observations").stream()
+            ]
+            plan["id"] = document.id
+            plan["observations"] = sorted(
+                (self._serialize(observation) for observation in observations),
+                key=lambda item: str(item.get("observedAt") or ""),
+            )[-60:]
+            plans.append(self._serialize(plan))
+        return sorted(plans, key=lambda item: str(item.get("createdAt") or ""), reverse=True)[:50]
+
+    def save_conversion_plan(
+        self,
+        authorization: str | None,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        _, profile = self._authorized_profile(authorization)
+        safe = self._conversion_plan_payload(payload)
+        now = datetime.now(timezone.utc)
+        document_id = hashlib.sha256(
+            f'{profile["uid"]}:{now.isoformat()}:{safe["currencyItemId"]}'.encode("utf-8")
+        ).hexdigest()
+        plan = {**safe, "createdAt": now, "updatedAt": now}
+        self._users().document(profile["uid"]).collection("conversionPlans").document(
+            document_id
+        ).set(plan)
+        return self._serialize({"id": document_id, **plan, "observations": []})
+
+    def delete_conversion_plan(self, authorization: str | None, plan_id: str) -> None:
+        _, profile = self._authorized_profile(authorization)
+        normalized_id = str(plan_id or "").strip().casefold()
+        if len(normalized_id) != 64 or any(
+            character not in "0123456789abcdef" for character in normalized_id
+        ):
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan_id")
+        reference = (
+            self._users().document(profile["uid"])
+            .collection("conversionPlans").document(normalized_id)
+        )
+        if not reference.get().exists:
+            raise UserApiError(HTTPStatus.NOT_FOUND, "plan_not_found")
+        for observation in reference.collection("observations").stream():
+            observation.reference.delete()
+        reference.delete()
+
+    def record_conversion_plan_observations(
+        self,
+        *,
+        dashboard: dict[str, Any],
+        market_snapshot_id: str,
+        observed_at: str,
+    ) -> dict[str, int]:
+        if not market_snapshot_id or not observed_at:
+            raise ValueError("Plan observations require a market timestamp and snapshot id")
+        current = {
+            (
+                item.get("currencyItemId"), item.get("rewardItemId"),
+                bool(item.get("rewardIsHq")), item.get("shopId"), item.get("offerIndex"),
+            ): item
+            for item in dashboard.get("conversions", [])
+        }
+        observation_id = hashlib.sha256(market_snapshot_id.encode("utf-8")).hexdigest()
+        tracked = 0
+        recorded = 0
+        for user_snapshot in self._users().stream():
+            plans = user_snapshot.reference.collection("conversionPlans").stream()
+            for plan_snapshot in plans:
+                tracked += 1
+                plan = plan_snapshot.to_dict() or {}
+                observed_lines = []
+                total = 0.0
+                total_complete = True
+                for line in plan.get("lines") or []:
+                    key = (
+                        line.get("currencyItemId"), line.get("rewardItemId"),
+                        bool(line.get("rewardIsHq")), line.get("shopId"), line.get("offerIndex"),
+                    )
+                    item = current.get(key)
+                    if item is None:
+                        total_complete = False
+                        observed_lines.append({
+                            "rewardItemId": line.get("rewardItemId"),
+                            "rewardName": line.get("rewardName"),
+                            "status": "MISSING",
+                        })
+                        continue
+                    net_exchange = _finite_number(item.get("netGilPerExchange"))
+                    exchanges = int(line.get("exchanges") or 0)
+                    if net_exchange is None:
+                        total_complete = False
+                    else:
+                        total += net_exchange * exchanges
+                    observed_lines.append({
+                        "rewardItemId": line.get("rewardItemId"),
+                        "rewardName": line.get("rewardName"),
+                        "status": item.get("status"),
+                        "marketUnitPrice": _finite_number(item.get("marketUnitPrice")),
+                        "netGilPerExchange": net_exchange,
+                        "dailySaleVelocity": _finite_number(item.get("dailySaleVelocity")),
+                    })
+                if not observed_lines:
+                    continue
+                plan_snapshot.reference.collection("observations").document(observation_id).set({
+                    "marketSnapshotId": market_snapshot_id,
+                    "observedAt": observed_at,
+                    "currentExpectedNetGil": total if total_complete else None,
+                    "lines": observed_lines,
+                })
+                recorded += 1
+        return {"tracked": tracked, "recorded": recorded}
 
     def record_favorite_observations(
         self,
@@ -454,6 +577,75 @@ class FirebaseUserService:
         if len(str(result)) > 4000:
             raise UserApiError(HTTPStatus.BAD_REQUEST, "metadata_too_large")
         return result
+
+    @staticmethod
+    def _conversion_plan_payload(value: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan")
+        try:
+            currency_id = int(value.get("currencyItemId"))
+            budget = int(value.get("budget"))
+            spent = int(value.get("spent"))
+            remaining = int(value.get("remaining"))
+            expected = float(value.get("expectedNetGil"))
+        except (TypeError, ValueError) as exc:
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan") from exc
+        currency_name = str(value.get("currencyName") or "").strip()[:200]
+        if (
+            currency_id <= 0 or not currency_name or budget <= 0 or spent < 0
+            or remaining < 0 or _finite_number(expected) is None or expected < 0
+        ):
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan")
+        if spent > budget or remaining != budget - spent or budget > 100_000_000:
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan")
+        raw_lines = value.get("lines")
+        if not isinstance(raw_lines, list) or not 1 <= len(raw_lines) <= 10:
+            raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan_lines")
+        lines = []
+        for raw in raw_lines:
+            if not isinstance(raw, dict):
+                raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan_lines")
+            try:
+                line = {
+                    "currencyItemId": currency_id,
+                    "rewardItemId": int(raw.get("rewardItemId")),
+                    "rewardName": str(raw.get("rewardName") or "").strip()[:200],
+                    "rewardIsHq": bool(raw.get("rewardIsHq")),
+                    "shopId": int(raw.get("shopId")),
+                    "offerIndex": int(raw.get("offerIndex")),
+                    "exchanges": int(raw.get("exchanges")),
+                    "units": int(raw.get("units")),
+                    "spent": int(raw.get("spent")),
+                    "expectedNetGil": float(raw.get("expectedNetGil")),
+                    "score": int(raw.get("score")),
+                }
+            except (TypeError, ValueError) as exc:
+                raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan_lines") from exc
+            if (
+                line["rewardItemId"] <= 0 or not line["rewardName"]
+                or line["shopId"] <= 0 or line["offerIndex"] < 0
+                or line["exchanges"] <= 0 or line["units"] <= 0
+                or line["spent"] <= 0 or _finite_number(line["expectedNetGil"]) is None
+                or line["expectedNetGil"] < 0
+                or not 0 <= line["score"] <= 100
+            ):
+                raise UserApiError(HTTPStatus.BAD_REQUEST, "invalid_plan_lines")
+            lines.append(line)
+        return {
+            "currencyItemId": currency_id,
+            "currencyName": currency_name,
+            "budget": budget,
+            "spent": spent,
+            "remaining": remaining,
+            "expectedNetGil": expected,
+            "marketCollectedAt": str(value.get("marketCollectedAt") or "")[:64],
+            "dashboardGeneratedAt": str(value.get("dashboardGeneratedAt") or "")[:64],
+            "filters": {
+                "expansion": str((value.get("filters") or {}).get("expansion") or "ALL")[:80],
+                "map": str((value.get("filters") or {}).get("map") or "ALL")[:20],
+            },
+            "lines": lines,
+        }
 
     @classmethod
     def _public_profile(cls, profile: dict[str, Any]) -> dict[str, Any]:

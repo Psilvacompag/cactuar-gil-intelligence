@@ -12,6 +12,11 @@ const state = {
   pageSize: 50,
   advice: null,
   budget: 1000,
+  expansion: "ALL",
+  mapAvailability: "ALL",
+  portfolio: null,
+  plans: [],
+  plansLoading: false,
 };
 
 const elements = {
@@ -41,6 +46,13 @@ const elements = {
   advisorBudgetControl: document.querySelector("#advisor-budget-control"),
   advisorBudget: document.querySelector("#advisor-budget"),
   scoreSortOption: document.querySelector("#score-sort-option"),
+  expansion: document.querySelector("#expansion-filter"),
+  mapAvailability: document.querySelector("#map-filter"),
+  planHistory: document.querySelector("#plan-history-list"),
+  planHistoryRefresh: document.querySelector("#plan-history-refresh"),
+  catalogQualityStatus: document.querySelector("#catalog-quality-status"),
+  catalogQualityMetrics: document.querySelector("#catalog-quality-metrics"),
+  catalogQualityIssues: document.querySelector("#catalog-quality-issues"),
 };
 
 const integerFormat = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -54,14 +66,49 @@ async function loadDashboard() {
     state.advice = GilConversionAdvisor.buildIndex(state.data.conversions);
     state.dataSource = "cloud-authenticated";
     hydrateMeta();
+    hydrateLocationFilters();
+    renderCatalogQuality();
     renderChips();
     applyFilters();
+    void loadPlans();
   } catch (error) {
     elements.count.textContent = "No pudimos cargar los datos";
     elements.empty.hidden = false;
     elements.empty.querySelector("h3").textContent = "Dashboard sin datos";
     elements.empty.querySelector("p").textContent = error.message;
   }
+}
+
+function hydrateLocationFilters() {
+  const expansions = new Set();
+  state.data.conversions.forEach((item) => (item.locations || []).forEach((location) => {
+    if (location.expansionName) expansions.add(location.expansionName);
+  }));
+  const options = [...expansions].sort((a, b) => a.localeCompare(b, "es"));
+  elements.expansion.replaceChildren(new Option("Todas", "ALL"), ...options.map((name) => new Option(name, name)));
+  if (!options.includes(state.expansion)) state.expansion = "ALL";
+  elements.expansion.value = state.expansion;
+}
+
+function renderCatalogQuality() {
+  const quality = state.data.quality;
+  if (!quality) return;
+  const complete = quality.status === "COMPLETE";
+  elements.catalogQualityStatus.className = `quality-pill ${complete ? "solid" : "limited"}`;
+  elements.catalogQualityStatus.innerHTML = `<i></i>${complete ? "Cobertura completa" : "Cobertura parcial"}`;
+  const facts = [
+    ["Canjes publicados", quality.publishedRoutes],
+    ["Tiendas publicadas", quality.publishedShops],
+    ["Con ubicación", quality.shopsWithLocation],
+    ["Con mapa", quality.shopsWithMap],
+    ["Con expansión", quality.shopsWithExpansion],
+    ["Duplicados removidos", quality.duplicateRowsRemoved],
+  ];
+  elements.catalogQualityMetrics.innerHTML = facts.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><strong>${integerFormat.format(value || 0)}</strong></div>`).join("");
+  const missing = quality.unlocatedShops || [];
+  elements.catalogQualityIssues.innerHTML = missing.length
+    ? `<strong>${integerFormat.format(quality.shopsWithoutLocation || missing.length)} tienda(s) sin ubicación confiable</strong><p>${missing.map((shop) => `${escapeHtml(shop.shopName)} (shop ${integerFormat.format(shop.shopId)})`).join(" · ")}</p>`
+    : "<strong>No hay tiendas publicadas sin ubicación.</strong><p>La auditoría también elimina rutas idénticas antes de publicar el dashboard.</p>";
 }
 
 function hydrateMeta() {
@@ -267,6 +314,7 @@ function applyFilters() {
   state.filtered = state.data.conversions.filter((item) => {
     if (state.currencyId !== null && item.currencyItemId !== state.currencyId) return false;
     if (state.freshOnly && !selectedHasNoFreshPrice && item.status !== "FRESH") return false;
+    if (!matchesLocationFilters(item)) return false;
     if (!query) return true;
     return normalize([
       item.currencyName,
@@ -288,32 +336,64 @@ function renderAdvisor() {
   elements.advisorBudgetControl.hidden = !currency;
   elements.advisor.classList.toggle("empty", !currency || !advice);
   if (!currency) {
+    state.portfolio = null;
     elements.advisorContent.innerHTML = '<div class="advisor-empty"><strong>Selecciona una moneda</strong><span>Te mostraremos la compra con mejor equilibrio y sus alternativas.</span></div>';
     return;
   }
   if (!advice) {
+    state.portfolio = null;
     elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Sin recomendación defendible para ${escapeHtml(currency.name)}</strong><span>No hay una conversión fresca con precio y retorno calculable. Conviene esperar datos antes de gastar.</span></div>`;
     return;
   }
 
-  const selection = GilConversionAdvisor.selectForBudget(advice, state.budget);
-  if (!selection) {
-    const minimum = Math.min(...advice.ranked.map((candidate) => candidate.item.currencyQuantity));
-    elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Aún no alcanza para un canje</strong><span>La opción fresca más barata cuesta ${integerFormat.format(minimum)} ${escapeHtml(currency.name)}.</span></div>`;
+  const portfolio = GilConversionAdvisor.buildPortfolio(advice, state.budget, matchesLocationFilters);
+  state.portfolio = portfolio;
+  if (!portfolio) {
+    const eligible = advice.ranked.filter((candidate) => matchesLocationFilters(candidate.item));
+    const minimum = eligible.length ? Math.min(...eligible.map((candidate) => candidate.item.currencyQuantity)) : null;
+    elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Aún no hay un plan aplicable</strong><span>${minimum === null
+      ? "Ningún canje fresco coincide con los filtros de ubicación."
+      : `La opción fresca más barata cuesta ${integerFormat.format(minimum)} ${escapeHtml(currency.name)}.`}</span></div>`;
     return;
   }
-  const primary = selection.best;
-  const alternatives = [selection.returnLeader, selection.liquidityLeader]
-    .filter((candidate, index, list) => candidate && candidate !== primary && list.indexOf(candidate) === index);
   elements.advisorContent.innerHTML = `
-    ${advisorCard(primary, selection.unverified ? "Opción tentativa · sin velocidad" : "Mejor equilibrio", true)}
-    <div class="advisor-alternatives">
-      ${alternatives.map((candidate) => advisorCard(
-        candidate,
-        candidate === selection.returnLeader ? "Mayor retorno" : "Alternativa líquida",
-        false,
-      )).join("") || '<p class="advisor-single">La mejor opción también lidera las métricas disponibles.</p>'}
+    <div class="portfolio-summary">
+      <div><small>Gastar</small><strong>${integerFormat.format(portfolio.spent)}</strong></div>
+      <div><small>Reserva</small><strong>${integerFormat.format(portfolio.remaining)}</strong></div>
+      <div><small>Gil neto estimado</small><strong>${gil(portfolio.expectedNetGil)}</strong></div>
+      <div><small>Unidades</small><strong>${integerFormat.format(portfolio.units)}</strong></div>
+    </div>
+    <div class="portfolio-lines">${portfolio.lines.map(portfolioLine).join("")}</div>
+    <div class="portfolio-actions">
+      <p>${portfolio.remaining
+        ? "La reserva queda sin asignar porque los lotes alcanzaron su límite prudente según ventas diarias y presión de oferta."
+        : "El presupuesto cabe dentro de los límites prudentes calculados para estos lotes."}${portfolio.hasUnverifiedVelocity ? " Las líneas sin velocidad se limitan a un solo canje." : ""}</p>
+      <button id="save-conversion-plan" class="primary-button" type="button">Guardar este plan</button>
     </div>`;
+  document.querySelector("#save-conversion-plan")?.addEventListener("click", (event) => void savePlan(event.currentTarget));
+}
+
+function matchesLocationFilters(item) {
+  const locations = Array.isArray(item.locations) ? item.locations : [];
+  if (state.expansion !== "ALL" && !locations.some((location) => location.expansionName === state.expansion)) return false;
+  if (state.mapAvailability === "WITH_MAP" && !locations.some((location) => Boolean(location.mapAssetId))) return false;
+  if (state.mapAvailability === "WITHOUT_MAP" && locations.some((location) => Boolean(location.mapAssetId))) return false;
+  return true;
+}
+
+function portfolioLine(line) {
+  const item = line.item;
+  const location = (item.locations || []).find((entry) => (
+    (state.expansion === "ALL" || entry.expansionName === state.expansion)
+    && (state.mapAvailability !== "WITH_MAP" || entry.mapAssetId)
+  )) || (item.locations || [])[0];
+  const place = location
+    ? [location.expansionName, location.placeName || location.regionName, location.mapX != null ? `X ${decimalFormat.format(location.mapX)} · Y ${decimalFormat.format(location.mapY)}` : null].filter(Boolean).join(" · ")
+    : "Ubicación no disponible";
+  return `<article class="portfolio-line">
+    <div class="advisor-item">${GilItemIcons.markup(item.rewardIconId, { fallback: "item" })}<div><strong>${escapeHtml(item.rewardName)}${item.rewardIsHq ? " · HQ" : ""}</strong><small>${escapeHtml(item.shopName)} · ${escapeHtml(place)}</small></div></div>
+    <div class="portfolio-line-stats"><span><small>Canjes</small><strong>${integerFormat.format(line.exchanges)}</strong></span><span><small>Unidades</small><strong>${integerFormat.format(line.units)}</strong></span><span><small>Costo</small><strong>${integerFormat.format(line.spent)}</strong></span><span><small>Neto est.</small><strong>${gil(line.expectedNetGil)}</strong></span><span><small>Señal</small><strong>${line.candidate.score}/100</strong></span></div>
+  </article>`;
 }
 
 function advisorCard(candidate, label, primary) {
@@ -835,6 +915,103 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+async function loadPlans() {
+  if (!GilAuth.profile || GilAuth.profile.status !== "ACTIVE") return;
+  state.plansLoading = true;
+  elements.planHistoryRefresh.disabled = true;
+  renderPlanHistory();
+  try {
+    const payload = await GilAuth.request("/v1/me/conversion-plans");
+    state.plans = payload.plans || [];
+  } catch (error) {
+    elements.planHistory.innerHTML = `<p class="advisor-single">${escapeHtml(error.message || "No pudimos cargar los planes guardados.")}</p>`;
+    return;
+  } finally {
+    state.plansLoading = false;
+    elements.planHistoryRefresh.disabled = false;
+  }
+  renderPlanHistory();
+}
+
+async function savePlan(button) {
+  const portfolio = state.portfolio;
+  const currency = state.data.currencies.find((item) => item.itemId === state.currencyId);
+  if (!portfolio || !currency) return;
+  button.disabled = true;
+  button.textContent = "Guardando…";
+  const payload = {
+    currencyItemId: currency.itemId,
+    currencyName: currency.name,
+    budget: portfolio.budget,
+    spent: portfolio.spent,
+    remaining: portfolio.remaining,
+    expectedNetGil: portfolio.expectedNetGil,
+    marketCollectedAt: state.data.meta.marketCollectedAt,
+    dashboardGeneratedAt: state.data.meta.generatedAt,
+    filters: { expansion: state.expansion, map: state.mapAvailability },
+    lines: portfolio.lines.map(({ item, candidate, exchanges, units, spent, expectedNetGil }) => ({
+      rewardItemId: item.rewardItemId,
+      rewardName: item.rewardName,
+      rewardIsHq: Boolean(item.rewardIsHq),
+      shopId: item.shopId,
+      offerIndex: item.offerIndex,
+      exchanges,
+      units,
+      spent,
+      expectedNetGil,
+      score: candidate.score,
+    })),
+  };
+  try {
+    const saved = await GilAuth.request("/v1/me/conversion-plans", { method: "POST", body: JSON.stringify(payload) });
+    state.plans.unshift(saved);
+    renderPlanHistory();
+    button.textContent = "Plan guardado";
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = error.message || "No se pudo guardar";
+  }
+}
+
+function renderPlanHistory() {
+  if (state.plansLoading && !state.plans.length) {
+    elements.planHistory.innerHTML = '<p class="advisor-single">Cargando planes…</p>';
+    return;
+  }
+  if (!state.plans.length) {
+    elements.planHistory.innerHTML = '<p class="advisor-single">Todavía no guardas un plan. Selecciona una moneda, define tu presupuesto y guarda la canasta sugerida.</p>';
+    return;
+  }
+  elements.planHistory.innerHTML = state.plans.map((plan) => {
+    const latest = (plan.observations || []).at(-1);
+    const current = latest?.currentExpectedNetGil;
+    const delta = current != null && plan.expectedNetGil > 0 ? ((current / plan.expectedNetGil) - 1) * 100 : null;
+    const comparison = delta === null
+      ? "Esperando un refresh posterior para comparar"
+      : `Mercado observado ${delta >= 0 ? "+" : ""}${decimalFormat.format(delta)}% · ${gil(current)} netos estimados ahora`;
+    return `<article class="saved-plan" data-plan-id="${escapeHtml(plan.id)}">
+      <div><small>${escapeHtml(formatDate(plan.createdAt))}</small><strong>${integerFormat.format(plan.budget)} ${escapeHtml(plan.currencyName)}</strong><span>${integerFormat.format(plan.lines?.length || 0)} recompensa(s) · ${gil(plan.expectedNetGil)} netos estimados</span></div>
+      <p>${escapeHtml(comparison)}</p>
+      <button type="button" class="plan-delete" data-plan-delete="${escapeHtml(plan.id)}">Eliminar</button>
+    </article>`;
+  }).join("");
+  elements.planHistory.querySelectorAll("[data-plan-delete]").forEach((button) => {
+    button.addEventListener("click", () => void deletePlan(button.dataset.planDelete, button));
+  });
+}
+
+async function deletePlan(planId, button) {
+  button.disabled = true;
+  try {
+    await GilAuth.request("/v1/me/conversion-plans", { method: "DELETE", body: JSON.stringify({ id: planId }) });
+    state.plans = state.plans.filter((plan) => plan.id !== planId);
+    renderPlanHistory();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = error.message || "Error";
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
@@ -848,6 +1025,8 @@ elements.search.addEventListener("input", (event) => {
 });
 elements.sort.addEventListener("change", (event) => setSort(event.target.value));
 elements.fresh.addEventListener("change", (event) => { state.freshOnly = event.target.checked; state.page = 1; applyFilters(); });
+elements.expansion.addEventListener("change", (event) => { state.expansion = event.target.value; state.page = 1; applyFilters(); });
+elements.mapAvailability.addEventListener("change", (event) => { state.mapAvailability = event.target.value; state.page = 1; applyFilters(); });
 elements.pagePrevious.addEventListener("click", () => goToPage(state.page - 1));
 elements.pageNext.addEventListener("click", () => goToPage(state.page + 1));
 elements.pageSize.addEventListener("change", (event) => {
@@ -860,6 +1039,7 @@ elements.advisorBudget.addEventListener("input", (event) => {
   state.budget = value;
   renderAdvisor();
 });
+elements.planHistoryRefresh.addEventListener("click", () => void loadPlans());
 document.querySelector("#dialog-close").addEventListener("click", () => elements.dialog.close());
 elements.dialog.addEventListener("click", (event) => { if (event.target === elements.dialog) elements.dialog.close(); });
 document.querySelector("#currency-dialog-close").addEventListener("click", () => elements.currencyDialog.close());
@@ -879,4 +1059,5 @@ bindSortableHeaders();
 GilWatchlist.subscribe(() => {
   if (state.data) renderRows();
 });
+window.addEventListener("gil-auth-change", () => { if (state.data) void loadPlans(); });
 loadDashboard();

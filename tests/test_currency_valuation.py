@@ -143,6 +143,10 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertTrue(all(row["locations"][0]["npcName"] == "Auriana" for row in rows))
             self.assertTrue(all(row["locations"][0]["mapAssetId"] == "l1f1/01" for row in rows))
             self.assertTrue(all(row["locations"][0]["expansionName"] == "A Realm Reborn" for row in rows))
+            self.assertEqual(exported["quality"]["status"], "COMPLETE")
+            self.assertEqual(exported["quality"]["shopsWithLocation"], 1)
+            self.assertEqual(exported["quality"]["shopsWithExpansion"], 1)
+            self.assertEqual(exported["quality"]["shopsWithoutLocation"], 0)
 
     def test_dashboard_audits_but_does_not_publish_non_tradeable_exchanges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

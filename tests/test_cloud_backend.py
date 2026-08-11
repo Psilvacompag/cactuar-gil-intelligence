@@ -41,12 +41,14 @@ class CloudSettingsTests(unittest.TestCase):
                 "CACTUAR_RPS": "0.5",
                 "CACTUAR_ALLOWED_ORIGINS": "https://example.test/,http://localhost:8000",
                 "CACTUAR_RADAR_HISTORY_ENABLED": "true",
+                "CACTUAR_BILLING_DATASET": "billing_costs",
             }
         )
 
         self.assertEqual(settings.bucket, "example-data")
         self.assertEqual(settings.requests_per_second, 0.5)
         self.assertTrue(settings.radar_history_enabled)
+        self.assertEqual(settings.billing_dataset, "billing_costs")
         self.assertEqual(
             settings.allowed_origins,
             ("https://example.test", "http://localhost:8000"),

@@ -240,19 +240,30 @@ def run_refresh(settings: CloudSettings, store: GcsObjectStore, work_dir: Path) 
         market_items=json.loads(market_items_path.read_text(encoding="utf-8")),
         opportunities=json.loads(opportunities_path.read_text(encoding="utf-8")),
     )
-    radar_summary = {"watched": 0, "recorded": 0}
+    radar_summary = {"watched": 0, "recorded": 0, "plansTracked": 0, "plansRecorded": 0}
     if settings.radar_history_enabled:
         try:
-            radar_summary = FirebaseUserService(
+            history_service = FirebaseUserService(
                 project_id=settings.project_id,
                 bootstrap_admin_email=settings.bootstrap_admin_email,
                 collection_name=settings.users_collection,
-            ).record_favorite_observations(
+            )
+            favorite_summary = history_service.record_favorite_observations(
                 dashboard=json.loads(dashboard_path.read_text(encoding="utf-8")),
                 market_items=json.loads(market_items_path.read_text(encoding="utf-8")),
                 opportunities=json.loads(opportunities_path.read_text(encoding="utf-8")),
                 signals=json.loads(signals_path.read_text(encoding="utf-8")),
             )
+            plan_summary = history_service.record_conversion_plan_observations(
+                dashboard=json.loads(dashboard_path.read_text(encoding="utf-8")),
+                market_snapshot_id=market_summary.snapshot_id,
+                observed_at=market_summary.collected_at,
+            )
+            radar_summary = {
+                **favorite_summary,
+                "plansTracked": plan_summary["tracked"],
+                "plansRecorded": plan_summary["recorded"],
+            }
             _emit("Favorite radar observations recorded", **radar_summary)
         except Exception as exc:
             _emit(

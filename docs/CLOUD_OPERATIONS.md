@@ -63,8 +63,9 @@ configurados. Health responde 503 cuando los datos de mercado superan la edad m�
   confirmar una cuenta `ACTIVE`; no hay flash de tablas durante el arranque.
 - El artefacto de GitHub Pages excluye los snapshots estáticos de mercado. Solo
   conserva `launch-signals.json`, que contiene reglas históricas sin precios actuales.
-- Firestore guarda `cactuar_users/{uid}`, la subcolección privada `favorites` y el
-  historial de cada regla bajo `favorites/{favorite}/history`.
+- Firestore guarda `cactuar_users/{uid}`, la subcolección privada `favorites`, el
+  historial de cada regla bajo `favorites/{favorite}/history` y los planes de
+  conversión bajo `conversionPlans/{plan}` con observaciones de refresh privadas.
 - Los favoritos históricos del navegador se eliminan y no se importan.
 - Cloud Run usa Application Default Credentials; no existen archivos JSON de cuenta
   de servicio ni llaves privadas.
@@ -97,3 +98,11 @@ Antes de cambiar el Scheduler se debe ejecutar el job manualmente y comprobar:
 ## Costos y límites
 
 El servicio usa escala a cero y el job se ejecuta dos veces al día. El presupuesto del proyecto es CLP 5.000 con alertas al 50%, 90% y 100%; las alertas no detienen automáticamente los recursos. Vertex AI permanece deshabilitado hasta contar con historial y un criterio de evaluación del modelo.
+
+El panel administrador consulta `/v1/admin/costs`, que suma el costo neto mensual
+oficial del proyecto desde el dataset `billing_export`. El dataset se crea por
+infraestructura, pero la exportación estándar de Cloud Billing se activa una vez
+desde la consola del billing account; hasta entonces el endpoint devuelve
+`PENDING_EXPORT`. Artifact Registry conserva al menos las siete imágenes más
+recientes y elimina versiones con más de 14 días según
+`infra/artifact-cleanup-policy.json`.

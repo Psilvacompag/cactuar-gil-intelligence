@@ -53,7 +53,7 @@ def export_currency_dashboard(
         if run["scope"].casefold() != scope.casefold():
             raise ValueError(f"Valuation run scope does not match {scope!r}")
 
-        raw_rows = connection.execute(
+        raw_rows = list(connection.execute(
             """
             SELECT value.currency_item_id, value.currency_name,
                    currency_asset.icon_id AS currency_icon_id,
@@ -89,8 +89,9 @@ def export_currency_dashboard(
                      value.daily_sale_velocity DESC
             """,
             (selected_run,),
-        )
-        conversions = _deduplicate_conversions(raw_rows)
+        ))
+        deduplication_audit: dict[str, int] = {}
+        conversions = _deduplicate_conversions(raw_rows, audit=deduplication_audit)
         locations_by_shop = _shop_locations(
             connection,
             static_snapshot_id=run["static_snapshot_id"],
@@ -112,6 +113,11 @@ def export_currency_dashboard(
                 detail,
                 conversion["dailySaleVelocity"],
             )
+        catalog_quality = _catalog_quality(
+            conversions,
+            locations_by_shop=locations_by_shop,
+            duplicate_rows_removed=deduplication_audit.get("duplicateRowsRemoved", 0),
+        )
         currency_stats = _currency_stats(conversions)
         market_conversions = [
             item for item in conversions if item["status"] in {"FRESH", "STALE"}
@@ -169,6 +175,7 @@ def export_currency_dashboard(
             "depthVerified": sum(item["listingDepth"] is not None for item in conversions),
         },
         "currencies": currency_stats,
+        "quality": catalog_quality,
         "conversions": conversions,
     }
     target_path = Path(output_path)
@@ -202,9 +209,14 @@ def _select_run(connection: sqlite3.Connection, scope: str) -> str:
     return row[0]
 
 
-def _deduplicate_conversions(rows: Any) -> list[dict[str, Any]]:
+def _deduplicate_conversions(
+    rows: Any,
+    *,
+    audit: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
+    duplicate_rows_removed = 0
     for row in rows:
         try:
             components = json.loads(row["cost_components_json"] or "[]")
@@ -228,6 +240,7 @@ def _deduplicate_conversions(rows: Any) -> list[dict[str, Any]]:
                 tuple((cost["itemId"], cost["quantity"]) for cost in components),
             )
             if signature in seen:
+                duplicate_rows_removed += 1
                 continue
             seen.add(signature)
             result.append(
@@ -255,7 +268,65 @@ def _deduplicate_conversions(rows: Any) -> list[dict[str, Any]]:
                     "offerIndex": row["offer_index"],
                 }
             )
+    if audit is not None:
+        audit["duplicateRowsRemoved"] = duplicate_rows_removed
     return result
+
+
+def _catalog_quality(
+    conversions: list[dict[str, Any]],
+    *,
+    locations_by_shop: dict[int, list[dict[str, Any]]],
+    duplicate_rows_removed: int,
+) -> dict[str, Any]:
+    routes = {
+        (int(item["shopId"]), int(item["offerIndex"]))
+        for item in conversions
+    }
+    shop_ids = {shop_id for shop_id, _ in routes}
+    located_shop_ids = {shop_id for shop_id in shop_ids if locations_by_shop.get(shop_id)}
+    mapped_shop_ids = {
+        shop_id
+        for shop_id in located_shop_ids
+        if any(location.get("mapAssetId") for location in locations_by_shop[shop_id])
+    }
+    expanded_shop_ids = {
+        shop_id
+        for shop_id in located_shop_ids
+        if any(location.get("expansionName") for location in locations_by_shop[shop_id])
+    }
+    route_counts: dict[int, int] = {}
+    names: dict[int, str] = {}
+    for item in conversions:
+        shop_id = int(item["shopId"])
+        route_counts[shop_id] = route_counts.get(shop_id, 0) + 1
+        names.setdefault(shop_id, str(item.get("shopName") or "SpecialShop"))
+    missing = sorted(
+        (
+            {
+                "shopId": shop_id,
+                "shopName": names.get(shop_id) or "SpecialShop",
+                "publishedConversions": route_counts.get(shop_id, 0),
+            }
+            for shop_id in shop_ids - located_shop_ids
+        ),
+        key=lambda item: (-item["publishedConversions"], item["shopId"]),
+    )
+    total_shops = len(shop_ids)
+    return {
+        "status": "COMPLETE" if len(located_shop_ids) == total_shops else "PARTIAL",
+        "publishedRoutes": len(routes),
+        "publishedShops": total_shops,
+        "shopsWithLocation": len(located_shop_ids),
+        "shopsWithMap": len(mapped_shop_ids),
+        "shopsWithExpansion": len(expanded_shop_ids),
+        "shopsWithoutLocation": total_shops - len(located_shop_ids),
+        "locationCoveragePercent": (
+            round(len(located_shop_ids) * 100 / total_shops, 1) if total_shops else 100.0
+        ),
+        "duplicateRowsRemoved": duplicate_rows_removed,
+        "unlocatedShops": missing[:20],
+    }
 
 
 def _shop_locations(

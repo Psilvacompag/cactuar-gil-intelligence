@@ -139,11 +139,86 @@
     return { exchanges, units, spent, netGil, pilotUnits, remaining: available - spent };
   }
 
+  function safeExchangeCap(item) {
+    const rewardQuantity = Math.max(1, finite(item.rewardQuantity) || 1);
+    const velocity = finite(item.dailySaleVelocity);
+    if (velocity === null || velocity <= 0) return 1;
+    let units = Math.max(rewardQuantity, Math.ceil(velocity * 0.25));
+    const pressure = String(item.listingDepth?.pressure || "").toUpperCase();
+    if (pressure === "HIGH") units = Math.max(rewardQuantity, Math.floor(units * 0.5));
+    else if (pressure === "MEDIUM") units = Math.max(rewardQuantity, Math.floor(units * 0.75));
+    return Math.max(1, Math.ceil(units / rewardQuantity));
+  }
+
+  function buildPortfolio(advice, budget, predicate = () => true) {
+    if (!advice) return null;
+    const available = Math.max(0, Math.floor(finite(budget) || 0));
+    const eligibleRanked = advice.ranked.filter((candidate) => (
+      predicate(candidate.item)
+      && candidate.item.currencyQuantity <= available
+    ));
+    if (!eligibleRanked.length) return null;
+    const bestScore = eligibleRanked[0].score;
+    const maximumReturn = Math.max(...eligibleRanked.map((candidate) => candidate.item.netGilPerCurrency));
+    const pool = eligibleRanked
+      .filter((candidate) => (
+        candidate.score >= Math.max(30, bestScore * 0.55)
+        && candidate.item.netGilPerCurrency >= maximumReturn * 0.15
+      ))
+      .slice(0, 4);
+    if (!pool.length) pool.push(eligibleRanked[0]);
+
+    const allocations = new Map(pool.map((candidate) => [candidate, 0]));
+    const caps = new Map(pool.map((candidate) => [candidate, safeExchangeCap(candidate.item)]));
+    let remaining = available;
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const candidate of pool) {
+        const cost = finite(candidate.item.currencyQuantity) || 0;
+        if (cost <= 0 || cost > remaining || allocations.get(candidate) >= caps.get(candidate)) continue;
+        allocations.set(candidate, allocations.get(candidate) + 1);
+        remaining -= cost;
+        progressed = true;
+      }
+    }
+
+    const lines = pool
+      .filter((candidate) => allocations.get(candidate) > 0)
+      .map((candidate) => {
+        const item = candidate.item;
+        const exchanges = allocations.get(candidate);
+        const units = exchanges * Math.max(1, finite(item.rewardQuantity) || 1);
+        return {
+          candidate,
+          item,
+          exchanges,
+          units,
+          spent: exchanges * item.currencyQuantity,
+          expectedNetGil: exchanges * item.netGilPerExchange,
+          safeExchangeCap: caps.get(candidate),
+        };
+      });
+    if (!lines.length) return null;
+    const spent = lines.reduce((total, line) => total + line.spent, 0);
+    return {
+      budget: available,
+      spent,
+      remaining: available - spent,
+      expectedNetGil: lines.reduce((total, line) => total + line.expectedNetGil, 0),
+      units: lines.reduce((total, line) => total + line.units, 0),
+      lines,
+      hasUnverifiedVelocity: lines.some((line) => finite(line.item.dailySaleVelocity) === null),
+    };
+  }
+
   root.GilConversionAdvisor = {
     analyzeCurrency,
     buildIndex,
     conversionKey,
+    buildPortfolio,
     purchasePlan,
+    safeExchangeCap,
     selectForBudget,
   };
 })(typeof window === "undefined" ? globalThis : window);

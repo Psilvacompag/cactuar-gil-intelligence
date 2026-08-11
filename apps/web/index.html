@@ -130,6 +130,20 @@
               <option value="cost">Menor costo</option>
             </select>
           </label>
+          <label class="select-control">
+            <span>Expansión</span>
+            <select id="expansion-filter">
+              <option value="ALL">Todas</option>
+            </select>
+          </label>
+          <label class="select-control">
+            <span>Mapa</span>
+            <select id="map-filter">
+              <option value="ALL">Todos</option>
+              <option value="WITH_MAP">Con mapa</option>
+              <option value="WITHOUT_MAP">Sin mapa</option>
+            </select>
+          </label>
           <label class="toggle-control">
             <input id="fresh-toggle" type="checkbox" checked />
             <span class="toggle-ui" aria-hidden="true"></span>
@@ -143,8 +157,8 @@
           <div class="advisor-heading">
             <div>
               <p class="eyebrow">DECISIÓN ASISTIDA</p>
-              <h3 id="advisor-title">Qué conviene comprar</h3>
-              <p>Equilibra gil por moneda, ventas diarias, frescura y presión de oferta.</p>
+              <h3 id="advisor-title">Plan de compra</h3>
+              <p>Distribuye tus monedas según retorno, ventas diarias y presión de oferta.</p>
             </div>
             <label id="advisor-budget-control" class="advisor-budget" hidden>
               <span>Monedas disponibles</span>
@@ -153,6 +167,16 @@
           </div>
           <div id="advisor-content" class="advisor-content" aria-live="polite">
             <div class="advisor-empty"><strong>Selecciona una moneda</strong><span>Te mostraremos la compra con mejor equilibrio y sus alternativas.</span></div>
+          </div>
+        </section>
+
+        <section class="plan-history" aria-labelledby="plan-history-title">
+          <div class="compact-section-heading">
+            <div><p class="eyebrow">SEGUIMIENTO</p><h3 id="plan-history-title">Planes guardados</h3></div>
+            <button id="plan-history-refresh" class="secondary-button" type="button">Actualizar</button>
+          </div>
+          <div id="plan-history-list" class="plan-history-list" aria-live="polite">
+            <p class="advisor-single">Tus planes aparecerán aquí para comparar su estimación con mercados posteriores.</p>
           </div>
         </section>
 
@@ -193,6 +217,15 @@
             </select>
           </label>
         </nav>
+
+        <section id="catalog-quality" class="catalog-quality" aria-labelledby="catalog-quality-title">
+          <div class="compact-section-heading">
+            <div><p class="eyebrow">CONTROL DE CATÁLOGO</p><h3 id="catalog-quality-title">Cobertura de vendedores</h3></div>
+            <span id="catalog-quality-status" class="quality-pill"></span>
+          </div>
+          <div id="catalog-quality-metrics" class="catalog-quality-metrics"></div>
+          <div id="catalog-quality-issues" class="catalog-quality-issues"></div>
+        </section>
       </section>
 
       <section class="method-note">
@@ -205,7 +238,7 @@
           <p><span>02</span> La velocidad corresponde a ventas observadas. “Sin datos” significa que Universalis no publicó la métrica para Cactuar; no significa cero ventas.</p>
           <p><span>03</span> Los datos fuera de la ventana de frescura se marcan como antiguos.</p>
           <p><span>04</span> Los canjes combinados muestran todas las monedas requeridas y el gil neto del canje completo; nunca atribuyen todo ese valor a una sola moneda.</p>
-          <p><span>05</span> La recomendación compara únicamente canjes frescos de la misma moneda y pondera retorno, ventas diarias y presión de oferta. Es una ayuda para decidir, no una garantía de venta.</p>
+          <p><span>05</span> El plan compara únicamente canjes frescos de la misma moneda, reparte hasta cuatro recompensas y limita cada lote a una fracción de las ventas diarias observadas. Puede dejar monedas en reserva para no sugerir una oferta excesiva.</p>
         </div>
       </section>
     </main>
