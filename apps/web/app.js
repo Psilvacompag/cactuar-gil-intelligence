@@ -541,10 +541,17 @@ function locationMarkup(item, selectedIndex = 0) {
     ? `<div class="location-selector" aria-label="Ubicaciones disponibles">${locations.map((entry, index) => `<button type="button" data-location-index="${index}" class="${index === safeIndex ? "selected" : ""}">${escapeHtml(locationOptionLabel(entry, index))}</button>`).join("")}</div>`
     : "";
   const hasMap = Boolean(location.mapAssetId);
+  const markerX = Math.min(Math.max(Number(location.markerLeftPercent), 0), 100);
+  const markerY = Math.min(Math.max(Number(location.markerTopPercent), 0), 100);
   const map = hasMap
     ? `<div class="xiv-map">
         <img src="${mapAssetUrl(location.mapAssetId)}" alt="Mapa de ${escapeHtml(placeName)}" loading="lazy" />
-        <span class="xiv-map-marker" style="left:${Number(location.markerLeftPercent)}%;top:${Number(location.markerTopPercent)}%" aria-label="Posición del NPC"><b>×</b></span>
+        <svg class="xiv-map-marker" viewBox="0 0 100 100" role="img" aria-label="Posición del NPC">
+          <g transform="translate(${markerX} ${markerY})">
+            <circle r="2.2"></circle>
+            <path d="M -0.8 -0.8 L 0.8 0.8 M 0.8 -0.8 L -0.8 0.8"></path>
+          </g>
+        </svg>
         <div class="map-error" hidden>El mapa no pudo cargarse ahora.</div>
       </div>`
     : `<div class="map-error standalone">Mapa no disponible para esta ubicación.</div>`;

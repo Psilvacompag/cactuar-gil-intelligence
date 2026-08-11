@@ -167,8 +167,10 @@ confidence
 
 Las relaciones directas `SpecialShop → ENpcBase → Level` usan confianza
 `DIRECT_ENPC_LEVEL`. Las rutas resueltas a través de `PreHandler` o
-`InclusionShop` usan `INCLUSION_SHOP_ENPC_LEVEL`; si no existe ninguna de esas
-rutas, el dashboard muestra explícitamente que la ubicación no está disponible.
+`InclusionShop` usan `INCLUSION_SHOP_ENPC_LEVEL`. Los comerciantes de gemas
+bicolores usan `FATE_SHOP_LEVEL`, o `CUSTOM_TALK_FATE_SHOP_LEVEL` para las
+tiendas antiguas de Shadowbringers; si no existe ninguna ruta confiable, el
+dashboard muestra explícitamente que la ubicación no está disponible.
 
 ### `dim_shop_offer`
 

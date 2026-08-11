@@ -68,7 +68,8 @@ var interestingTokens = new[]
     "InclusionShopCategory",
     "InclusionShopSeries",
     "PreHandler",
-    "SwitchTalk",
+    "FateShop",
+    "CustomTalk",
     "CollectablesShop",
     "FccShop",
     "DisposalShop",
@@ -148,7 +149,8 @@ var requestedSheets = new[]
     "InclusionShopCategory",
     "InclusionShopSeries",
     "PreHandler",
-    "SwitchTalk",
+    "FateShop",
+    "CustomTalk",
     "CollectablesShop",
     "FccShop",
     "DisposalShop",
@@ -381,6 +383,8 @@ static object ProbeLocalGameData(
     var inclusionShopCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShopCategory");
     var inclusionShopSeriesType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShopSeries");
     var preHandlerType = excelAssembly.GetType("Lumina.Excel.Sheets.PreHandler");
+    var fateShopType = excelAssembly.GetType("Lumina.Excel.Sheets.FateShop");
+    var customTalkType = excelAssembly.GetType("Lumina.Excel.Sheets.CustomTalk");
     var shopLocationCatalog = specialShopType is null
         || enpcBaseType is null
         || enpcResidentType is null
@@ -391,6 +395,8 @@ static object ProbeLocalGameData(
         || inclusionShopCategoryType is null
         || inclusionShopSeriesType is null
         || preHandlerType is null
+        || fateShopType is null
+        || customTalkType is null
             ? null
             : BuildShopLocationCatalog(
                 gameData,
@@ -405,7 +411,9 @@ static object ProbeLocalGameData(
                 inclusionShopType,
                 inclusionShopCategoryType,
                 inclusionShopSeriesType,
-                preHandlerType
+                preHandlerType,
+                fateShopType,
+                customTalkType
             );
     var gameVersion = ReadGameVersion(gameDirectory);
     var normalizedSnapshot = snapshotOutputPath is null
@@ -904,7 +912,9 @@ static ShopLocationCatalog BuildShopLocationCatalog(
     Type inclusionShopType,
     Type inclusionShopCategoryType,
     Type inclusionShopSeriesType,
-    Type preHandlerType
+    Type preHandlerType,
+    Type fateShopType,
+    Type customTalkType
 )
 {
     try
@@ -919,6 +929,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
         var inclusionCategoryRows = getExcelSheet.MakeGenericMethod(inclusionShopCategoryType).Invoke(gameData, new object?[] { null, null });
         var inclusionSeriesRows = getSubrowExcelSheet.MakeGenericMethod(inclusionShopSeriesType).Invoke(gameData, new object?[] { null, null });
         var preHandlerRows = getExcelSheet.MakeGenericMethod(preHandlerType).Invoke(gameData, new object?[] { null, null });
+        var fateShopRows = getExcelSheet.MakeGenericMethod(fateShopType).Invoke(gameData, new object?[] { null, null });
+        var customTalkRows = getExcelSheet.MakeGenericMethod(customTalkType).Invoke(gameData, new object?[] { null, null });
         if (
             shopRows is not System.Collections.IEnumerable shops
             || npcRows is not System.Collections.IEnumerable npcs
@@ -930,6 +942,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
             || inclusionCategoryRows is not System.Collections.IEnumerable inclusionCategories
             || inclusionSeriesRows is not System.Collections.IEnumerable inclusionSeries
             || preHandlerRows is not System.Collections.IEnumerable preHandlers
+            || fateShopRows is not System.Collections.IEnumerable fateShops
+            || customTalkRows is not System.Collections.IEnumerable customTalks
         )
         {
             return new ShopLocationCatalog(
@@ -961,6 +975,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
         }
         var shopToNpcs = new Dictionary<uint, HashSet<uint>>();
         var indirectLinks = new HashSet<(uint shopId, uint npcId)>();
+        var fateShopLinks = new HashSet<(uint shopId, uint npcId)>();
+        var customTalkFateLinks = new HashSet<(uint shopId, uint npcId)>();
         var linkedInclusionShopIds = new HashSet<uint>();
         var npcIds = new HashSet<uint>();
         var shopsByCategory = inclusionSeries
@@ -1013,6 +1029,66 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                     rowId = ReadRowRefId(row.target),
                 }
             );
+        foreach (var fateShop in fateShops.Cast<object>())
+        {
+            var npcId = ReadRowId(fateShop) ?? 0;
+            foreach (var shopId in EnumerateProperty(fateShop, "SpecialShop")
+                .Select(ReadRowRefId)
+                .Where(shopIds.Contains))
+            {
+                if (!shopToNpcs.TryGetValue(shopId, out var linkedNpcs))
+                {
+                    linkedNpcs = new HashSet<uint>();
+                    shopToNpcs[shopId] = linkedNpcs;
+                }
+                linkedNpcs.Add(npcId);
+                npcIds.Add(npcId);
+                fateShopLinks.Add((shopId, npcId));
+            }
+        }
+        // Shadowbringers predates the FateShop sheet. Its two CustomTalk scripts
+        // store the gemstone-trader NPCs in the same order as the contiguous
+        // town and field SpecialShop rows below.
+        var legacyShopIdsByCustomTalk = new Dictionary<uint, uint[]>
+        {
+            [721480] = [1769957, 1769958],
+            [721479] = [1769959, 1769960, 1769961, 1769962, 1769963, 1769964],
+        };
+        foreach (var customTalk in customTalks.Cast<object>())
+        {
+            var customTalkId = ReadRowId(customTalk) ?? 0;
+            if (!legacyShopIdsByCustomTalk.TryGetValue(customTalkId, out var legacyShopIds))
+            {
+                continue;
+            }
+            var legacyNpcIds = EnumerateProperty(customTalk, "Script")
+                .Where(script => (ReadProperty(script, "ScriptInstruction")?.ToString() ?? string.Empty)
+                    .StartsWith("FATESHOP_ENPCID_", StringComparison.Ordinal))
+                .Select(script => ReadUnsigned(ReadProperty(script, "ScriptArg")))
+                .Where(npcId => npcId > 0)
+                .ToArray();
+            if (legacyNpcIds.Length != legacyShopIds.Length)
+            {
+                continue;
+            }
+            for (var index = 0; index < legacyShopIds.Length; index++)
+            {
+                var shopId = legacyShopIds[index];
+                var npcId = legacyNpcIds[index];
+                if (!shopIds.Contains(shopId))
+                {
+                    continue;
+                }
+                if (!shopToNpcs.TryGetValue(shopId, out var linkedNpcs))
+                {
+                    linkedNpcs = new HashSet<uint>();
+                    shopToNpcs[shopId] = linkedNpcs;
+                }
+                linkedNpcs.Add(npcId);
+                npcIds.Add(npcId);
+                customTalkFateLinks.Add((shopId, npcId));
+            }
+        }
         foreach (var npc in npcs.Cast<object>())
         {
             var npcId = ReadRowId(npc) ?? 0;
@@ -1132,7 +1208,13 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                     MathF.Round(mapY, 1),
                     MathF.Round(Math.Clamp(rawMapX * 100f, 0f, 100f), 3),
                     MathF.Round(Math.Clamp(rawMapY * 100f, 0f, 100f), 3),
-                    indirectLinks.Contains((shopId, npcId)) ? "INCLUSION_SHOP_ENPC_LEVEL" : "DIRECT_ENPC_LEVEL"
+                    fateShopLinks.Contains((shopId, npcId))
+                        ? "FATE_SHOP_LEVEL"
+                        : customTalkFateLinks.Contains((shopId, npcId))
+                            ? "CUSTOM_TALK_FATE_SHOP_LEVEL"
+                        : indirectLinks.Contains((shopId, npcId))
+                            ? "INCLUSION_SHOP_ENPC_LEVEL"
+                            : "DIRECT_ENPC_LEVEL"
                 ));
             }
         }
@@ -1163,6 +1245,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
             locationsExported = orderedLocations.Length,
             mapsResolved = orderedLocations.Count(row => !string.IsNullOrWhiteSpace(row.MapAssetId)),
             indirectLocations = orderedLocations.Count(row => row.Confidence == "INCLUSION_SHOP_ENPC_LEVEL"),
+            fateShopLocations = orderedLocations.Count(row => row.Confidence == "FATE_SHOP_LEVEL"),
+            customTalkFateShopLocations = orderedLocations.Count(row => row.Confidence == "CUSTOM_TALK_FATE_SHOP_LEVEL"),
             inclusionSpecialShops = shopsByCategory.Values.SelectMany(value => value).Distinct().Count(),
             inclusionShopsLinkedToNpc = linkedInclusionShopIds.Count,
             samples = orderedLocations.Take(10),
