@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6, 7, 8}
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +24,7 @@ class ImportSummary:
     requirements: int
     recipes: int
     recipe_ingredients: int
+    locations: int
 
 
 def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str) -> ImportSummary:
@@ -142,6 +143,17 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
                     for row in normalized["shops"]
                 ),
             )
+            connection.executemany(
+                """
+                INSERT INTO bridge_shop_location (
+                    snapshot_id, shop_id, location_index, npc_id, npc_name,
+                    level_row_id, map_id, map_asset_id, place_name, region_name,
+                    territory_id, world_x, world_y, world_z, map_x, map_y,
+                    marker_left_percent, marker_top_percent, confidence
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                _shop_location_rows(snapshot_id, normalized["shopLocations"]),
+            )
 
             costs_by_offer = _group_by_offer(normalized["costs"])
             rewards_by_offer = _group_by_offer(normalized["rewards"])
@@ -243,6 +255,7 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
         requirements=len(normalized["requirements"]),
         recipes=len(normalized["recipes"]),
         recipe_ingredients=len(normalized["recipeIngredients"]),
+        locations=len(normalized["shopLocations"]),
     )
 
 
@@ -300,6 +313,31 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             FOREIGN KEY (snapshot_id) REFERENCES source_snapshot(snapshot_id) ON DELETE CASCADE,
             FOREIGN KEY (snapshot_id, result_item_id)
                 REFERENCES dim_asset(snapshot_id, item_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS bridge_shop_location (
+            snapshot_id TEXT NOT NULL,
+            shop_id INTEGER NOT NULL CHECK (shop_id > 0),
+            location_index INTEGER NOT NULL CHECK (location_index >= 0),
+            npc_id INTEGER NOT NULL CHECK (npc_id > 0),
+            npc_name TEXT,
+            level_row_id INTEGER NOT NULL CHECK (level_row_id > 0),
+            map_id INTEGER NOT NULL CHECK (map_id > 0),
+            map_asset_id TEXT,
+            place_name TEXT,
+            region_name TEXT,
+            territory_id INTEGER NOT NULL CHECK (territory_id > 0),
+            world_x REAL NOT NULL,
+            world_y REAL NOT NULL,
+            world_z REAL NOT NULL,
+            map_x REAL NOT NULL,
+            map_y REAL NOT NULL,
+            marker_left_percent REAL NOT NULL CHECK (marker_left_percent BETWEEN 0 AND 100),
+            marker_top_percent REAL NOT NULL CHECK (marker_top_percent BETWEEN 0 AND 100),
+            confidence TEXT NOT NULL,
+            PRIMARY KEY (snapshot_id, shop_id, location_index),
+            FOREIGN KEY (snapshot_id, shop_id)
+                REFERENCES dim_shop(snapshot_id, shop_id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS bridge_recipe_ingredient (
@@ -390,6 +428,8 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             ON dim_recipe(snapshot_id, result_item_id);
         CREATE INDEX IF NOT EXISTS idx_recipe_ingredient_item
             ON bridge_recipe_ingredient(snapshot_id, item_id);
+        CREATE INDEX IF NOT EXISTS idx_shop_location_shop
+            ON bridge_shop_location(snapshot_id, shop_id);
         """
     )
     _ensure_column(
@@ -488,8 +528,10 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         "requirements",
         "coverage",
     }
-    if payload.get("schemaVersion") in {4, 5, 6, 7, 8}:
+    if payload.get("schemaVersion") in {4, 5, 6, 7, 8, 9}:
         required.update(("recipes", "recipeIngredients"))
+    if payload.get("schemaVersion") == 9:
+        required.add("shopLocations")
     missing = sorted(required - payload.keys())
     if missing:
         raise ValueError(f"Snapshot is missing fields: {', '.join(missing)}")
@@ -503,6 +545,7 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
             raise ValueError(f"{name} must be a non-empty string")
     payload.setdefault("recipes", [])
     payload.setdefault("recipeIngredients", [])
+    payload.setdefault("shopLocations", [])
     for name in (
         "assets",
         "shops",
@@ -512,6 +555,7 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         "requirements",
         "recipes",
         "recipeIngredients",
+        "shopLocations",
     ):
         if not isinstance(payload[name], list) or not all(isinstance(row, dict) for row in payload[name]):
             raise ValueError(f"{name} must be a list of objects")
@@ -522,6 +566,21 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
             quantity = row.get("quantity")
             if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
                 raise ValueError(f"{name}[{index}].quantity must be a positive integer")
+    for index, row in enumerate(payload["shopLocations"]):
+        for field in ("shopId", "npcId", "levelRowId", "mapId", "territoryId"):
+            value = row.get(field)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"shopLocations[{index}].{field} must be a positive integer")
+        for field in (
+            "worldX", "worldY", "worldZ", "mapX", "mapY",
+            "markerLeftPercent", "markerTopPercent",
+        ):
+            value = row.get(field)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"shopLocations[{index}].{field} must be numeric")
+        for field in ("markerLeftPercent", "markerTopPercent"):
+            if not 0 <= row[field] <= 100:
+                raise ValueError(f"shopLocations[{index}].{field} must be between 0 and 100")
     for index, row in enumerate(payload["assets"]):
         icon_id = row.get("iconId")
         if icon_id is not None and (
@@ -583,6 +642,37 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
                 f"recipeIngredients[{index}].recipeId does not reference a recipe"
             )
     return payload
+
+
+def _shop_location_rows(
+    snapshot_id: str, locations: Iterable[dict[str, Any]]
+) -> Iterable[tuple[Any, ...]]:
+    indices: dict[int, int] = {}
+    for row in locations:
+        shop_id = row["shopId"]
+        location_index = indices.get(shop_id, 0)
+        indices[shop_id] = location_index + 1
+        yield (
+            snapshot_id,
+            shop_id,
+            location_index,
+            row["npcId"],
+            row.get("npcName"),
+            row["levelRowId"],
+            row["mapId"],
+            row.get("mapAssetId"),
+            row.get("placeName"),
+            row.get("regionName"),
+            row["territoryId"],
+            row["worldX"],
+            row["worldY"],
+            row["worldZ"],
+            row["mapX"],
+            row["mapY"],
+            row["markerLeftPercent"],
+            row["markerTopPercent"],
+            row.get("confidence") or "UNKNOWN",
+        )
 
 
 def _group_by_offer(rows: Iterable[dict[str, Any]]) -> dict[tuple[int, int], list[dict[str, Any]]]:

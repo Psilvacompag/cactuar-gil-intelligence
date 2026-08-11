@@ -91,12 +91,17 @@ def export_currency_dashboard(
             (selected_run,),
         )
         conversions = _deduplicate_conversions(raw_rows)
+        locations_by_shop = _shop_locations(
+            connection,
+            static_snapshot_id=run["static_snapshot_id"],
+        )
         listing_depth = detailed_listing_depth(
             connection,
             market_snapshot_id=run["market_snapshot_id"],
             home_world_id=home_world_id,
         )
         for conversion in conversions:
+            conversion["locations"] = locations_by_shop.get(conversion["shopId"], [])
             detail = listing_depth.get(
                 (
                     conversion["rewardItemId"],
@@ -251,6 +256,45 @@ def _deduplicate_conversions(rows: Any) -> list[dict[str, Any]]:
                 }
             )
     return result
+
+
+def _shop_locations(
+    connection: sqlite3.Connection,
+    *,
+    static_snapshot_id: str,
+) -> dict[int, list[dict[str, Any]]]:
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    rows = connection.execute(
+        """
+        SELECT shop_id, location_index, npc_id, npc_name, level_row_id,
+               map_id, map_asset_id, place_name, region_name, territory_id,
+               map_x, map_y, marker_left_percent, marker_top_percent,
+               confidence
+        FROM bridge_shop_location
+        WHERE snapshot_id = ?
+        ORDER BY shop_id, location_index
+        """,
+        (static_snapshot_id,),
+    )
+    for row in rows:
+        grouped.setdefault(row["shop_id"], []).append(
+            {
+                "npcId": row["npc_id"],
+                "npcName": row["npc_name"],
+                "levelRowId": row["level_row_id"],
+                "mapId": row["map_id"],
+                "mapAssetId": row["map_asset_id"],
+                "placeName": row["place_name"],
+                "regionName": row["region_name"],
+                "territoryId": row["territory_id"],
+                "mapX": row["map_x"],
+                "mapY": row["map_y"],
+                "markerLeftPercent": row["marker_left_percent"],
+                "markerTopPercent": row["marker_top_percent"],
+                "confidence": row["confidence"],
+            }
+        )
+    return grouped
 
 
 def _currency_stats(conversions: list[dict[str, Any]]) -> list[dict[str, Any]]:

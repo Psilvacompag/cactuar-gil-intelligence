@@ -65,6 +65,10 @@ var interestingTokens = new[]
     "GCScripShop",
     "GCShop",
     "InclusionShop",
+    "InclusionShopCategory",
+    "InclusionShopSeries",
+    "PreHandler",
+    "SwitchTalk",
     "CollectablesShop",
     "FccShop",
     "DisposalShop",
@@ -141,6 +145,10 @@ var requestedSheets = new[]
     "GrandCompany",
     "GrandCompanyRank",
     "InclusionShop",
+    "InclusionShopCategory",
+    "InclusionShopSeries",
+    "PreHandler",
+    "SwitchTalk",
     "CollectablesShop",
     "FccShop",
     "DisposalShop",
@@ -160,6 +168,8 @@ var requestedSheets = new[]
     "FishParameter",
     "SpearfishingItem",
     "Level",
+    "Map",
+    "PlaceName",
 };
 
 var localGameProbe = ProbeLocalGameData(
@@ -365,6 +375,38 @@ static object ProbeLocalGameData(
     var enpcBaseType = excelAssembly.GetType("Lumina.Excel.Sheets.ENpcBase");
     var enpcResidentType = excelAssembly.GetType("Lumina.Excel.Sheets.ENpcResident");
     var levelType = excelAssembly.GetType("Lumina.Excel.Sheets.Level");
+    var mapType = excelAssembly.GetType("Lumina.Excel.Sheets.Map");
+    var placeNameType = excelAssembly.GetType("Lumina.Excel.Sheets.PlaceName");
+    var inclusionShopType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShop");
+    var inclusionShopCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShopCategory");
+    var inclusionShopSeriesType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShopSeries");
+    var preHandlerType = excelAssembly.GetType("Lumina.Excel.Sheets.PreHandler");
+    var shopLocationCatalog = specialShopType is null
+        || enpcBaseType is null
+        || enpcResidentType is null
+        || levelType is null
+        || mapType is null
+        || placeNameType is null
+        || inclusionShopType is null
+        || inclusionShopCategoryType is null
+        || inclusionShopSeriesType is null
+        || preHandlerType is null
+            ? null
+            : BuildShopLocationCatalog(
+                gameData,
+                getExcelSheet,
+                getSubrowExcelSheet,
+                specialShopType,
+                enpcBaseType,
+                enpcResidentType,
+                levelType,
+                mapType,
+                placeNameType,
+                inclusionShopType,
+                inclusionShopCategoryType,
+                inclusionShopSeriesType,
+                preHandlerType
+            );
     var gameVersion = ReadGameVersion(gameDirectory);
     var normalizedSnapshot = snapshotOutputPath is null
         ? new { status = "SKIPPED", reason = "Pass --snapshot-out <path> to export normalized SpecialShop rows." } as object
@@ -384,6 +426,7 @@ static object ProbeLocalGameData(
                 grandCompanyType,
                 itemCatalog,
                 tomestoneCatalog,
+                shopLocationCatalog?.Locations ?? Array.Empty<NormalizedShopLocation>(),
                 gameVersion,
                 snapshotOutputPath
             );
@@ -398,16 +441,9 @@ static object ProbeLocalGameData(
         tomestones = tomestoneCatalog is null
             ? new { status = "MISSING_TYPE" } as object
             : tomestoneCatalog.Analysis,
-        npcLocations = specialShopType is null || enpcBaseType is null || enpcResidentType is null || levelType is null
+        npcLocations = shopLocationCatalog is null
             ? new { status = "MISSING_TYPE" } as object
-            : AnalyzeNpcLocations(
-                gameData,
-                getExcelSheet,
-                specialShopType,
-                enpcBaseType,
-                enpcResidentType,
-                levelType
-            ),
+            : shopLocationCatalog.Analysis,
     };
 
     if (gameData is IDisposable disposable)
@@ -445,6 +481,7 @@ static object ExportSpecialShopSnapshot(
     Type grandCompanyType,
     ItemCatalog itemCatalog,
     TomestoneCatalog? tomestoneCatalog,
+    IReadOnlyList<NormalizedShopLocation> shopLocations,
     string? gameVersion,
     string outputPath
 )
@@ -651,7 +688,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            8,
+            9,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -663,6 +700,7 @@ static object ExportSpecialShopSnapshot(
             requirements,
             itemCatalog.Recipes,
             itemCatalog.RecipeIngredients,
+            shopLocations,
             new CoverageAudit(sourceRows, offers.Count, rowsIgnored, 0)
         );
 
@@ -693,6 +731,7 @@ static object ExportSpecialShopSnapshot(
             requirements = requirements.Count,
             recipes = itemCatalog.Recipes.Count,
             recipeIngredients = itemCatalog.RecipeIngredients.Count,
+            shopLocations = shopLocations.Count,
         };
     }
     catch (Exception exception)
@@ -852,13 +891,20 @@ static bool IsPlaceholderSentinel(
         && costs[0].Quantity == 999;
 }
 
-static object AnalyzeNpcLocations(
+static ShopLocationCatalog BuildShopLocationCatalog(
     object gameData,
     MethodInfo getExcelSheet,
+    MethodInfo getSubrowExcelSheet,
     Type specialShopType,
     Type enpcBaseType,
     Type enpcResidentType,
-    Type levelType
+    Type levelType,
+    Type mapType,
+    Type placeNameType,
+    Type inclusionShopType,
+    Type inclusionShopCategoryType,
+    Type inclusionShopSeriesType,
+    Type preHandlerType
 )
 {
     try
@@ -867,14 +913,29 @@ static object AnalyzeNpcLocations(
         var npcRows = getExcelSheet.MakeGenericMethod(enpcBaseType).Invoke(gameData, new object?[] { null, null });
         var residentRows = getExcelSheet.MakeGenericMethod(enpcResidentType).Invoke(gameData, new object?[] { null, null });
         var levelRows = getExcelSheet.MakeGenericMethod(levelType).Invoke(gameData, new object?[] { null, null });
+        var mapRows = getExcelSheet.MakeGenericMethod(mapType).Invoke(gameData, new object?[] { null, null });
+        var placeNameRows = getExcelSheet.MakeGenericMethod(placeNameType).Invoke(gameData, new object?[] { null, null });
+        var inclusionShopRows = getExcelSheet.MakeGenericMethod(inclusionShopType).Invoke(gameData, new object?[] { null, null });
+        var inclusionCategoryRows = getExcelSheet.MakeGenericMethod(inclusionShopCategoryType).Invoke(gameData, new object?[] { null, null });
+        var inclusionSeriesRows = getSubrowExcelSheet.MakeGenericMethod(inclusionShopSeriesType).Invoke(gameData, new object?[] { null, null });
+        var preHandlerRows = getExcelSheet.MakeGenericMethod(preHandlerType).Invoke(gameData, new object?[] { null, null });
         if (
             shopRows is not System.Collections.IEnumerable shops
             || npcRows is not System.Collections.IEnumerable npcs
             || residentRows is not System.Collections.IEnumerable residents
             || levelRows is not System.Collections.IEnumerable levels
+            || mapRows is not System.Collections.IEnumerable maps
+            || placeNameRows is not System.Collections.IEnumerable placeNames
+            || inclusionShopRows is not System.Collections.IEnumerable inclusionShops
+            || inclusionCategoryRows is not System.Collections.IEnumerable inclusionCategories
+            || inclusionSeriesRows is not System.Collections.IEnumerable inclusionSeries
+            || preHandlerRows is not System.Collections.IEnumerable preHandlers
         )
         {
-            return new { status = "FAIL", error = "One or more NPC/location sheets are not enumerable." };
+            return new ShopLocationCatalog(
+                Array.Empty<NormalizedShopLocation>(),
+                new { status = "FAIL", error = "One or more NPC/location sheets are not enumerable." }
+            );
         }
 
         var shopIds = new HashSet<uint>();
@@ -899,7 +960,59 @@ static object AnalyzeNpcLocations(
             }
         }
         var shopToNpcs = new Dictionary<uint, HashSet<uint>>();
+        var indirectLinks = new HashSet<(uint shopId, uint npcId)>();
+        var linkedInclusionShopIds = new HashSet<uint>();
         var npcIds = new HashSet<uint>();
+        var shopsByCategory = inclusionSeries
+            .Cast<object>()
+            .Where(group => group is System.Collections.IEnumerable)
+            .SelectMany(group => ((System.Collections.IEnumerable)group).Cast<object>())
+            .Select(row => new
+            {
+                categoryId = ReadRowId(row) ?? 0,
+                shopId = ReadRowRefId(ReadProperty(row, "SpecialShop")),
+            })
+            .Where(link => link.categoryId > 0 && shopIds.Contains(link.shopId))
+            .GroupBy(link => link.categoryId)
+            .ToDictionary(group => group.Key, group => group.Select(link => link.shopId).ToHashSet());
+        var validCategoryIds = inclusionCategories
+            .Cast<object>()
+            .Select(row => ReadRowId(row) ?? 0)
+            .Where(categoryId => categoryId > 0)
+            .ToHashSet();
+        var shopsByInclusionShop = inclusionShops
+            .Cast<object>()
+            .Select(row => new
+            {
+                inclusionShopId = ReadRowId(row) ?? 0,
+                categoryIds = EnumerateProperty(row, "Category")
+                    .Select(ReadRowRefId)
+                    .Where(validCategoryIds.Contains)
+                    .ToArray(),
+            })
+            .Where(row => row.inclusionShopId > 0)
+            .ToDictionary(
+                row => row.inclusionShopId,
+                row => row.categoryIds
+                    .SelectMany(categoryId => shopsByCategory.GetValueOrDefault(categoryId) ?? [])
+                    .ToHashSet()
+            );
+        var preHandlerTargets = preHandlers
+            .Cast<object>()
+            .Select(row => new
+            {
+                preHandlerId = ReadRowId(row) ?? 0,
+                target = ReadProperty(row, "Target"),
+            })
+            .Where(row => row.preHandlerId > 0 && row.target is not null)
+            .ToDictionary(
+                row => row.preHandlerId,
+                row => new
+                {
+                    rowType = ReadProperty(row.target!, "RowType") as Type,
+                    rowId = ReadRowRefId(row.target),
+                }
+            );
         foreach (var npc in npcs.Cast<object>())
         {
             var npcId = ReadRowId(npc) ?? 0;
@@ -907,17 +1020,31 @@ static object AnalyzeNpcLocations(
             {
                 var rowType = ReadProperty(shopRef, "RowType") as Type;
                 var shopId = ReadRowRefId(shopRef);
-                if (rowType != specialShopType || !shopIds.Contains(shopId))
+                if (rowType == preHandlerType && preHandlerTargets.TryGetValue(shopId, out var target))
                 {
-                    continue;
+                    rowType = target.rowType;
+                    shopId = target.rowId;
                 }
-                if (!shopToNpcs.TryGetValue(shopId, out var linkedNpcs))
+                var linkedShopIds = rowType == specialShopType && shopIds.Contains(shopId)
+                    ? new[] { shopId } as IEnumerable<uint>
+                    : rowType == inclusionShopType
+                        ? shopsByInclusionShop.GetValueOrDefault(shopId) ?? []
+                        : [];
+                foreach (var linkedShopId in linkedShopIds)
                 {
-                    linkedNpcs = new HashSet<uint>();
-                    shopToNpcs[shopId] = linkedNpcs;
+                    if (!shopToNpcs.TryGetValue(linkedShopId, out var linkedNpcs))
+                    {
+                        linkedNpcs = new HashSet<uint>();
+                        shopToNpcs[linkedShopId] = linkedNpcs;
+                    }
+                    linkedNpcs.Add(npcId);
+                    npcIds.Add(npcId);
+                    if (rowType == inclusionShopType)
+                    {
+                        linkedInclusionShopIds.Add(shopId);
+                        indirectLinks.Add((linkedShopId, npcId));
+                    }
                 }
-                linkedNpcs.Add(npcId);
-                npcIds.Add(npcId);
             }
         }
 
@@ -928,6 +1055,27 @@ static object AnalyzeNpcLocations(
                 row => ReadRowId(row) ?? 0,
                 row => ReadProperty(row, "Singular")?.ToString() ?? string.Empty
             );
+        var placeNameById = placeNames
+            .Cast<object>()
+            .Where(row => (ReadRowId(row) ?? 0) > 0)
+            .ToDictionary(
+                row => ReadRowId(row) ?? 0,
+                row => ReadProperty(row, "Name")?.ToString() ?? string.Empty
+            );
+        var mapById = maps
+            .Cast<object>()
+            .Where(row => (ReadRowId(row) ?? 0) > 0)
+            .Select(row => new MapMetadata(
+                ReadRowId(row) ?? 0,
+                ReadProperty(row, "Id")?.ToString()?.Trim() ?? string.Empty,
+                Convert.ToUInt16(ReadProperty(row, "SizeFactor") ?? (ushort)100),
+                Convert.ToInt16(ReadProperty(row, "OffsetX") ?? (short)0),
+                Convert.ToInt16(ReadProperty(row, "OffsetY") ?? (short)0),
+                placeNameById.GetValueOrDefault(ReadRowRefId(ReadProperty(row, "PlaceName"))),
+                placeNameById.GetValueOrDefault(ReadRowRefId(ReadProperty(row, "PlaceNameRegion"))),
+                ReadRowRefId(ReadProperty(row, "TerritoryType"))
+            ))
+            .ToDictionary(row => row.MapId);
         var npcToShops = shopToNpcs
             .SelectMany(pair => pair.Value.Select(npcId => new { shopId = pair.Key, npcId }))
             .GroupBy(link => link.npcId)
@@ -935,7 +1083,8 @@ static object AnalyzeNpcLocations(
         var locatedNpcs = new HashSet<uint>();
         var locatedShops = new HashSet<uint>();
         var locationMatches = 0;
-        var samples = new List<object>();
+        var normalizedLocations = new List<NormalizedShopLocation>();
+        var deduplicationKeys = new HashSet<(uint shopId, uint npcId, uint levelRowId)>();
         foreach (var level in levels.Cast<object>())
         {
             var objectRef = ReadProperty(level, "Object");
@@ -947,28 +1096,54 @@ static object AnalyzeNpcLocations(
             }
             locationMatches++;
             locatedNpcs.Add(npcId);
+            var levelRowId = ReadRowId(level) ?? 0;
+            var mapId = ReadRowRefId(ReadProperty(level, "Map"));
+            var territoryId = ReadRowRefId(ReadProperty(level, "Territory"));
+            var worldX = Convert.ToSingle(ReadProperty(level, "X") ?? 0f);
+            var worldY = Convert.ToSingle(ReadProperty(level, "Y") ?? 0f);
+            var worldZ = Convert.ToSingle(ReadProperty(level, "Z") ?? 0f);
+            mapById.TryGetValue(mapId, out var map);
             foreach (var shopId in linkedShops)
             {
                 locatedShops.Add(shopId);
-                if (samples.Count < 10)
+                if (!deduplicationKeys.Add((shopId, npcId, levelRowId)))
                 {
-                    samples.Add(new
-                    {
-                        shopId,
-                        npcId,
-                        npcName = npcNames.GetValueOrDefault(npcId),
-                        levelRowId = ReadRowId(level),
-                        mapId = ReadRowRefId(ReadProperty(level, "Map")),
-                        territoryId = ReadRowRefId(ReadProperty(level, "Territory")),
-                        x = Convert.ToSingle(ReadProperty(level, "X") ?? 0f),
-                        y = Convert.ToSingle(ReadProperty(level, "Y") ?? 0f),
-                        z = Convert.ToSingle(ReadProperty(level, "Z") ?? 0f),
-                    });
+                    continue;
                 }
+                var sizeScale = Math.Max(map?.SizeFactor ?? 100, (ushort)1) / 100f;
+                var rawMapX = (((worldX + (map?.OffsetX ?? 0)) * sizeScale) + 1024f) / 2048f;
+                var rawMapY = (((worldZ + (map?.OffsetY ?? 0)) * sizeScale) + 1024f) / 2048f;
+                var mapX = (41f / sizeScale * rawMapX) + 1f;
+                var mapY = (41f / sizeScale * rawMapY) + 1f;
+                normalizedLocations.Add(new NormalizedShopLocation(
+                    shopId,
+                    npcId,
+                    npcNames.GetValueOrDefault(npcId),
+                    levelRowId,
+                    mapId,
+                    string.IsNullOrWhiteSpace(map?.AssetId) ? null : map.AssetId,
+                    string.IsNullOrWhiteSpace(map?.PlaceName) ? null : map.PlaceName,
+                    string.IsNullOrWhiteSpace(map?.RegionName) ? null : map.RegionName,
+                    territoryId > 0 ? territoryId : map?.TerritoryId ?? 0,
+                    worldX,
+                    worldY,
+                    worldZ,
+                    MathF.Round(mapX, 1),
+                    MathF.Round(mapY, 1),
+                    MathF.Round(Math.Clamp(rawMapX * 100f, 0f, 100f), 3),
+                    MathF.Round(Math.Clamp(rawMapY * 100f, 0f, 100f), 3),
+                    indirectLinks.Contains((shopId, npcId)) ? "INCLUSION_SHOP_ENPC_LEVEL" : "DIRECT_ENPC_LEVEL"
+                ));
             }
         }
 
-        return new
+        var orderedLocations = normalizedLocations
+            .OrderBy(row => row.ShopId)
+            .ThenBy(row => row.NpcName)
+            .ThenBy(row => row.MapId)
+            .ThenBy(row => row.LevelRowId)
+            .ToArray();
+        return new ShopLocationCatalog(orderedLocations, new
         {
             status = "PASS",
             specialShopRows = shopIds.Count,
@@ -985,13 +1160,21 @@ static object AnalyzeNpcLocations(
             activeShopsWithLevelLocation = activeShopIds.Count(locatedShops.Contains),
             activeShopsWithoutLevelLocation = activeShopIds.Count(shopId => !locatedShops.Contains(shopId)),
             locationMatches,
-            samples,
+            locationsExported = orderedLocations.Length,
+            mapsResolved = orderedLocations.Count(row => !string.IsNullOrWhiteSpace(row.MapAssetId)),
+            indirectLocations = orderedLocations.Count(row => row.Confidence == "INCLUSION_SHOP_ENPC_LEVEL"),
+            inclusionSpecialShops = shopsByCategory.Values.SelectMany(value => value).Distinct().Count(),
+            inclusionShopsLinkedToNpc = linkedInclusionShopIds.Count,
+            samples = orderedLocations.Take(10),
             note = "Counts include obsolete/internal SpecialShop rows; production coverage is measured again over active offers only.",
-        };
+        });
     }
     catch (Exception exception)
     {
-        return new { status = "FAIL", error = UnwrapException(exception).Message };
+        return new ShopLocationCatalog(
+            Array.Empty<NormalizedShopLocation>(),
+            new { status = "FAIL", error = UnwrapException(exception).Message }
+        );
     }
 }
 
@@ -1961,6 +2144,39 @@ sealed record NormalizedRecipeIngredient(
     uint ItemId,
     uint Quantity
 );
+sealed record MapMetadata(
+    uint MapId,
+    string AssetId,
+    ushort SizeFactor,
+    short OffsetX,
+    short OffsetY,
+    string? PlaceName,
+    string? RegionName,
+    uint TerritoryId
+);
+sealed record NormalizedShopLocation(
+    uint ShopId,
+    uint NpcId,
+    string? NpcName,
+    uint LevelRowId,
+    uint MapId,
+    string? MapAssetId,
+    string? PlaceName,
+    string? RegionName,
+    uint TerritoryId,
+    float WorldX,
+    float WorldY,
+    float WorldZ,
+    float MapX,
+    float MapY,
+    float MarkerLeftPercent,
+    float MarkerTopPercent,
+    string Confidence
+);
+sealed record ShopLocationCatalog(
+    IReadOnlyList<NormalizedShopLocation> Locations,
+    object Analysis
+);
 sealed record CoverageAudit(int SourceRows, int OffersEmitted, int RowsIgnored, int RowsFailed);
 sealed record GcCoverage(int SourceRows, int RowsIgnored);
 sealed record NormalizedSnapshot(
@@ -1976,6 +2192,7 @@ sealed record NormalizedSnapshot(
     IReadOnlyList<NormalizedRequirement> Requirements,
     IReadOnlyList<NormalizedRecipe> Recipes,
     IReadOnlyList<NormalizedRecipeIngredient> RecipeIngredients,
+    IReadOnlyList<NormalizedShopLocation> ShopLocations,
     CoverageAudit Coverage
 );
 

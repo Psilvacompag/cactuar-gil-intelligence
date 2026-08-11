@@ -144,15 +144,31 @@ raw_hash
 ### `bridge_shop_location`
 
 ```text
-shop_key
-npc_id nullable
+snapshot_id
+shop_id
+location_index
+npc_id
 npc_name nullable
-territory_id nullable
-map_id nullable
-x nullable
-y nullable
-location_confidence
+level_row_id
+territory_id
+map_id
+map_asset_id nullable
+place_name nullable
+region_name nullable
+world_x
+world_y
+world_z
+map_x
+map_y
+marker_left_percent
+marker_top_percent
+confidence
 ```
+
+Las relaciones directas `SpecialShop → ENpcBase → Level` usan confianza
+`DIRECT_ENPC_LEVEL`. Las rutas resueltas a través de `PreHandler` o
+`InclusionShop` usan `INCLUSION_SHOP_ENPC_LEVEL`; si no existe ninguna de esas
+rutas, el dashboard muestra explícitamente que la ubicación no está disponible.
 
 ### `dim_shop_offer`
 

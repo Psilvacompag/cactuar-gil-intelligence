@@ -330,6 +330,51 @@ class StaticCatalogImportTests(unittest.TestCase):
                 "sqpack:2026.08.05.0000.0000:schema-8",
             )
 
+    def test_accepts_schema_nine_shop_locations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 9
+            payload["recipes"] = []
+            payload["recipeIngredients"] = []
+            payload["shopLocations"] = [{
+                "shopId": 10,
+                "npcId": 1008119,
+                "npcName": "Auriana",
+                "levelRowId": 4374264,
+                "mapId": 25,
+                "mapAssetId": "l1f1/01",
+                "placeName": "Mor Dhona",
+                "regionName": "Mor Dhona",
+                "territoryId": 156,
+                "worldX": 62.3635,
+                "worldY": 31.288,
+                "worldZ": -739.956,
+                "mapX": 22.7,
+                "mapY": 6.7,
+                "markerLeftPercent": 53.045,
+                "markerTopPercent": 13.869,
+                "confidence": "DIRECT_ENPC_LEVEL",
+            }]
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+            connection = sqlite3.connect(database_path)
+            location = connection.execute(
+                """
+                SELECT npc_name, map_asset_id, place_name, map_x, map_y
+                FROM bridge_shop_location
+                """
+            ).fetchone()
+            connection.close()
+
+            self.assertEqual(summary.locations, 1)
+            self.assertEqual(location[:3], ("Auriana", "l1f1/01", "Mor Dhona"))
+            self.assertAlmostEqual(location[3], 22.7)
+            self.assertAlmostEqual(location[4], 6.7)
+
 
 if __name__ == "__main__":
     unittest.main()

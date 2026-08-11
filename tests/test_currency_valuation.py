@@ -29,7 +29,28 @@ class CurrencyValuationTests(unittest.TestCase):
             root = Path(directory)
             database_path = root / "catalog.sqlite3"
             static_payload = example_snapshot()
-            static_payload["schemaVersion"] = 3
+            static_payload["schemaVersion"] = 9
+            static_payload["recipes"] = []
+            static_payload["recipeIngredients"] = []
+            static_payload["shopLocations"] = [{
+                "shopId": 10,
+                "npcId": 1008119,
+                "npcName": "Auriana",
+                "levelRowId": 4374264,
+                "mapId": 25,
+                "mapAssetId": "l1f1/01",
+                "placeName": "Mor Dhona",
+                "regionName": "Mor Dhona",
+                "territoryId": 156,
+                "worldX": 62.3635,
+                "worldY": 31.288,
+                "worldZ": -739.956,
+                "mapX": 22.7,
+                "mapY": 6.7,
+                "markerLeftPercent": 53.045,
+                "markerTopPercent": 13.869,
+                "confidence": "DIRECT_ENPC_LEVEL",
+            }]
             static_payload["assets"][0].update(
                 {"itemId": 32180, "name": "Bozjan Gold Coin", "iconId": 26325}
             )
@@ -117,6 +138,8 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertTrue(all(row["netGilPerCurrency"] is None for row in rows))
             self.assertTrue(all(row["netGilPerExchange"] == 950_000 for row in rows))
             self.assertTrue(all(len(row["costComponents"]) == 2 for row in rows))
+            self.assertTrue(all(row["locations"][0]["npcName"] == "Auriana" for row in rows))
+            self.assertTrue(all(row["locations"][0]["mapAssetId"] == "l1f1/01" for row in rows))
 
     def test_dashboard_audits_but_does_not_publish_non_tradeable_exchanges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

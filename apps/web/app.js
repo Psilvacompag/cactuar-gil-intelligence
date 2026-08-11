@@ -499,6 +499,7 @@ function showDetail(item) {
         <div><small>Ventas / día</small><strong>${internal ? "No aplica" : velocity(item.dailySaleVelocity)}</strong></div>
         <div><small>Último upload</small><strong>${formatDate(item.latestUploadAt)}</strong></div>
       </div>
+      ${locationMarkup(item)}
       ${internal ? internalUseMarkup(status) : depthMarkup(item.listingDepth)}
       ${internal || item.isMultiCost ? "" : `<section class="history-panel">
         <div class="history-heading">
@@ -517,7 +518,72 @@ function showDetail(item) {
   GilIntelligence.attachDetailButton(elements.dialogContent, { itemId: item.rewardItemId,
     quality: item.rewardIsHq ? "HQ" : "NQ", name: item.rewardName, iconId: item.rewardIconId,
     modules: ["conversion"], aliases: [item.currencyName] });
+  bindLocationPanel(item);
   if (!internal && !item.isMultiCost) renderHistory(item);
+}
+
+function locationMarkup(item, selectedIndex = 0) {
+  const locations = Array.isArray(item.locations) ? item.locations : [];
+  if (!locations.length) {
+    return `<section class="location-panel unavailable">
+      <div class="location-heading"><div><small>DÓNDE CANJEAR</small><strong>Ubicación no disponible</strong></div></div>
+      <p>Esta tienda no tiene una relación confiable con un NPC y un mapa en los datos del juego. Preferimos indicarlo antes que mostrar una ubicación inventada.</p>
+    </section>`;
+  }
+  const safeIndex = Math.min(Math.max(selectedIndex, 0), locations.length - 1);
+  const location = locations[safeIndex];
+  const npcName = location.npcName || "NPC sin nombre";
+  const placeName = location.placeName || location.regionName || "Zona sin nombre";
+  const region = location.regionName && location.regionName !== placeName
+    ? ` · ${escapeHtml(location.regionName)}`
+    : "";
+  const selector = locations.length > 1
+    ? `<div class="location-selector" aria-label="Ubicaciones disponibles">${locations.map((entry, index) => `<button type="button" data-location-index="${index}" class="${index === safeIndex ? "selected" : ""}">${escapeHtml(locationOptionLabel(entry, index))}</button>`).join("")}</div>`
+    : "";
+  const hasMap = Boolean(location.mapAssetId);
+  const map = hasMap
+    ? `<div class="xiv-map">
+        <img src="${mapAssetUrl(location.mapAssetId)}" alt="Mapa de ${escapeHtml(placeName)}" loading="lazy" />
+        <span class="xiv-map-marker" style="left:${Number(location.markerLeftPercent)}%;top:${Number(location.markerTopPercent)}%" aria-label="Posición del NPC"><b>×</b></span>
+        <div class="map-error" hidden>El mapa no pudo cargarse ahora.</div>
+      </div>`
+    : `<div class="map-error standalone">Mapa no disponible para esta ubicación.</div>`;
+  return `<section class="location-panel" data-selected-location="${safeIndex}">
+    <div class="location-heading"><div><small>DÓNDE CANJEAR</small><strong>${escapeHtml(npcName)}</strong></div><span>X ${decimalFormat.format(location.mapX)} · Y ${decimalFormat.format(location.mapY)}</span></div>
+    ${selector}
+    ${map}
+    <div class="location-meta"><strong>${escapeHtml(placeName)}${region}</strong><span>NPC ${integerFormat.format(location.npcId)} · mapa ${integerFormat.format(location.mapId)}</span></div>
+    <p>La X marca la posición registrada por el cliente de FFXIV. Si el NPC atiende varias tiendas, todas comparten esta ubicación.</p>
+  </section>`;
+}
+
+function locationOptionLabel(location, index) {
+  const place = location.placeName || location.regionName;
+  if (place && location.npcName) return `${place} · ${location.npcName}`;
+  return place || location.npcName || `Ubicación ${index + 1}`;
+}
+
+function mapAssetUrl(assetId) {
+  const safePath = String(assetId).split("/").map(encodeURIComponent).join("/");
+  return `https://v2.xivapi.com/api/asset/map/${safePath}`;
+}
+
+function bindLocationPanel(item) {
+  const panel = elements.dialogContent.querySelector(".location-panel:not(.unavailable)");
+  if (!panel) return;
+  panel.querySelectorAll("[data-location-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      panel.outerHTML = locationMarkup(item, Number(button.dataset.locationIndex));
+      bindLocationPanel(item);
+    });
+  });
+  const image = panel.querySelector(".xiv-map img");
+  image?.addEventListener("error", () => {
+    image.hidden = true;
+    panel.querySelector(".xiv-map-marker")?.setAttribute("hidden", "");
+    const error = panel.querySelector(".map-error");
+    if (error) error.hidden = false;
+  });
 }
 
 function statusMeta(value, isMultiCost = false) {
