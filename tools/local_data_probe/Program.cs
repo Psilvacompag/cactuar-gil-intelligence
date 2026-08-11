@@ -1,6 +1,15 @@
 using System.Reflection;
 using System.Runtime.Loader;
 
+if (args.Contains("--currency-self-test", StringComparer.Ordinal))
+{
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+        CurrencyResolver.SelfTest(),
+        new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+    ));
+    return 0;
+}
+
 const string defaultLuminaDirectory = @"C:\Users\user\AppData\Roaming\XIVLauncher\addon\Hooks\15.0.3.1";
 const string defaultGameDirectory = @"D:\Juegos\ffxiv\SquareEnix\FINAL FANTASY XIV - A Realm Reborn\game\sqpack";
 const string defaultAllaganDirectory = @"C:\Users\user\AppData\Roaming\XIVLauncher\installedPlugins\AutoHook\6.0.0.90";
@@ -552,11 +561,13 @@ static object ExportSpecialShopSnapshot(
                     }
                 }
 
-                var parseStatus = !hasNonPositiveCost
-                    && groupCosts.Count > 0
-                    && groupCosts.All(cost => cost.ItemId is not null)
-                    ? "PARSED"
-                    : "INCOMPLETE_COST";
+                var parseStatus = IsPlaceholderSentinel(groupRewards, groupCosts)
+                    ? "IGNORED_SENTINEL"
+                    : !hasNonPositiveCost
+                        && groupCosts.Count > 0
+                        && groupCosts.All(cost => cost.ItemId is not null)
+                        ? "PARSED"
+                        : "INCOMPLETE_COST";
                 offers.Add(new NormalizedOffer(shopId, groupIndex, $"{shopId}:{groupIndex}", parseStatus));
                 costs.AddRange(groupCosts);
                 rewards.AddRange(groupRewards);
@@ -817,6 +828,20 @@ static void AddRequirement(
     {
         requirements.Add(new NormalizedRequirement(shopId, offerIndex, requirementType, value));
     }
+}
+
+static bool IsPlaceholderSentinel(
+    IReadOnlyList<NormalizedOfferReward> rewards,
+    IReadOnlyList<NormalizedOfferCost> costs
+)
+{
+    // SpecialShop uses 999 currency -> 1 Potion as a disabled/template row.
+    // Preserve it for coverage auditing, but never expose it as an actionable offer.
+    return rewards.Count == 1
+        && rewards[0].ItemId == 4551
+        && rewards[0].Quantity == 1
+        && costs.Count == 1
+        && costs[0].Quantity == 999;
 }
 
 static object AnalyzeNpcLocations(
@@ -1991,14 +2016,17 @@ static class CurrencyResolver
         IReadOnlyDictionary<uint, uint>? tomestones
     )
     {
-        if (shopId == 1770637 && CurrencyItems.TryGetValue(rawItemId, out var shopCurrency))
+        if (
+            (shopId == 1770637 || shopId == 1770638)
+            && CurrencyItems.TryGetValue(rawItemId, out var shopCurrency)
+        )
         {
             return shopCurrency;
         }
 
         if (
             shopId == 1770446
-            || (shopId == 1770699 && rawItemId >= 10)
+            || (shopId == 1770699 && rawItemId < 10)
             || (shopId == 1770803 && rawItemId < 10)
         )
         {
@@ -2006,7 +2034,6 @@ static class CurrencyResolver
             {
                 return specialCurrency;
             }
-            return rawItemId;
         }
 
         var itemId = rawItemId;
@@ -2021,28 +2048,31 @@ static class CurrencyResolver
 
         if (
             useCurrencyType == 2
-            && rawItemId < 10
+            && itemId < 10
             && tomestones is not null
-            && tomestones.TryGetValue(rawItemId, out var tomestoneItem)
+            && tomestones.TryGetValue(itemId, out var tomestoneItem)
         )
         {
             itemId = tomestoneItem;
         }
 
         if (
-            shopId == 1770637
-            && rawItemId < 10
-            && CurrencyItems.TryGetValue(rawItemId, out var legacyCurrency)
+            (shopId == 1770637 || shopId == 1770638)
+            && itemId < 10
+            && CurrencyItems.TryGetValue(itemId, out var legacyCurrency)
         )
         {
             itemId = legacyCurrency;
         }
 
+        // Check the resolved ID, not the raw placeholder. A type-16 currency such as
+        // Purple Crafters' Scrip may already have expanded from 2 to a real item ID.
         if (
             (useCurrencyType == 16 || useCurrencyType == 4)
-            && rawItemId < 10
+            && itemId < 10
             && shopId != 1770637
-            && TryResolveTomestoneOrCurrency(rawItemId, tomestones, out var typedCurrency)
+            && shopId != 1770638
+            && TryResolveTomestoneOrCurrency(itemId, tomestones, out var typedCurrency)
         )
         {
             itemId = typedCurrency;
@@ -2062,8 +2092,12 @@ static class CurrencyResolver
         {
             new { name = "tomestone placeholder", actual = Resolve(1769533, 1, 2, tomestones), expected = 28u },
             new { name = "legacy currency placeholder", actual = Resolve(1769516, 5, 16, tomestones), expected = 10307u },
+            new { name = "purple crafters scrip placeholder", actual = Resolve(1770506, 2, 16, tomestones), expected = 33913u },
             new { name = "wolf mark exception", actual = Resolve(1769516, 25, 16, tomestones), expected = 25u },
-            new { name = "special shop override", actual = Resolve(1770637, 2, 0, tomestones), expected = 33913u },
+            new { name = "crafter scrip shop override", actual = Resolve(1770637, 2, 0, tomestones), expected = 33913u },
+            new { name = "gatherer scrip shop override", actual = Resolve(1770638, 4, 4, tomestones), expected = 33914u },
+            new { name = "low-id historical tomestone exception", actual = Resolve(1770699, 2, 0, tomestones), expected = 48u },
+            new { name = "high-id historical item", actual = Resolve(1770699, 10, 0, tomestones), expected = 10u },
             new { name = "ordinary item cost", actual = Resolve(1769473, 4851, 2, tomestones), expected = 4851u },
         };
         return new
