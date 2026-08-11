@@ -476,9 +476,10 @@ static object ExportSpecialShopSnapshot(
                 continue;
             }
             var useCurrencyType = Convert.ToByte(ReadProperty(row, "UseCurrencyType") ?? (byte)0);
+            var shopName = ReadProperty(row, "Name")?.ToString();
             shops.Add(new NormalizedShop(
                 shopId,
-                ReadProperty(row, "Name")?.ToString(),
+                shopName,
                 useCurrencyType
             ));
             AddRequirement(requirements, shopId, null, "QUEST", ReadRowRefId(ReadProperty(row, "Quest")));
@@ -563,6 +564,13 @@ static object ExportSpecialShopSnapshot(
 
                 var parseStatus = IsPlaceholderSentinel(groupRewards, groupCosts)
                     ? "IGNORED_SENTINEL"
+                    : CurrencyResolver.IsObsoleteTomestoneShop(
+                        shopName,
+                        groupCosts.Select(cost => cost.RawItemId),
+                        tomestoneCatalog?.ItemByTomestoneId,
+                        itemCatalog.Names
+                    )
+                    ? "IGNORED_OBSOLETE_CURRENCY"
                     : !hasNonPositiveCost
                         && groupCosts.Count > 0
                         && groupCosts.All(cost => cost.ItemId is not null)
@@ -643,7 +651,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            7,
+            8,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -2100,11 +2108,120 @@ static class CurrencyResolver
             new { name = "high-id historical item", actual = Resolve(1770699, 10, 0, tomestones), expected = 10u },
             new { name = "ordinary item cost", actual = Resolve(1769473, 4851, 2, tomestones), expected = 4851u },
         };
+        IReadOnlyDictionary<uint, string> itemNames = new Dictionary<uint, string>
+        {
+            [28] = "Allagan Tomestone of Poetics",
+            [47] = "Allagan Tomestone of Heliometry",
+            [48] = "Allagan Tomestone of Mathematics",
+        };
+        var shopChecks = new[]
+        {
+            new
+            {
+                name = "current mathematics shop",
+                actual = IsObsoleteTomestoneShop(
+                    "Allagan Tomestones of Mathematics (Other)",
+                    new uint[] { 2 },
+                    tomestones,
+                    itemNames
+                ),
+                expected = false,
+            },
+            new
+            {
+                name = "retired heliometry placeholder",
+                actual = IsObsoleteTomestoneShop(
+                    "Allagan Tomestones of Heliometry (Other)",
+                    new uint[] { 2 },
+                    new Dictionary<uint, uint>(tomestones) { [4] = 47 },
+                    itemNames
+                ),
+                expected = true,
+            },
+            new
+            {
+                name = "removed aesthetics shop",
+                actual = IsObsoleteTomestoneShop(
+                    "Allagan Tomestones of Aesthetics (Other)",
+                    new uint[] { 2 },
+                    tomestones,
+                    itemNames
+                ),
+                expected = true,
+            },
+            new
+            {
+                name = "current poetics shop",
+                actual = IsObsoleteTomestoneShop(
+                    "Allagan Tomestones of Poetics (Other)",
+                    new uint[] { 1 },
+                    tomestones,
+                    itemNames
+                ),
+                expected = false,
+            },
+            new
+            {
+                name = "unrelated shop",
+                actual = IsObsoleteTomestoneShop(
+                    "Purple Scrip Exchange",
+                    new uint[] { 2 },
+                    tomestones,
+                    itemNames
+                ),
+                expected = false,
+            },
+        };
         return new
         {
-            status = checks.All(check => check.actual == check.expected) ? "PASS" : "FAIL",
+            status = checks.All(check => check.actual == check.expected)
+                && shopChecks.All(check => check.actual == check.expected)
+                ? "PASS"
+                : "FAIL",
             checks,
+            shopChecks,
         };
+    }
+
+    public static bool IsObsoleteTomestoneShop(
+        string? shopName,
+        IEnumerable<uint> rawItemIds,
+        IReadOnlyDictionary<uint, uint>? tomestones,
+        IReadOnlyDictionary<uint, string>? itemNames
+    )
+    {
+        const string shopPrefix = "Allagan Tomestones of ";
+        if (shopName is null || !shopName.StartsWith(shopPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var placeholders = rawItemIds.Where(itemId => itemId > 0 && itemId < 10).ToArray();
+        if (placeholders.Length == 0 || tomestones is null || itemNames is null)
+        {
+            return false;
+        }
+
+        foreach (var mapping in tomestones)
+        {
+            if (!itemNames.TryGetValue(mapping.Value, out var itemName))
+            {
+                continue;
+            }
+            var expectedShopPrefix = itemName.Replace(
+                "Allagan Tomestone of ",
+                shopPrefix,
+                StringComparison.OrdinalIgnoreCase
+            );
+            if (shopName.StartsWith(expectedShopPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return placeholders.Any(itemId => itemId != mapping.Key);
+            }
+        }
+
+        // A named tomestone shop with no entry in the live TomestonesItem sheet is
+        // historical data retained by sqpack, not an actionable exchange.
+        return true;
     }
 
     private static bool TryResolveTomestoneOrCurrency(

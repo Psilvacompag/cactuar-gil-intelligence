@@ -312,6 +312,24 @@ class StaticCatalogImportTests(unittest.TestCase):
                 "sqpack:2026.08.05.0000.0000:schema-7",
             )
 
+    def test_accepts_schema_eight_obsolete_shop_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = example_snapshot()
+            payload["schemaVersion"] = 8
+            payload["recipes"] = []
+            payload["recipeIngredients"] = []
+            snapshot_path = root / "snapshot.json"
+            database_path = root / "catalog.sqlite3"
+            snapshot_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            summary = import_static_snapshot(snapshot_path, database_path)
+
+            self.assertEqual(
+                summary.snapshot_id,
+                "sqpack:2026.08.05.0000.0000:schema-8",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

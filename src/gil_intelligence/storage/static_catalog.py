@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6, 7}
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6, 7, 8}
 
 
 @dataclass(frozen=True, slots=True)
@@ -488,7 +488,7 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         "requirements",
         "coverage",
     }
-    if payload.get("schemaVersion") in {4, 5, 6, 7}:
+    if payload.get("schemaVersion") in {4, 5, 6, 7, 8}:
         required.update(("recipes", "recipeIngredients"))
     missing = sorted(required - payload.keys())
     if missing:
