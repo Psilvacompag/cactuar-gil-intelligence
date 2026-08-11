@@ -12,8 +12,6 @@ const state = {
   pageSize: 50,
   advice: null,
   budget: 1000,
-  expansion: "ALL",
-  mapAvailability: "ALL",
   portfolio: null,
   plans: [],
   plansLoading: false,
@@ -46,8 +44,6 @@ const elements = {
   advisorBudgetControl: document.querySelector("#advisor-budget-control"),
   advisorBudget: document.querySelector("#advisor-budget"),
   scoreSortOption: document.querySelector("#score-sort-option"),
-  expansion: document.querySelector("#expansion-filter"),
-  mapAvailability: document.querySelector("#map-filter"),
   planHistory: document.querySelector("#plan-history-list"),
   planHistoryRefresh: document.querySelector("#plan-history-refresh"),
   catalogQualityStatus: document.querySelector("#catalog-quality-status"),
@@ -66,7 +62,6 @@ async function loadDashboard() {
     state.advice = GilConversionAdvisor.buildIndex(state.data.conversions);
     state.dataSource = "cloud-authenticated";
     hydrateMeta();
-    hydrateLocationFilters();
     renderCatalogQuality();
     renderChips();
     applyFilters();
@@ -77,17 +72,6 @@ async function loadDashboard() {
     elements.empty.querySelector("h3").textContent = "Dashboard sin datos";
     elements.empty.querySelector("p").textContent = error.message;
   }
-}
-
-function hydrateLocationFilters() {
-  const expansions = new Set();
-  state.data.conversions.forEach((item) => (item.locations || []).forEach((location) => {
-    if (location.expansionName) expansions.add(location.expansionName);
-  }));
-  const options = [...expansions].sort((a, b) => a.localeCompare(b, "es"));
-  elements.expansion.replaceChildren(new Option("Todas", "ALL"), ...options.map((name) => new Option(name, name)));
-  if (!options.includes(state.expansion)) state.expansion = "ALL";
-  elements.expansion.value = state.expansion;
 }
 
 function renderCatalogQuality() {
@@ -314,7 +298,6 @@ function applyFilters() {
   state.filtered = state.data.conversions.filter((item) => {
     if (state.currencyId !== null && item.currencyItemId !== state.currencyId) return false;
     if (state.freshOnly && !selectedHasNoFreshPrice && item.status !== "FRESH") return false;
-    if (!matchesLocationFilters(item)) return false;
     if (!query) return true;
     return normalize([
       item.currencyName,
@@ -346,14 +329,11 @@ function renderAdvisor() {
     return;
   }
 
-  const portfolio = GilConversionAdvisor.buildPortfolio(advice, state.budget, matchesLocationFilters);
+  const portfolio = GilConversionAdvisor.buildPortfolio(advice, state.budget);
   state.portfolio = portfolio;
   if (!portfolio) {
-    const eligible = advice.ranked.filter((candidate) => matchesLocationFilters(candidate.item));
-    const minimum = eligible.length ? Math.min(...eligible.map((candidate) => candidate.item.currencyQuantity)) : null;
-    elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Aún no hay un plan aplicable</strong><span>${minimum === null
-      ? "Ningún canje fresco coincide con los filtros de ubicación."
-      : `La opción fresca más barata cuesta ${integerFormat.format(minimum)} ${escapeHtml(currency.name)}.`}</span></div>`;
+    const minimum = Math.min(...advice.ranked.map((candidate) => candidate.item.currencyQuantity));
+    elements.advisorContent.innerHTML = `<div class="advisor-empty"><strong>Aún no alcanza para un canje</strong><span>La opción fresca más barata cuesta ${integerFormat.format(minimum)} ${escapeHtml(currency.name)}.</span></div>`;
     return;
   }
   elements.advisorContent.innerHTML = `
@@ -373,20 +353,9 @@ function renderAdvisor() {
   document.querySelector("#save-conversion-plan")?.addEventListener("click", (event) => void savePlan(event.currentTarget));
 }
 
-function matchesLocationFilters(item) {
-  const locations = Array.isArray(item.locations) ? item.locations : [];
-  if (state.expansion !== "ALL" && !locations.some((location) => location.expansionName === state.expansion)) return false;
-  if (state.mapAvailability === "WITH_MAP" && !locations.some((location) => Boolean(location.mapAssetId))) return false;
-  if (state.mapAvailability === "WITHOUT_MAP" && locations.some((location) => Boolean(location.mapAssetId))) return false;
-  return true;
-}
-
 function portfolioLine(line) {
   const item = line.item;
-  const location = (item.locations || []).find((entry) => (
-    (state.expansion === "ALL" || entry.expansionName === state.expansion)
-    && (state.mapAvailability !== "WITH_MAP" || entry.mapAssetId)
-  )) || (item.locations || [])[0];
+  const location = (item.locations || [])[0];
   const place = location
     ? [location.expansionName, location.placeName || location.regionName, location.mapX != null ? `X ${decimalFormat.format(location.mapX)} · Y ${decimalFormat.format(location.mapY)}` : null].filter(Boolean).join(" · ")
     : "Ubicación no disponible";
@@ -948,7 +917,6 @@ async function savePlan(button) {
     expectedNetGil: portfolio.expectedNetGil,
     marketCollectedAt: state.data.meta.marketCollectedAt,
     dashboardGeneratedAt: state.data.meta.generatedAt,
-    filters: { expansion: state.expansion, map: state.mapAvailability },
     lines: portfolio.lines.map(({ item, candidate, exchanges, units, spent, expectedNetGil }) => ({
       rewardItemId: item.rewardItemId,
       rewardName: item.rewardName,
@@ -1025,8 +993,6 @@ elements.search.addEventListener("input", (event) => {
 });
 elements.sort.addEventListener("change", (event) => setSort(event.target.value));
 elements.fresh.addEventListener("change", (event) => { state.freshOnly = event.target.checked; state.page = 1; applyFilters(); });
-elements.expansion.addEventListener("change", (event) => { state.expansion = event.target.value; state.page = 1; applyFilters(); });
-elements.mapAvailability.addEventListener("change", (event) => { state.mapAvailability = event.target.value; state.page = 1; applyFilters(); });
 elements.pagePrevious.addEventListener("click", () => goToPage(state.page - 1));
 elements.pageNext.addEventListener("click", () => goToPage(state.page + 1));
 elements.pageSize.addEventListener("change", (event) => {

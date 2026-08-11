@@ -41,7 +41,8 @@ Construir una inteligencia de gil para FFXIV centrada en Cactuar que permita:
   en reserva.
 - Los planes se guardan por usuario y cada refresh registra una observación para
   comparar el gil neto estimado contra mercados posteriores; no presume ventas.
-- La tabla y el planificador filtran por expansión y disponibilidad de mapa.
+- Expansión, mapa y coordenadas son información del vendedor; no filtran la tabla
+  ni modifican el plan de compra.
 - El dashboard publica una auditoría de catálogo. La primera republicación v29
   informó 2.298 rutas, 223 tiendas, 133 con ubicación/mapa/expansión, 90 sin
   ubicación confiable y 751 filas duplicadas eliminadas antes de publicar.

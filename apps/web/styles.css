@@ -581,7 +581,7 @@ h2 { margin-bottom: 0; font-family: var(--font-display); font-size: clamp(2rem, 
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) repeat(3, auto) auto;
+  grid-template-columns: minmax(300px, 1fr) auto auto;
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -1349,7 +1349,6 @@ footer { min-height: 100px; display: flex; align-items: center; justify-content:
   .hero-orbit { display: none; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .toolbar { grid-template-columns: 1fr 1fr; }
-  .toolbar .search-box { grid-column: 1 / -1; }
   .portfolio-line { grid-template-columns: 1fr; }
   .catalog-quality-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .search-box { grid-column: 1 / -1; }
