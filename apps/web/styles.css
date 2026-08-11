@@ -1119,9 +1119,12 @@ th[aria-sort="descending"] .sort-indicator { opacity: 1; color: var(--mint); }
 .location-selector + .xiv-map { margin-top: 0; }
 .xiv-map img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .xiv-map-marker { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .78)); z-index: 2; }
-.xiv-map-marker circle { fill: #e2463d; stroke: #fff; stroke-width: .55; }
-.xiv-map-marker path { fill: none; stroke: #fff; stroke-width: .55; stroke-linecap: round; }
 .xiv-map-marker[hidden] { display: none; }
+.location-facts { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.location-facts div { padding: 10px 12px; border: 1px solid rgba(214, 189, 138, .16); border-radius: 10px; background: rgba(5, 15, 31, .34); }
+.location-facts small, .location-facts strong { display: block; }
+.location-facts small { color: var(--quiet); font-size: .6rem; letter-spacing: .08em; }
+.location-facts strong { margin-top: 4px; color: var(--ink); font-size: .76rem; }
 .location-meta { margin-top: 12px; display: flex; justify-content: space-between; gap: 16px; }
 .location-meta strong, .location-meta span { display: block; }
 .location-meta strong { color: var(--ink); font-size: .76rem; }

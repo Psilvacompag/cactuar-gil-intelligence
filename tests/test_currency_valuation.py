@@ -42,6 +42,8 @@ class CurrencyValuationTests(unittest.TestCase):
                 "placeName": "Mor Dhona",
                 "regionName": "Mor Dhona",
                 "territoryId": 156,
+                "expansionId": 0,
+                "expansionName": "A Realm Reborn",
                 "worldX": 62.3635,
                 "worldY": 31.288,
                 "worldZ": -739.956,
@@ -140,6 +142,7 @@ class CurrencyValuationTests(unittest.TestCase):
             self.assertTrue(all(len(row["costComponents"]) == 2 for row in rows))
             self.assertTrue(all(row["locations"][0]["npcName"] == "Auriana" for row in rows))
             self.assertTrue(all(row["locations"][0]["mapAssetId"] == "l1f1/01" for row in rows))
+            self.assertTrue(all(row["locations"][0]["expansionName"] == "A Realm Reborn" for row in rows))
 
     def test_dashboard_audits_but_does_not_publish_non_tradeable_exchanges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

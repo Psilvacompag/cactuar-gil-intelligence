@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,9 +148,10 @@ def import_static_snapshot(snapshot_path: Path | str, database_path: Path | str)
                 INSERT INTO bridge_shop_location (
                     snapshot_id, shop_id, location_index, npc_id, npc_name,
                     level_row_id, map_id, map_asset_id, place_name, region_name,
-                    territory_id, world_x, world_y, world_z, map_x, map_y,
+                    territory_id, expansion_id, expansion_name,
+                    world_x, world_y, world_z, map_x, map_y,
                     marker_left_percent, marker_top_percent, confidence
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 _shop_location_rows(snapshot_id, normalized["shopLocations"]),
             )
@@ -327,6 +328,8 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             place_name TEXT,
             region_name TEXT,
             territory_id INTEGER NOT NULL CHECK (territory_id > 0),
+            expansion_id INTEGER CHECK (expansion_id >= 0),
+            expansion_name TEXT,
             world_x REAL NOT NULL,
             world_y REAL NOT NULL,
             world_z REAL NOT NULL,
@@ -492,6 +495,8 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         "is_hq",
         "INTEGER NOT NULL DEFAULT 0 CHECK (is_hq IN (0, 1))",
     )
+    _ensure_column(connection, "bridge_shop_location", "expansion_id", "INTEGER")
+    _ensure_column(connection, "bridge_shop_location", "expansion_name", "TEXT")
 
 
 def _ensure_column(
@@ -528,9 +533,9 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         "requirements",
         "coverage",
     }
-    if payload.get("schemaVersion") in {4, 5, 6, 7, 8, 9, 10}:
+    if payload.get("schemaVersion") in {4, 5, 6, 7, 8, 9, 10, 11}:
         required.update(("recipes", "recipeIngredients"))
-    if payload.get("schemaVersion") in {9, 10}:
+    if payload.get("schemaVersion") in {9, 10, 11}:
         required.add("shopLocations")
     missing = sorted(required - payload.keys())
     if missing:
@@ -581,6 +586,16 @@ def _validate_snapshot(payload: Any) -> dict[str, Any]:
         for field in ("markerLeftPercent", "markerTopPercent"):
             if not 0 <= row[field] <= 100:
                 raise ValueError(f"shopLocations[{index}].{field} must be between 0 and 100")
+        expansion_id = row.get("expansionId")
+        if expansion_id is not None and (
+            isinstance(expansion_id, bool)
+            or not isinstance(expansion_id, int)
+            or expansion_id < 0
+        ):
+            raise ValueError(f"shopLocations[{index}].expansionId must be a non-negative integer")
+        expansion_name = row.get("expansionName")
+        if expansion_name is not None and not isinstance(expansion_name, str):
+            raise ValueError(f"shopLocations[{index}].expansionName must be a string")
     for index, row in enumerate(payload["assets"]):
         icon_id = row.get("iconId")
         if icon_id is not None and (
@@ -664,6 +679,8 @@ def _shop_location_rows(
             row.get("placeName"),
             row.get("regionName"),
             row["territoryId"],
+            row.get("expansionId"),
+            row.get("expansionName"),
             row["worldX"],
             row["worldY"],
             row["worldZ"],

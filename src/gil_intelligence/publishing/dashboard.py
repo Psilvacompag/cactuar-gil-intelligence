@@ -268,6 +268,7 @@ def _shop_locations(
         """
         SELECT shop_id, location_index, npc_id, npc_name, level_row_id,
                map_id, map_asset_id, place_name, region_name, territory_id,
+               expansion_id, expansion_name,
                map_x, map_y, marker_left_percent, marker_top_percent,
                confidence
         FROM bridge_shop_location
@@ -287,6 +288,8 @@ def _shop_locations(
                 "placeName": row["place_name"],
                 "regionName": row["region_name"],
                 "territoryId": row["territory_id"],
+                "expansionId": row["expansion_id"],
+                "expansionName": row["expansion_name"],
                 "mapX": row["map_x"],
                 "mapY": row["map_y"],
                 "markerLeftPercent": row["marker_left_percent"],

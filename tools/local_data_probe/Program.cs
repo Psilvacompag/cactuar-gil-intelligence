@@ -172,6 +172,8 @@ var requestedSheets = new[]
     "Level",
     "Map",
     "PlaceName",
+    "TerritoryType",
+    "ExVersion",
 };
 
 var localGameProbe = ProbeLocalGameData(
@@ -379,6 +381,8 @@ static object ProbeLocalGameData(
     var levelType = excelAssembly.GetType("Lumina.Excel.Sheets.Level");
     var mapType = excelAssembly.GetType("Lumina.Excel.Sheets.Map");
     var placeNameType = excelAssembly.GetType("Lumina.Excel.Sheets.PlaceName");
+    var territoryType = excelAssembly.GetType("Lumina.Excel.Sheets.TerritoryType");
+    var exVersionType = excelAssembly.GetType("Lumina.Excel.Sheets.ExVersion");
     var inclusionShopType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShop");
     var inclusionShopCategoryType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShopCategory");
     var inclusionShopSeriesType = excelAssembly.GetType("Lumina.Excel.Sheets.InclusionShopSeries");
@@ -391,6 +395,8 @@ static object ProbeLocalGameData(
         || levelType is null
         || mapType is null
         || placeNameType is null
+        || territoryType is null
+        || exVersionType is null
         || inclusionShopType is null
         || inclusionShopCategoryType is null
         || inclusionShopSeriesType is null
@@ -408,6 +414,8 @@ static object ProbeLocalGameData(
                 levelType,
                 mapType,
                 placeNameType,
+                territoryType,
+                exVersionType,
                 inclusionShopType,
                 inclusionShopCategoryType,
                 inclusionShopSeriesType,
@@ -696,7 +704,7 @@ static object ExportSpecialShopSnapshot(
             ))
             .ToArray();
         var envelope = new NormalizedSnapshot(
-            10,
+            11,
             "sqpack",
             gameVersion ?? "unknown",
             DateTimeOffset.UtcNow.ToString("O"),
@@ -909,6 +917,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
     Type levelType,
     Type mapType,
     Type placeNameType,
+    Type territoryType,
+    Type exVersionType,
     Type inclusionShopType,
     Type inclusionShopCategoryType,
     Type inclusionShopSeriesType,
@@ -925,6 +935,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
         var levelRows = getExcelSheet.MakeGenericMethod(levelType).Invoke(gameData, new object?[] { null, null });
         var mapRows = getExcelSheet.MakeGenericMethod(mapType).Invoke(gameData, new object?[] { null, null });
         var placeNameRows = getExcelSheet.MakeGenericMethod(placeNameType).Invoke(gameData, new object?[] { null, null });
+        var territoryRows = getExcelSheet.MakeGenericMethod(territoryType).Invoke(gameData, new object?[] { null, null });
+        var exVersionRows = getExcelSheet.MakeGenericMethod(exVersionType).Invoke(gameData, new object?[] { null, null });
         var inclusionShopRows = getExcelSheet.MakeGenericMethod(inclusionShopType).Invoke(gameData, new object?[] { null, null });
         var inclusionCategoryRows = getExcelSheet.MakeGenericMethod(inclusionShopCategoryType).Invoke(gameData, new object?[] { null, null });
         var inclusionSeriesRows = getSubrowExcelSheet.MakeGenericMethod(inclusionShopSeriesType).Invoke(gameData, new object?[] { null, null });
@@ -938,6 +950,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
             || levelRows is not System.Collections.IEnumerable levels
             || mapRows is not System.Collections.IEnumerable maps
             || placeNameRows is not System.Collections.IEnumerable placeNames
+            || territoryRows is not System.Collections.IEnumerable territories
+            || exVersionRows is not System.Collections.IEnumerable exVersions
             || inclusionShopRows is not System.Collections.IEnumerable inclusionShops
             || inclusionCategoryRows is not System.Collections.IEnumerable inclusionCategories
             || inclusionSeriesRows is not System.Collections.IEnumerable inclusionSeries
@@ -977,6 +991,7 @@ static ShopLocationCatalog BuildShopLocationCatalog(
         var indirectLinks = new HashSet<(uint shopId, uint npcId)>();
         var fateShopLinks = new HashSet<(uint shopId, uint npcId)>();
         var customTalkFateLinks = new HashSet<(uint shopId, uint npcId)>();
+        var customTalkShopLinks = new HashSet<(uint shopId, uint npcId)>();
         var linkedInclusionShopIds = new HashSet<uint>();
         var npcIds = new HashSet<uint>();
         var shopsByCategory = inclusionSeries
@@ -1029,6 +1044,21 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                     rowId = ReadRowRefId(row.target),
                 }
             );
+        var shopsByCustomTalk = customTalks
+            .Cast<object>()
+            .Select(row => new
+            {
+                customTalkId = ReadRowId(row) ?? 0,
+                shopIds = EnumerateProperty(row, "Script")
+                    .Where(script => (ReadProperty(script, "ScriptInstruction")?.ToString() ?? string.Empty)
+                        .StartsWith("SHOP_", StringComparison.Ordinal))
+                    .Select(script => ReadUnsigned(ReadProperty(script, "ScriptArg")))
+                    .Where(shopIds.Contains)
+                    .Distinct()
+                    .ToHashSet(),
+            })
+            .Where(row => row.customTalkId > 0 && row.shopIds.Count > 0)
+            .ToDictionary(row => row.customTalkId, row => row.shopIds);
         foreach (var fateShop in fateShops.Cast<object>())
         {
             var npcId = ReadRowId(fateShop) ?? 0;
@@ -1105,7 +1135,9 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                     ? new[] { shopId } as IEnumerable<uint>
                     : rowType == inclusionShopType
                         ? shopsByInclusionShop.GetValueOrDefault(shopId) ?? []
-                        : [];
+                        : rowType == customTalkType
+                            ? shopsByCustomTalk.GetValueOrDefault(shopId) ?? []
+                            : [];
                 foreach (var linkedShopId in linkedShopIds)
                 {
                     if (!shopToNpcs.TryGetValue(linkedShopId, out var linkedNpcs))
@@ -1119,6 +1151,10 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                     {
                         linkedInclusionShopIds.Add(shopId);
                         indirectLinks.Add((linkedShopId, npcId));
+                    }
+                    else if (rowType == customTalkType)
+                    {
+                        customTalkShopLinks.Add((linkedShopId, npcId));
                     }
                 }
             }
@@ -1137,6 +1173,19 @@ static ShopLocationCatalog BuildShopLocationCatalog(
             .ToDictionary(
                 row => ReadRowId(row) ?? 0,
                 row => ReadProperty(row, "Name")?.ToString() ?? string.Empty
+            );
+        var expansionNameById = exVersions
+            .Cast<object>()
+            .ToDictionary(
+                row => ReadRowId(row) ?? 0,
+                row => ReadProperty(row, "Name")?.ToString() ?? string.Empty
+            );
+        var expansionByTerritory = territories
+            .Cast<object>()
+            .Where(row => (ReadRowId(row) ?? 0) > 0)
+            .ToDictionary(
+                row => ReadRowId(row) ?? 0,
+                row => ReadRowRefId(ReadProperty(row, "ExVersion"))
             );
         var mapById = maps
             .Cast<object>()
@@ -1191,6 +1240,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                 var rawMapY = (((worldZ + (map?.OffsetY ?? 0)) * sizeScale) + 1024f) / 2048f;
                 var mapX = (41f / sizeScale * rawMapX) + 1f;
                 var mapY = (41f / sizeScale * rawMapY) + 1f;
+                var resolvedTerritoryId = territoryId > 0 ? territoryId : map?.TerritoryId ?? 0;
+                var expansionId = expansionByTerritory.GetValueOrDefault(resolvedTerritoryId);
                 normalizedLocations.Add(new NormalizedShopLocation(
                     shopId,
                     npcId,
@@ -1200,7 +1251,9 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                     string.IsNullOrWhiteSpace(map?.AssetId) ? null : map.AssetId,
                     string.IsNullOrWhiteSpace(map?.PlaceName) ? null : map.PlaceName,
                     string.IsNullOrWhiteSpace(map?.RegionName) ? null : map.RegionName,
-                    territoryId > 0 ? territoryId : map?.TerritoryId ?? 0,
+                    resolvedTerritoryId,
+                    expansionId,
+                    expansionNameById.GetValueOrDefault(expansionId),
                     worldX,
                     worldY,
                     worldZ,
@@ -1212,6 +1265,8 @@ static ShopLocationCatalog BuildShopLocationCatalog(
                         ? "FATE_SHOP_LEVEL"
                         : customTalkFateLinks.Contains((shopId, npcId))
                             ? "CUSTOM_TALK_FATE_SHOP_LEVEL"
+                        : customTalkShopLinks.Contains((shopId, npcId))
+                            ? "CUSTOM_TALK_SHOP_LEVEL"
                         : indirectLinks.Contains((shopId, npcId))
                             ? "INCLUSION_SHOP_ENPC_LEVEL"
                             : "DIRECT_ENPC_LEVEL"
@@ -1247,6 +1302,7 @@ static ShopLocationCatalog BuildShopLocationCatalog(
             indirectLocations = orderedLocations.Count(row => row.Confidence == "INCLUSION_SHOP_ENPC_LEVEL"),
             fateShopLocations = orderedLocations.Count(row => row.Confidence == "FATE_SHOP_LEVEL"),
             customTalkFateShopLocations = orderedLocations.Count(row => row.Confidence == "CUSTOM_TALK_FATE_SHOP_LEVEL"),
+            customTalkShopLocations = orderedLocations.Count(row => row.Confidence == "CUSTOM_TALK_SHOP_LEVEL"),
             inclusionSpecialShops = shopsByCategory.Values.SelectMany(value => value).Distinct().Count(),
             inclusionShopsLinkedToNpc = linkedInclusionShopIds.Count,
             samples = orderedLocations.Take(10),
@@ -2248,6 +2304,8 @@ sealed record NormalizedShopLocation(
     string? PlaceName,
     string? RegionName,
     uint TerritoryId,
+    uint ExpansionId,
+    string? ExpansionName,
     float WorldX,
     float WorldY,
     float WorldZ,

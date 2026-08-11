@@ -543,24 +543,29 @@ function locationMarkup(item, selectedIndex = 0) {
   const hasMap = Boolean(location.mapAssetId);
   const markerX = Math.min(Math.max(Number(location.markerLeftPercent), 0), 100);
   const markerY = Math.min(Math.max(Number(location.markerTopPercent), 0), 100);
+  const markerSize = 4.2;
+  const markerLeft = markerX - (markerSize * 7 / 32);
+  const markerTop = markerY - (markerSize * 27 / 32);
+  const expansionName = location.expansionName || "No disponible";
   const map = hasMap
     ? `<div class="xiv-map">
         <img src="${mapAssetUrl(location.mapAssetId)}" alt="Mapa de ${escapeHtml(placeName)}" loading="lazy" />
         <svg class="xiv-map-marker" viewBox="0 0 100 100" role="img" aria-label="Posición del NPC">
-          <g transform="translate(${markerX} ${markerY})">
-            <circle r="2.2"></circle>
-            <path d="M -0.8 -0.8 L 0.8 0.8 M 0.8 -0.8 L -0.8 0.8"></path>
-          </g>
+          <image href="${mapFlagAssetUrl()}" x="${markerLeft}" y="${markerTop}" width="${markerSize}" height="${markerSize}" />
         </svg>
         <div class="map-error" hidden>El mapa no pudo cargarse ahora.</div>
       </div>`
     : `<div class="map-error standalone">Mapa no disponible para esta ubicación.</div>`;
   return `<section class="location-panel" data-selected-location="${safeIndex}">
-    <div class="location-heading"><div><small>DÓNDE CANJEAR</small><strong>${escapeHtml(npcName)}</strong></div><span>X ${decimalFormat.format(location.mapX)} · Y ${decimalFormat.format(location.mapY)}</span></div>
+    <div class="location-heading"><div><small>DÓNDE CANJEAR</small><strong>${escapeHtml(npcName)}</strong></div></div>
     ${selector}
     ${map}
+    <div class="location-facts">
+      <div><small>EXPANSIÓN</small><strong>${escapeHtml(expansionName)}</strong></div>
+      <div><small>COORDENADAS</small><strong>X ${decimalFormat.format(location.mapX)} · Y ${decimalFormat.format(location.mapY)}</strong></div>
+    </div>
     <div class="location-meta"><strong>${escapeHtml(placeName)}${region}</strong><span>NPC ${integerFormat.format(location.npcId)} · mapa ${integerFormat.format(location.mapId)}</span></div>
-    <p>La X marca la posición registrada por el cliente de FFXIV. Si el NPC atiende varias tiendas, todas comparten esta ubicación.</p>
+    <p>La bandera marca la posición registrada por el cliente de FFXIV. Si el NPC atiende varias tiendas, todas comparten esta ubicación.</p>
   </section>`;
 }
 
@@ -573,6 +578,10 @@ function locationOptionLabel(location, index) {
 function mapAssetUrl(assetId) {
   const safePath = String(assetId).split("/").map(encodeURIComponent).join("/");
   return `https://v2.xivapi.com/api/asset/map/${safePath}`;
+}
+
+function mapFlagAssetUrl() {
+  return "https://v2.xivapi.com/api/asset?path=ui%2Ficon%2F060000%2F060561.tex&format=png";
 }
 
 function bindLocationPanel(item) {
